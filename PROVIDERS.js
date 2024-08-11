@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const standardPayloader = ({
   messages = [],
   max_tokens = 300,
