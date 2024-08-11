@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "css-select": "^5.1.0",
+    "eventsource-parser": "^2.0.1",
+    "htmlparser2": "^9.1.0",
+    "level": "^8.0.1",
+    "lru-cache": "^11.0.0",
+    "p-queue": "^8.0.1",
+    "streeem": "^0.1.3"
+  }
+}
