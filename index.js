@@ -1,4 +1,4 @@
-const createStreaming = require('streeem');
+const createStreaming = require('streamops');
 const llmStream = require('./Stream.js');
 const IncomingXMLParserSelectorEngine = require('./IncomingXMLParserSelectorEngine');
 const Logger = require('./Logger');

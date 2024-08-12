@@ -48,7 +48,7 @@ module.exports = {
   claude: {
     //https://www.anthropic.com/api
     constraints: {
-      cost: .11,
+      cost: .2,
       rpmLimit: 100
     },
     endpoint: 'https://api.anthropic.com/v1/messages',
@@ -144,7 +144,7 @@ module.exports = {
         maxContextSize: 1_000_000
       },
       good: {
-        name: 'gpt-4o',
+        name: 'gpt-4o-mini',
         costPer1MTokens: 15,
         maxContextSize: 128_000
       }

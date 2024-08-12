@@ -19,7 +19,6 @@ const xmllm = require('./index.js');
       ),
       prompt(
         (thing) => {
-          console.log('Thing99', thing);
           const {subtopic: [{perspective, title}]} = thing;
           return `Give a brief explanation of "${title}" from a ${perspective} perspective, and suggest one potential future development.`;
         },
@@ -29,7 +28,6 @@ const xmllm = require('./index.js');
         }
       ),
       function* (results) {
-        console.log('PostResults', results);
         for (const result of results) {
           yield {
             ...result,
@@ -38,9 +36,8 @@ const xmllm = require('./index.js');
         }
       },
       function (results) {
-        console.log('Results>>', results);
         const sortedResults = results.sort((a, b) => b.relevance_score - a.relevance_score);
-        return sortedResults[0];  // Only yield the most relevant result
+        return sortedResults[0];
       }
     ]
   });
