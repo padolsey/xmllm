@@ -1,108 +1,27 @@
-// import { Parser } from 'htmlparser2';
-// import { selectOne, selectAll } from 'css-select';
 const createStreaming = require('streeem');
 const llmStream = require('./Stream.js');
-const IncomingXMLParserSelectorEngine = require('./IncomingXMLParserSelectorEngine.js');
+const IncomingXMLParserSelectorEngine = require('./IncomingXMLParserSelectorEngine');
+const Logger = require('./Logger');
+
+const logger = new Logger('xmllm');
+
+console.log('>>llmStream', typeof llmStream, llmStream)
 
 const streeem = createStreaming();
 
-const req = (prompt, mapSelectionSchema) => async function*(thing) {
+async function xmllm(pipelineFn) {
 
-  console.log('Req called', {prompt, mapSelectionSchema, thing})
+  const xmlps = new IncomingXMLParserSelectorEngine();
 
-  let transformedPrompt = prompt;
+  const pipeline = pipelineFn({
+    // pass methods
+    prompt,
+    mapSelect,
+    select,
+    req
+  }).map((step, index) => {
 
-  const mapSelectionSchemaScaffold =
-    mapSelectionSchema &&
-    IncomingXMLParserSelectorEngine
-      .makeMapSelectXMLScaffold(mapSelectionSchema);
-
-  console.log({thing, transformedPrompt, mapSelectionSchemaScaffold})
-
-  if (typeof transformedPrompt == 'function') {
-    transformedPrompt = transformedPrompt(thing);
-    console.log('>Prompt w/ thing?', {transformedPrompt, thing});
-  }
-
-  if (mapSelectionSchemaScaffold) {
-    transformedPrompt += `
-The data you return should be approximately like this:
-\`\`\`
-${mapSelectionSchemaScaffold}
-\`\`\`
-    `;
-  }
-
-  const systemPrompt = `
-You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.
-
-You can output multiple results if you like.
-
-E.g. if asked for several names, you could just return:
-<name>sarah</name> <name>james</name>
-etc.
-
-Rule: you must return valid xml. 
-
-All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
-  `;
-
-  console.log('>>PROMPT', transformedPrompt);
-
-  if (!transformedPrompt.trim()) {
-    throw new Error('we need a prompt');
-  }
-
-  const stream = await llmStream({
-    messages: [
-      {
-        role: 'system',
-        content: systemPrompt
-      },
-      {
-        role: 'user',
-        content: transformedPrompt
-      },
-      {
-        role: 'assistant',
-        content: '<thinking>'
-      }
-    ]
-  });
-
-  const reader = stream.getReader();
-
-  let accrued = '<thinking>';
-  let cancelled = false;
-
-  yield accrued; // stuff so far.
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (cancelled || done) break;
-
-      const text = new TextDecoder().decode(value);
-
-      accrued += text;
-
-      yield text;
-    }
-
-    console.log('ACCRUED\n\n>>>\n\n', accrued, '\n\n');
-  } catch (e) {
-    console.error('Error reading stream:', e);
-  } finally {
-    reader.releaseLock();
-  }
-
-};
-
-async function xmllm(pipeline) {
-
-  pipeline = pipeline.map((step, index) => {
-
-    console.log('step??', step, step?.type === 'select');
+    // logger.dev('step??', step, step?.type === 'select');
 
     if (step?.__custom__) {
       return step.step;
@@ -111,123 +30,199 @@ async function xmllm(pipeline) {
     return step;
   });
 
-  pipeline.xmlps = pipeline.xmlps || new IncomingXMLParserSelectorEngine();
-
-  console.log('Setting pipeline.xmlps', pipeline.xmlps)
+  // logger.dev('Setting pipeline.xmlps', pipeline.xmlps)
   const s = streeem(pipeline);
 
   const items = [];
   for await (const item of s) {
     items.push(item);
-    // console.log('Item??', item);
+    // logger.dev('Item??', item);
   }
   return items;
-}
 
-xmllm.req = req;
+  function req(prompt, mapSelectionSchema) {
 
-xmllm.prompt = (prompt, selectionSchema, mapper, fakeResponse) => {
-  if (!selectionSchema) {
-    return req(prompt);
-  }
-  return function*(input) {
-    console.log('PDATA', input, 's>', selectionSchema)
+    return async function*(thing) {
 
-    const reqPipeline = [
-      function*() {
-        if (input == null) {
-          yield [undefined];
-          return;
-        }
-        if (isComplexIterable(input)) {
-          //i.e. not a string (strings are iterables)
-          yield*input;
-        } else {
-          yield input;
-        }
-      },
+      logger.dev('Req called', {prompt, mapSelectionSchema, thing})
 
-      fakeResponse 
-        ? function*() {
-          // chunk the fake response
-          yield* [fakeResponse]
-        }
-        : xmllm.req(prompt, selectionSchema),
+      let transformedPrompt = prompt;
 
-      xmllm.mapSelect(selectionSchema)
-    ];
+      const mapSelectionSchemaScaffold =
+        mapSelectionSchema &&
+        IncomingXMLParserSelectorEngine
+          .makeMapSelectXMLScaffold(mapSelectionSchema);
 
-    const pipeline = [
+      logger.dev({thing, transformedPrompt, mapSelectionSchemaScaffold})
 
-      xmllm(reqPipeline),
-
-      // xmllm([
-      //   fakeResponse 
-      //     ? function*() {
-      //       // chunk the fake response
-      //       yield* [fakeResponse]
-      //     }
-      //     : xmllm.req(prompt, selectionSchema),
-
-      //   xmllm.mapSelect(selectionSchema)
-      // ]),
-
-      async function*(output) {
-        if (!isComplexIterable(input)) {
-          if (isComplexIterable(output)) {
-            for await (const x of output) {
-              yield mapper ? mapper(input, x) : x;
-            }
-          } else {
-            yield mapper ? mapper(input, output) : output;
-          }
-          return;
-        }
-        for await (const x of input) {
-          console.log('inIndex', input, 'xx', x,' -> ', output);
-          
-          if (isComplexIterable(output)) {
-            for await (const y of output) {
-              yield mapper ? mapper(x, y) : x;
-            }
-          } else {
-            yield mapper ? mapper(x, output) : output;
-          }
-        }
+      if (typeof transformedPrompt == 'function') {
+        transformedPrompt = transformedPrompt(thing);
+        logger.dev('>Prompt w/ thing?', {transformedPrompt, thing});
       }
-    ];
 
-    pipeline.xmlps = this.xmlps;
-    reqPipeline.xmlps = this.xmlps;
+      if (mapSelectionSchemaScaffold) {
+        transformedPrompt += `
+    The data you return should be approximately like this:
+    \`\`\`
+    ${mapSelectionSchemaScaffold}
+    \`\`\`
+        `;
+      }
 
-    yield xmllm(pipeline);
+      const systemPrompt = `
+    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.
+
+    You can output multiple results if you like.
+
+    E.g. if asked for several names, you could just return:
+    <name>sarah</name> <name>james</name>
+    etc.
+
+    Rule: you must return valid xml. 
+
+    All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
+      `;
+
+      logger.dev('>>PROMPT', transformedPrompt);
+
+      if (!transformedPrompt.trim()) {
+        throw new Error('we need a prompt');
+      }
+
+      const stream = await llmStream({
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: transformedPrompt
+          },
+          {
+            role: 'assistant',
+            content: '<thinking>'
+          }
+        ]
+      });
+
+      const reader = stream.getReader();
+
+      let accrued = '<thinking>';
+      let cancelled = false;
+
+      yield accrued; // stuff so far.
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (cancelled || done) break;
+
+          const text = new TextDecoder().decode(value);
+
+          accrued += text;
+
+          yield text;
+        }
+
+        // logger.dev('ACCRUED\n\n>>>\n\n', accrued, '\n\n');
+      } catch (e) {
+        logger.error('Error reading stream:', e);
+      } finally {
+        reader.releaseLock();
+      }
+
+    };
+  }
+
+  function prompt(prompt, selectionSchema, mapper, fakeResponse) {
+    if (!selectionSchema) {
+      return req(prompt);
+    }
+    return function*(input) {
+      logger.dev('PDATA', input, 's>', selectionSchema)
+
+      const reqPipeline = [
+        function*() {
+          if (input == null) {
+            yield [undefined];
+            return;
+          }
+          if (isComplexIterable(input)) {
+            //i.e. not a string (strings are iterables)
+            yield*input;
+          } else {
+            yield input;
+          }
+        },
+
+        fakeResponse 
+          ? function*() {
+            // chunk the fake response
+            yield* [fakeResponse]
+          }
+          : req(prompt, selectionSchema),
+
+        mapSelect(selectionSchema)
+      ];
+
+      const pipeline = [
+
+        xmllm(() => reqPipeline),
+
+        async function*(output) {
+          if (!isComplexIterable(input)) {
+            if (isComplexIterable(output)) {
+              for await (const x of output) {
+                yield mapper ? mapper(input, x) : x;
+              }
+            } else {
+              yield mapper ? mapper(input, output) : output;
+            }
+            return;
+          }
+          for await (const x of input) {
+            logger.dev('inIndex', input, 'xx', x,' -> ', output);
+            
+            if (isComplexIterable(output)) {
+              for await (const y of output) {
+                yield mapper ? mapper(x, y) : x;
+              }
+            } else {
+              yield mapper ? mapper(x, output) : output;
+            }
+          }
+        }
+      ];
+
+      yield xmllm(() => pipeline);
+    };
+  }
+
+  function mapSelect(schema) {
+    return function* (chunk) {
+      xmlps.add([chunk].flat().join(''));
+      let selection = xmlps.mapSelect(schema);
+      // logger.dev('mapSelect->', chunk, '....', selection, ':::', Object.keys(selection).length);
+      if (selection && Object.keys(selection).length) {
+        yield selection;
+      }
+    }
+  }
+
+  function select(selector, mapperFn = x => x) {
+    return function* (chunk) {
+
+      xmlps.add([chunk].flat().join(''));
+
+      const selection = xmlps.dedupeSelect(selector);
+      if (selection?.length) {
+        yield* selection.map(mapperFn);
+      }
+    }
   };
 }
 
-xmllm.mapSelect = (schema) => {
-  return function* (chunk) {
-    console.log('>>This_This', this.xmlps, this);
-    this.xmlps.add([chunk].flat().join(''));
-    let selection = this.xmlps.mapSelect(schema);
-    // console.log('mapSelect->', chunk, '....', selection, ':::', Object.keys(selection).length);
-    if (selection && Object.keys(selection).length) {
-      yield selection;
-    }
-  }
-};
-
-xmllm.select = (selector, mapperFn = x => x) => {
-  // const xmlps = new IncomingXMLParserSelectorEngine();
-  return function* (chunk) {
-
-    this.xmlps.add([chunk].flat().join(''));
-
-    const selection = this.xmlps.dedupeSelect(selector);
-    if (selection?.length) {
-      yield* selection.map(mapperFn);
-    }
-  }
-};
 
 module.exports = xmllm;
 

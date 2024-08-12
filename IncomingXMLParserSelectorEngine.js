@@ -1,6 +1,3 @@
-// import { Parser } from 'htmlparser2';
-// import { selectOne, selectAll } from 'css-select';
-
 const {Parser} = require('htmlparser2');
 const { selectOne, selectAll } = require('css-select');
 
@@ -92,7 +89,6 @@ class IncomingXMLParserSelectorEngine {
     this.selectors.get(selector).push(...newResults);
 
     const formattedResults = this.formatResults(this.selectors.get(selector));
-    console.log("Select results for", selector, ":", JSON.stringify(formattedResults, null, 2));
     return formattedResults;
   }
 

@@ -1,11 +1,10 @@
-const IncomingXMLParserSelectorEngine = require('./IncomingXMLParserSelectorEngine');
+const IncomingXMLParserSelectorEngine = require('../IncomingXMLParserSelectorEngine');
 
 describe('IncomingXMLParserSelectorEngine', () => {
   let engine;
 
   beforeEach(() => {
     engine = new IncomingXMLParserSelectorEngine();
-    console.log('--- New Test ---');
   });
 
   test('non-existent element', () => {
