@@ -2,21 +2,24 @@
 
 xmllm is a tool for creating LLM-driven pipelines.
 
+> From me (the creator): I have found it useful in creating multi-'agent' LLM instantiations to solve more complex problems, where a single completion doesn't get the required results. LLMs suffer a lot from tunnel vision, so I've found it useful to break up tasks and do refinement/distillation loops to get to a final product. This library is my attempt at ~standardizing (for myself initially) this approach.
+
 ## Features
 
-- TODO
+- Multi-step pipeline with native generator support (uses [streamops](https://github.com/padolsey/streamops))
+- Reliable XML-based schema with prompting, parsing and mapping included
 
 ## Installation
 
-\```bash
+```bash
 npm install xmllm
-\```
+```
 
 ## Quick Start
 
 E.g.
 
-\```javascript
+```js
 const xmllm = require('xmllm');
 
 (async () => {
@@ -34,11 +37,11 @@ const xmllm = require('xmllm');
 
   console.log(results);
 })();
-\```
+```
 
 This might output:
 
-\```json
+```json
 [
   {
     "language": [
@@ -57,13 +60,13 @@ This might output:
     ]
   }
 ]
-\```
+```
 
 ## Example
 
 This example shows how to use xmllm for a multi-step analysis of a topic:
 
-\```javascript
+```javascript
 const xmllm = require('xmllm');
 
 (async () => {
@@ -94,4 +97,4 @@ const xmllm = require('xmllm');
 
   console.log(results);
 })();
-\```
+```
