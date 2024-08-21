@@ -1,4 +1,13 @@
 {
+  "name": "xmllm",
+  "version": "0.0.1",
+  "main": "./src/xmllm.js",
+  "scripts": {
+    "test": "NODE_ENV=test jest"
+  },
+  "exports": {
+    ".": "./src/xmllm.js"
+  },
   "dependencies": {
     "css-select": "^5.1.0",
     "dotenv": "^16.4.5",
