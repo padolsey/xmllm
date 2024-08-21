@@ -5,44 +5,43 @@ const Logger = require('./Logger');
 
 const logger = new Logger('xmllm');
 
-console.log('>>llmStream', typeof llmStream, llmStream)
+async function* xmllm(pipelineFn, {timeout} = {}) {
 
-const streeem = createStreaming();
+  logger.log(`[${new Date().toISOString()}] xmllm started`);
 
-async function xmllm(pipelineFn) {
+  const streamops = createStreaming({
+    timeout: timeout || 1e6
+  });
+
+  if (typeof pipelineFn !== 'function') {
+    throw new Error('You must pass a function to xmllm - and that function must return a pipeline array.');
+  }
 
   const xmlps = new IncomingXMLParserSelectorEngine();
-
   const pipeline = pipelineFn({
-    // pass methods
+    // pass xmllm interface/methods
+    req,
     prompt,
     mapSelect,
     select,
-    req
-  }).map((step, index) => {
-
-    // logger.dev('step??', step, step?.type === 'select');
-
-    if (step?.__custom__) {
-      return step.step;
-    }
-
-    return step;
+    reduce: streamops.reduce,
+    filter: streamops.filter
   });
 
-  // logger.dev('Setting pipeline.xmlps', pipeline.xmlps)
-  const s = streeem(pipeline);
-
-  const items = [];
-  for await (const item of s) {
-    items.push(item);
-    // logger.dev('Item??', item);
+  if (!Array.isArray(pipeline)) {
+    throw new Error('Pipeline creator function must return an array.');
   }
-  return items;
+
+  const stream = streamops(pipeline);
+  yield*stream;
+
+  logger.log(`[${new Date().toISOString()}] xmllm finished`);
 
   function req(prompt, mapSelectionSchema) {
 
     return async function*(thing) {
+
+      logger.log(`[${new Date().toISOString()}] req started`);
 
       logger.dev('Req called', {prompt, mapSelectionSchema, thing})
 
@@ -78,7 +77,7 @@ async function xmllm(pipelineFn) {
     <name>sarah</name> <name>james</name>
     etc.
 
-    Rule: you must return valid xml. 
+    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>
 
     All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
       `;
@@ -89,7 +88,9 @@ async function xmllm(pipelineFn) {
         throw new Error('we need a prompt');
       }
 
+      logger.log(`[${new Date().toISOString()}] llmStream called`);
       const stream = await llmStream({
+        max_tokens: 4000,
         messages: [
           {
             role: 'system',
@@ -105,6 +106,7 @@ async function xmllm(pipelineFn) {
           }
         ]
       });
+      logger.log(`[${new Date().toISOString()}] llmStream returned, starting to read`);
 
       const reader = stream.getReader();
 
@@ -119,6 +121,7 @@ async function xmllm(pipelineFn) {
           if (cancelled || done) break;
 
           const text = new TextDecoder().decode(value);
+          logger.log(`[${new Date().toISOString()}] Yielding chunk of length ${text.length}`);
 
           accrued += text;
 
@@ -127,8 +130,9 @@ async function xmllm(pipelineFn) {
 
         // logger.dev('ACCRUED\n\n>>>\n\n', accrued, '\n\n');
       } catch (e) {
-        logger.error('Error reading stream:', e);
+        logger.error(`[${new Date().toISOString()}] Error reading stream:`, e);
       } finally {
+        logger.log(`[${new Date().toISOString()}] req finished`);
         reader.releaseLock();
       }
 
@@ -136,10 +140,17 @@ async function xmllm(pipelineFn) {
   }
 
   function prompt(prompt, selectionSchema, mapper, fakeResponse) {
+
     if (!selectionSchema) {
       return req(prompt);
     }
-    return function*(input) {
+
+    const results = {};
+
+    return async function*(input) {
+
+      logger.log(`[${new Date().toISOString()}] prompt started`);
+
       logger.dev('PDATA', input, 's>', selectionSchema)
 
       const reqPipeline = [
@@ -156,12 +167,22 @@ async function xmllm(pipelineFn) {
           }
         },
 
+        function*(x) {
+          logger.dev('Initial Response yield', x);
+          yield x;
+        },
+
         fakeResponse 
           ? function*() {
             // chunk the fake response
             yield* [fakeResponse]
           }
           : req(prompt, selectionSchema),
+
+        function*(x) {
+          logger.dev('Secondary Response yield', x);
+          yield x;
+        },
 
         mapSelect(selectionSchema)
       ];
@@ -171,6 +192,8 @@ async function xmllm(pipelineFn) {
         xmllm(() => reqPipeline),
 
         async function*(output) {
+          logger.log(`[${new Date().toISOString()}] Starting to process output`);
+          logger.log('Output>>>>', input, output, isComplexIterable(input), isComplexIterable(output));
           if (!isComplexIterable(input)) {
             if (isComplexIterable(output)) {
               for await (const x of output) {
@@ -194,8 +217,13 @@ async function xmllm(pipelineFn) {
           }
         }
       ];
+      logger.log(`[${new Date().toISOString()}] Calling inner xmllm`);
+      for await (const item of xmllm(() => pipeline)) {
+        logger.log('Main yield result', item);
+        yield item;
+      }
 
-      yield xmllm(() => pipeline);
+      logger.log(`[${new Date().toISOString()}] prompt finished`);
     };
   }
 
@@ -203,15 +231,20 @@ async function xmllm(pipelineFn) {
     return function* (chunk) {
       xmlps.add([chunk].flat().join(''));
       let selection = xmlps.mapSelect(schema);
-      // logger.dev('mapSelect->', chunk, '....', selection, ':::', Object.keys(selection).length);
+      // logger.dev('mapSelect -> chunk:', chunk);
+      // logger.dev('mapSelect -> selection:', selection);
       if (selection && Object.keys(selection).length) {
         yield selection;
+      } else {
+        logger.dev('mapSelect -> No selection yielded');
       }
     }
   }
 
   function select(selector, mapperFn = x => x) {
     return function* (chunk) {
+
+      logger.log(`[${new Date().toISOString()}] select called with chunk length ${chunk.length}`);
 
       xmlps.add([chunk].flat().join(''));
 
@@ -245,4 +278,5 @@ function isComplexIterable(obj) {
 // - (can yield to you for finer grained decisions on filtering)
 // - quicker to get results and instigate other requests
 // - no absolute failure
-// - ordering can be more easily defined  
+// - ordering can be more easily defined 
+// - more value and better results, less tunnel vision

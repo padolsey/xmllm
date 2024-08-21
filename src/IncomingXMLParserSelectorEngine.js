@@ -13,7 +13,7 @@ class IncomingXMLParserSelectorEngine {
     this.parsedData = [];
     this.openElements = [];
     this.selectors = new Map();
-    this.returnedElements = new Map();
+    this.returnedElementSignatures = new Map();
     this.elementIndex = 0;
     
     this.parser = new Parser({
@@ -51,7 +51,6 @@ class IncomingXMLParserSelectorEngine {
         if (closedElement) {
           closedElement.closed = true;
           this.updateTextContent(closedElement);
-          this.checkSelectors();
         }
       },
     }, { xmlMode: true });
@@ -62,10 +61,12 @@ class IncomingXMLParserSelectorEngine {
       if (child.type === 'text') {
         return text + child.data;
       } else if (child.type === 'tag') {
-        return text + child.textContent;
+        const childText = child.textContent || '';
+        return text + (childText.trim() ? childText : ' ');
       }
       return text;
-    }, '');
+    }, '').trim();
+
     if (element.parent) {
       this.updateTextContent(element.parent);
     }
@@ -76,51 +77,47 @@ class IncomingXMLParserSelectorEngine {
     this.parser.write(chunk);
   }
 
-  select(selector) {
-    if (!this.selectors.has(selector)) {
-      this.selectors.set(selector, []);
+  getElementSignature(element) {
+    const ancestry = [];
+    let current = element;
+    while (current.parent) {
+      ancestry.unshift(`${current.name}[${current.parent.children.indexOf(current)}]`);
+      current = current.parent;
     }
     
-    const results = selectAll(selector, this.parsedData).filter(el => el.closed);
-    const newResults = results.filter(result => 
-      !this.selectors.get(selector).some(existing => existing.key === result.key)
-    );
-    
-    this.selectors.get(selector).push(...newResults);
+    const signature = {
+      ancestry: ancestry.join('/'),
+      name: element.name,
+      attributes: element.attributes,
+      textContent: element.textContent.trim() || '',
+      hasChildren: element.children.some(child => child.type === 'tag'),
+      closed: element.closed
+    };
 
-    const formattedResults = this.formatResults(this.selectors.get(selector));
-    return formattedResults;
+    return JSON.stringify(signature);
+  }
+
+  select(selector) {
+    const results = selectAll(selector, this.parsedData).filter(el => el.closed);
+    return this.formatResults(results);
   }
 
   dedupeSelect(selector) {
-    if (!this.selectors.has(selector)) {
-      this.selectors.set(selector, []);
-    }
-    if (!this.returnedElements.has(selector)) {
-      this.returnedElements.set(selector, new Set());
+    if (!this.returnedElementSignatures.has(selector)) {
+      this.returnedElementSignatures.set(selector, new Set());
     }
     
     const results = selectAll(selector, this.parsedData).filter(el => el.closed);
-    const newResults = results.filter(result => 
-      !this.returnedElements.get(selector).has(result.key)
-    );
-    
-    newResults.forEach(result => {
-      this.returnedElements.get(selector).add(result.key);
+    const newResults = results.filter(result => {
+      const signature = this.getElementSignature(result);
+      if (this.returnedElementSignatures.get(selector).has(signature)) {
+        return false;
+      }
+      this.returnedElementSignatures.get(selector).add(signature);
+      return true;
     });
     
-    this.selectors.set(selector, [...this.selectors.get(selector), ...newResults]);
-    
     return this.formatResults(newResults);
-  }
-
-  checkSelectors() {
-    for (const [selector, results] of this.selectors.entries()) {
-      const newResults = selectAll(selector, this.parsedData)
-        .filter(el => el.closed)
-        .filter(result => !results.some(existing => existing.key === result.key));
-      this.selectors.set(selector, [...results, ...newResults]);
-    }
   }
 
   formatResults(results) {
@@ -142,13 +139,6 @@ class IncomingXMLParserSelectorEngine {
         formatted[child.name].push(this.formatElement(child));
       }
     });
-    
-    //If there's only one child, return it as an object instead of an array
-    // for (let key in formatted) {
-    //   if (Array.isArray(formatted[key]) && formatted[key].length === 1) {
-    //     formatted[key] = formatted[key][0];
-    //   }
-    // } ??????
     
     return formatted;
   }
@@ -178,9 +168,7 @@ class IncomingXMLParserSelectorEngine {
         if (k.startsWith('$')) {
           // Handle attributes
           const attrName = k.slice(1);
-          console.log('ATTR>>>', attrName, element.attr);
           if (element.attr && element.attr[attrName] !== undefined) {
-            console.log('aytt',map[k](element.attr[attrName]))
             out[k] = map[k](element.attr[attrName]);
           }
         } else if (k === '_') {
@@ -212,7 +200,6 @@ class IncomingXMLParserSelectorEngine {
     
     rootSelectors.forEach(selector => {
       const elements = this.dedupeSelect(selector);
-      // console.log('applying mapping', elements[0], mapping[selector])
 
       if (!elements?.length) {
         return;
@@ -220,11 +207,9 @@ class IncomingXMLParserSelectorEngine {
 
       if (Array.isArray(mapping[selector])) {
         elements.forEach((el) => {
-
           results[selector] = (
             results[selector] || []
           ).concat(applyMapping(el, mapping[selector]));
-
         });
       } else {
         results[selector] = applyMapping(elements[0], mapping[selector]);
@@ -232,17 +217,6 @@ class IncomingXMLParserSelectorEngine {
     });
 
     return results;
-
-    // return {
-    //   [rootSelector]: applyMapping(rootElements, mapping[rootSelector])
-    // };
-
-
-
-
-    return rootElements.length > 0 ? {
-      [rootSelector]: applyMapping(rootElements[0], mapping[rootSelector])
-    } : null;
   }
 
   static makeMapSelectXMLScaffold(schema, indent = 2) {
@@ -307,7 +281,6 @@ class IncomingXMLParserSelectorEngine {
 
     return processObject(schema);
   }
-
 }
 
 module.exports = IncomingXMLParserSelectorEngine;

@@ -1,10 +1,59 @@
-const IncomingXMLParserSelectorEngine = require('../IncomingXMLParserSelectorEngine');
+const IncomingXMLParserSelectorEngine = require('../src/IncomingXMLParserSelectorEngine');
 
-describe('IncomingXMLParserSelectorEngine', () => {
+describe('IncomingXMLParserSelectorEngine mapSelect', () => {
   let engine;
 
   beforeEach(() => {
     engine = new IncomingXMLParserSelectorEngine();
+  });
+
+  test('mapSelect should handle multiple items in arrays', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <root>
+        <baby_names>
+          <name>Luna</name>
+          <name>Zion</name>
+          <name>Nova</name>
+        </baby_names>
+        <activities>
+          <activity>Peekaboo</activity>
+          <activity>Singing</activity>
+        </activities>
+        <exercises>
+          <exercise>Tummy time</exercise>
+          <exercise>Leg bicycling</exercise>
+        </exercises>
+      </root>
+    `);
+
+    const result = engine.mapSelect({
+      'baby_names': { name: [String] },
+      activities: { activity: [String] },
+      exercises: { exercise: [String] }
+    });
+
+    expect(result).toEqual({
+      baby_names: {
+        name: [
+          'Luna',
+          'Zion',
+          'Nova'
+        ],
+      },
+      activities: {
+        activity: [
+          'Peekaboo',
+          'Singing'
+        ]
+      },
+      exercises: {
+        exercise: [
+          'Tummy time',
+          'Leg bicycling'
+        ]
+      }
+    });
   });
 
   test('non-existent element', () => {
@@ -15,7 +64,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(engine.mapSelect({
       notExisting: String
     })).toEqual({});
-  });return;
+  });
 
   test('mapSelect should handle nested elements with multiple occurrences', () => {
     const engine = new IncomingXMLParserSelectorEngine();
@@ -43,6 +92,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
       }
     ]);
   });
+
 
   test('mapSelect should handle simple structures', () => {
     const engine = new IncomingXMLParserSelectorEngine();

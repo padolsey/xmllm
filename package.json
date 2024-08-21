@@ -3,11 +3,12 @@
     "css-select": "^5.1.0",
     "dotenv": "^16.4.5",
     "eventsource-parser": "^2.0.1",
+    "express": "^4.19.2",
     "htmlparser2": "^9.1.0",
     "level": "^8.0.1",
     "lru-cache": "^11.0.0",
     "p-queue": "^8.0.1",
-    "streamops": "^0.1.4"
+    "streamops": "^0.1.9"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

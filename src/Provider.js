@@ -110,6 +110,8 @@ class Provider {
       try {
         logger.time('makeSingleStream:init');
 
+        console.log('>preparedPayload', preparedPayload);
+
         response = await Promise.race([
           this.fetch(`${this.endpoint}?stream=true`, {
             method: 'POST',
@@ -333,9 +335,9 @@ class Provider {
 
     const modelSpecificPayload = this.payloader({
       system: systemMessage.content,
+      max_tokens: DEFAULT_RESPONSE_TOKEN_LENGTH,
       ...customPayload,
       messages,
-      max_tokens: DEFAULT_RESPONSE_TOKEN_LENGTH,
     });
     
     logger.dev('successfully derived model specific payload');

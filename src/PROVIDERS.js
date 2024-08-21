@@ -1,4 +1,6 @@
-require('dotenv').config();
+require('dotenv').config({
+  path: '../.env'
+});
 
 const standardPayloader = ({
   messages = [],
@@ -55,11 +57,13 @@ module.exports = {
     key: process.env.ANTHROPIC_API_KEY,
     models: {
       superfast: {
+        // name: 'claude-3-5-sonnet-20240620',
         name: 'claude-3-haiku-20240307',
         costPer1MTokens: 0.50, //avg? i/o...
         maxContextSize: 100_000
       },
       fast: {
+        // name: 'claude-3-5-sonnet-20240620',
         name: 'claude-3-haiku-20240307',
         costPer1MTokens: 1.50,
         maxContextSize: 100_000
@@ -127,7 +131,7 @@ module.exports = {
   },
   openai: {
     constraints: {
-      cost: 1, // approx agg cost hueristic
+      cost: .1, // approx agg cost hueristic
       rpmLimit: 100
     }, 
     endpoint: 'https://api.openai.com/v1/chat/completions',

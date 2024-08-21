@@ -1,4 +1,4 @@
-const IncomingXMLParserSelectorEngine = require('../IncomingXMLParserSelectorEngine');
+const IncomingXMLParserSelectorEngine = require('../src/IncomingXMLParserSelectorEngine');
 
 describe('IncomingXMLParserSelectorEngine', () => {
   let engine;
@@ -23,6 +23,34 @@ describe('IncomingXMLParserSelectorEngine', () => {
     engine.add('</root>');
     console.log('After closing root:');
     console.log(engine.select('root'));
+  });
+
+  test('should handle angle brackets within element content', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    // engine.add('<message><=hello=></message>');
+    engine.add('<complex><![CDATA[<not>parsed</not>]]></complex>');
+    engine.add('<math>2 < 3 && 5 > 4</math>');
+    
+    // const messageResult = engine.select('message');
+    // expect(messageResult).toHaveLength(1);
+    // expect(messageResult[0]).toMatchObject({
+    //   attr: {},
+    //   text: '<=hello=>'
+    // });
+
+    const complexResult = engine.select('complex');
+    expect(complexResult).toHaveLength(1);
+    expect(complexResult[0]).toMatchObject({
+      attr: {},
+      text: '<not>parsed</not>'
+    });
+
+    const mathResult = engine.select('math');
+    expect(mathResult).toHaveLength(1);
+    expect(mathResult[0]).toMatchObject({
+      attr: {},
+      text: '2 < 3 && 5 > 4'
+    });
   });
 
   test('should parse XML chunks and select elements', () => {
@@ -292,29 +320,5 @@ describe('IncomingXMLParserSelectorEngine', () => {
     // Close root element
     engine.add('</root>');
   });
-
-  test('dedupeSelect should return new elements only', () => {
-    const engine = new IncomingXMLParserSelectorEngine();
-
-    engine.add('<root><item>1</item><item>2</item>');
-    const firstResult = engine.dedupeSelect('item');
-    expect(firstResult).toHaveLength(2);
-    expect(firstResult.map(item => item.text)).toEqual(['1', '2']);
-
-    engine.add('<item>3</item>');
-    const secondResult = engine.dedupeSelect('item');
-    expect(secondResult).toHaveLength(1);
-    expect(secondResult[0].text).toBe('3');
-
-    engine.add('<item>4</item></root>');
-    const thirdResult = engine.dedupeSelect('item');
-    expect(thirdResult).toHaveLength(1);
-    expect(thirdResult[0].text).toBe('4');
-
-    // Should return an empty array as all items have been returned before
-    const fourthResult = engine.dedupeSelect('item');
-    expect(fourthResult).toHaveLength(0);
-  });
-
 
 });

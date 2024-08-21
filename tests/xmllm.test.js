@@ -1,7 +1,7 @@
-const xmllm = require('../index.js');
+const xmllm = require('../src/xmllm.js');
 
 // Mock the llmStream function
-jest.mock('../Stream.js', () => {
+jest.mock('../src/Stream.js', () => {
   const mockFn = jest.fn();
   mockFn
     .mockImplementationOnce(() => ({
@@ -35,14 +35,14 @@ jest.mock('../Stream.js', () => {
 describe('xmllm', () => {
   describe('Simple pipeline', () => {
     it('should process a single step pipeline', async () => {
-      const results = await xmllm(({ select }) => [
+      const results = xmllm(({ select }) => [
         function* () {
           yield '<root><item>Test</item></root>';
         },
         select('item')
       ]);
       
-      expect(results).toEqual([{ key: 1, attr: {}, text: 'Test' }]);
+      expect((await results.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
     });
   });
 
@@ -64,12 +64,12 @@ describe('xmllm', () => {
         }
       ]);
 
-      expect(results[0]).toEqual([{
+      expect((await results.next()).value).toEqual({
         item: {
           name: 'Test Result',
           value: 42 
         }
-      }]);
+      });
     });
   });
 
@@ -87,18 +87,18 @@ describe('xmllm', () => {
         })
       ]);
 
-      expect(results).toEqual([{
+      expect((await results.next()).value).toEqual({
         item: [
           { name: 'Item 1', value: 10 },
           { name: 'Item 2', value: 20 }
         ]
-      }]);
+      });
     });
   });
 
   describe('Complex pipeline', () => {
     it('should process a multi-step pipeline', async () => {
-      const results = await xmllm(({ prompt }) => [
+      const stream = await xmllm(({ prompt }) => [
         function* () {
           yield "Artificial Intelligence";
         },
@@ -127,12 +127,13 @@ describe('xmllm', () => {
         )
       ]);
 
-      console.log(44444, results);
+      const results = [];
+      for await (const r of stream) results.push(r);
 
-      expect(results[0][0].subtopic).toBeDefined();
-      expect(results[0][0].subtopic[0].perspective).toBe('Test Result');
-      expect(results[0][0].subtopic[0].title).toBe('Test Result');
-      expect(results[0][0].explanation).toBe('Test Result');
+      expect(results[0].subtopic).toBeDefined();
+      expect(results[0].subtopic[0].perspective).toBe('Test Result');
+      expect(results[0].subtopic[0].title).toBe('Test Result');
+      expect(results[0].explanation).toBe('Test Result');
     });
   });
 
@@ -145,7 +146,7 @@ describe('xmllm', () => {
         select('item')
       ]);
 
-      expect(results).toEqual([]);
+      expect((await results.next()).value).toEqual(undefined);
     });
 
     it('should handle malformed XML', async () => {
@@ -156,7 +157,7 @@ describe('xmllm', () => {
         select('item')
       ]);
 
-      expect(results).toEqual([{ key: 1, attr: {}, text: 'Test' }]);
+      expect((await results.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
     });
   });
 });
