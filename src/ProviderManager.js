@@ -1,7 +1,7 @@
-const PROVIDERS = require('./PROVIDERS.js');
-const Provider = require('./Provider.js');
+const PROVIDERS = require('./PROVIDERS');
+const Provider = require('./Provider');
 
-const Logger = require('./logger.js');
+const Logger = require('./Logger');
 
 const logger = new Logger('ProviderManager');
 

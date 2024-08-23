@@ -1,6 +1,6 @@
-const Logger = require('./logger.js');
+const Logger = require('./Logger');
 const { createParser } = require('eventsource-parser');
-const innerTruncate = require('./innerTruncate.js');
+const innerTruncate = require('./innerTruncate');
 
 function estimateTokenCount(m) { return m.length / 3; }
 

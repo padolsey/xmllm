@@ -1,117 +1,41 @@
-const { Level } = require('level');
-const { LRUCache: LRU } = require('lru-cache');
-const Logger = require('./logger.js');
-const fs = require('fs');
-const path = require('path');
-
-
-const CACHES_DIR = './_caches';
-
-try {
-  fs.statSync(CACHES_DIR);
-} catch(e) {
-  fs.mkdirSync(CACHES_DIR);
-}
+const { LRUCache } = require('lru-cache');
+const Logger = require('./Logger');
 
 const logger = new Logger('mainCache');
 
-// Function to delete old cache directories
-async function deleteOldCacheDirs(basePath) {
-  try {
-    const files = await fs.promises.readdir(basePath);
-    for (const file of files) {
-      if (!/^db_\d+/.test(file)) continue;
-      const filePath = path.join(basePath, file);
-      if (fs.statSync(filePath).isDirectory()) {
-        await fs.promises.rm(filePath, { recursive: true });
-        logger.dev('Deleted old cache directory', filePath);
-      }
-    }
-  } catch (e) {
-    logger.error('Failed to delete old cache directories', e);
-  }
-}
-
-// Function to initialize database and cache
-async function initializeCache() {
-
-  await deleteOldCacheDirs('./_caches');
-  const cacheDir = path.join(CACHES_DIR, `./db_${+new Date}`);
-  const db = new Level(cacheDir, { valueEncoding: 'json' });
-
-  const cache = new LRU({
-    maxSize: 100000, // 100 kb, for now...
-    sizeCalculation: val => val?.value?.length || 1,
-    dispose: async function (key, n) {
-      try {
-        await db.del(key);
-        logger.dev('Disposed old cache entry', key);
-      } catch (e) {
-        logger.error('Dispose failed', key, e);
-      }
+// Function to initialize cache
+function initializeCache() {
+  return new LRUCache({
+    max: 100000, // Maximum number of items in cache
+    maxSize: 5000000, // Maximum cache size (in arbitrary units, here bytes)
+    sizeCalculation: (value, key) => JSON.stringify(value).length,
+    dispose: function (value, key) {
+      logger.dev('Disposed old cache entry', key);
     }
   });
-
-  try {
-    await db.open();
-    logger.dev('Database is open and ready for operations');
-  } catch (err) {
-    logger.error('Failed to open database', err);
-  }
-
-  return { db, cache };
 }
 
-let db, cache;
-const cachePromise = initializeCache().then(result => {
-  db = result.db;
-  cache = result.cache;
-}).catch(e => {
-  logger.error('Failed to initialize cache', e);
-});
+let cache = initializeCache();
 
 async function get(key) {
-  await cachePromise;
   logger.dev('Getting value from cache', key);
-  let data = cache && cache.get(key);
-  if (!data) {
-    try {
-      data = await db.get(key);
-      logger.dev('Retrieved value from LevelDB', key, data?.length);
-      cache.set(key, data); // Repopulate LRU cache
-    } catch (e) {
-      // if something can't be found, it's okay to just passively fail
-      // (because this is just a cache!)
-      // logger.error('Failed to retrieve from LevelDB', key, e);
-      data = null;
-    }
-  }
-  return data;
+  return cache.get(key);
 }
 
 async function del(key) {
-  await cachePromise;
-  if (!value) {
-    logger.error('Attempted to delete a cache entry without value', key);
+  if (!cache.has(key)) {
+    logger.error('Attempted to delete a non-existent cache entry', key);
     return;
   }
   try {
-    await db.del(key);
     cache.delete(key);
-    logger.dev('Successfully deleted cache and db', key);
+    logger.dev('Successfully deleted cache entry', key);
   } catch (e) {
-    logger.error('Failed to delete cache and db', key, e);
-    if (e.code === 'LEVEL_DATABASE_NOT_OPEN') {
-      logger.dev('Database not open, trying to reopen', key);
-      await db.open();
-      cache.delete(key);
-      logger.dev('Successfully deleted cache and db', key);
-    }
+    logger.error('Failed to delete cache entry', key, e);
   }
 }
 
 async function set(key, value) {
-  await cachePromise;
   if (!value) {
     logger.error('Attempted to set a cache entry without value', key);
     return;
@@ -120,26 +44,19 @@ async function set(key, value) {
     logger.dev('Committing to cache', key, 'json of length:', JSON.stringify(value).length);
     const data = { value: value, time: Date.now() };
     cache.set(key, data);
-    await db.put(key, data);
-    logger.dev('Successfully set cache and db', key);
+    logger.dev('Successfully set cache', key);
   } catch (e) {
-    logger.error('Failed to set cache and db', key, e);
-    if (e.code === 'LEVEL_DATABASE_NOT_OPEN') {
-      logger.dev('Database not open, trying to reopen', key);
-      await db.open();
-      await db.put(key, data);
-      logger.dev('Successfully set cache and db after reopen', key);
-    }
+    logger.error('Failed to set cache', key, e);
   }
 }
 
-async function purgeOldEntries() {
+function purgeOldEntries() {
   logger.dev('Purging old entries');
   const OLD_TIME_PERIOD = 1000 * 60 * 60 * 24 * 5; // 5 days
   try {
-    for await (const [key, value] of db.iterator()) {
+    for (const [key, value] of cache.entries()) {
       if (Date.now() - value.time > OLD_TIME_PERIOD) {
-        await db.del(key);
+        cache.delete(key);
         logger.dev('Purged old entry', key);
       }
     }

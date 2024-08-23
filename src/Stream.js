@@ -1,8 +1,8 @@
 const _PQueue = import('p-queue');
 const { createHash } = require('crypto');
-const { get: getCache, set: setCache } = require('./mainCache.js');
-const Logger = require('./logger.js');
-const ProviderManager = require('./ProviderManager.js');
+const { get: getCache, set: setCache } = require('./mainCache');
+const Logger = require('./Logger');
+const ProviderManager = require('./ProviderManager');
 
 const logger = new Logger('APIStream');
 let queue;

@@ -1,5 +1,5 @@
 const createStreaming = require('streamops');
-const llmStream = require('./Stream.js');
+const llmStream = require('./Stream');
 const IncomingXMLParserSelectorEngine = require('./IncomingXMLParserSelectorEngine');
 const Logger = require('./Logger');
 
@@ -25,7 +25,8 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
     mapSelect,
     select,
     reduce: streamops.reduce,
-    filter: streamops.filter
+    filter: streamops.filter,
+    mergeAggregate: streamops.mergeAggregate
   });
 
   if (!Array.isArray(pipeline)) {
