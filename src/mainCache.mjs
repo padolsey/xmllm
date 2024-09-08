@@ -1,5 +1,5 @@
-const { LRUCache } = require('lru-cache');
-const Logger = require('./Logger');
+import { LRUCache } from 'lru-cache';
+import Logger from './Logger.mjs';
 
 const logger = new Logger('mainCache');
 
@@ -67,4 +67,4 @@ function purgeOldEntries() {
 
 setInterval(purgeOldEntries, 1000 * 60 * 15); // Every 15 minutes
 
-module.exports = { get, set, del };
+export { get, set, del };

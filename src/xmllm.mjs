@@ -1,13 +1,10 @@
-const createStreaming = require('streamops');
-const llmStream = require('./Stream');
-const IncomingXMLParserSelectorEngine = require('./IncomingXMLParserSelectorEngine');
-const Logger = require('./Logger');
+import createStreaming from 'streamops';
+import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
+import Logger from './Logger.mjs';
 
 const logger = new Logger('xmllm');
 
-async function* xmllm(pipelineFn, {timeout} = {}) {
-
-  logger.log(`[${new Date().toISOString()}] xmllm started`);
+async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   const streamops = createStreaming({
     timeout: timeout || 1e6
@@ -19,13 +16,14 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
 
   const xmlps = new IncomingXMLParserSelectorEngine();
   const pipeline = pipelineFn({
-    // pass xmllm interface/methods
+    xmlReq,
     req,
     prompt,
     mapSelect,
     select,
     reduce: streamops.reduce,
     filter: streamops.filter,
+    map: streamops.map,
     mergeAggregate: streamops.mergeAggregate
   });
 
@@ -34,18 +32,64 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
   }
 
   const stream = streamops(pipeline);
-  yield*stream;
+  yield* stream;
 
-  logger.log(`[${new Date().toISOString()}] xmllm finished`);
-
-  function req(prompt, mapSelectionSchema) {
-
+  function req(config) {
     return async function*(thing) {
+      let transformedConfig = config;
 
-      logger.log(`[${new Date().toISOString()}] req started`);
+      if (typeof transformedConfig == 'function') {
+        transformedConfig = transformedConfig(thing);
+      }
 
-      logger.dev('Req called', {prompt, mapSelectionSchema, thing})
+      const {
+        system,
+        messages
+      } = transformedConfig;
 
+      if (!messages.length) {
+        throw new Error('Must be at least one message');
+      }
+
+      const stream = await (llmStream)({
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'system',
+            content: system
+          },
+          ...(messages || [])
+        ]
+      });
+
+      const reader = stream.getReader();
+
+      let accrued = '<thinking>';
+      let cancelled = false;
+
+      yield accrued;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (cancelled || done) break;
+
+          const text = new TextDecoder().decode(value);
+
+          accrued += text;
+
+          yield text;
+        }
+      } catch (e) {
+        logger.error(`Error reading stream:`, e);
+      } finally {
+        reader.releaseLock();
+      }
+    };
+  }
+
+  function xmlReq(prompt, mapSelectionSchema) {
+    return async function*(thing) {
       let transformedPrompt = prompt;
 
       const mapSelectionSchemaScaffold =
@@ -53,11 +97,8 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
         IncomingXMLParserSelectorEngine
           .makeMapSelectXMLScaffold(mapSelectionSchema);
 
-      logger.dev({thing, transformedPrompt, mapSelectionSchemaScaffold})
-
       if (typeof transformedPrompt == 'function') {
         transformedPrompt = transformedPrompt(thing);
-        logger.dev('>Prompt w/ thing?', {transformedPrompt, thing});
       }
 
       if (mapSelectionSchemaScaffold) {
@@ -83,14 +124,11 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
     All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
       `;
 
-      logger.dev('>>PROMPT', transformedPrompt);
-
       if (!transformedPrompt.trim()) {
         throw new Error('we need a prompt');
       }
 
-      logger.log(`[${new Date().toISOString()}] llmStream called`);
-      const stream = await llmStream({
+      const stream = await (llmStream)({
         max_tokens: 4000,
         messages: [
           {
@@ -107,14 +145,13 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
           }
         ]
       });
-      logger.log(`[${new Date().toISOString()}] llmStream returned, starting to read`);
 
       const reader = stream.getReader();
 
       let accrued = '<thinking>';
       let cancelled = false;
 
-      yield accrued; // stuff so far.
+      yield accrued;
 
       try {
         while (true) {
@@ -122,38 +159,25 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
           if (cancelled || done) break;
 
           const text = new TextDecoder().decode(value);
-          logger.log(`[${new Date().toISOString()}] Yielding chunk of length ${text.length}`);
 
           accrued += text;
 
           yield text;
         }
-
-        // logger.dev('ACCRUED\n\n>>>\n\n', accrued, '\n\n');
       } catch (e) {
-        logger.error(`[${new Date().toISOString()}] Error reading stream:`, e);
+        logger.error(`Error reading stream:`, e);
       } finally {
-        logger.log(`[${new Date().toISOString()}] req finished`);
         reader.releaseLock();
       }
-
     };
   }
 
   function prompt(prompt, selectionSchema, mapper, fakeResponse) {
-
     if (!selectionSchema) {
-      return req(prompt);
+      return xmlReq(prompt);
     }
 
-    const results = {};
-
     return async function*(input) {
-
-      logger.log(`[${new Date().toISOString()}] prompt started`);
-
-      logger.dev('PDATA', input, 's>', selectionSchema)
-
       const reqPipeline = [
         function*() {
           if (input == null) {
@@ -161,27 +185,23 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
             return;
           }
           if (isComplexIterable(input)) {
-            //i.e. not a string (strings are iterables)
-            yield*input;
+            yield* input;
           } else {
             yield input;
           }
         },
 
         function*(x) {
-          logger.dev('Initial Response yield', x);
           yield x;
         },
 
         fakeResponse 
           ? function*() {
-            // chunk the fake response
             yield* [fakeResponse]
           }
-          : req(prompt, selectionSchema),
+          : xmlReq(prompt, selectionSchema),
 
         function*(x) {
-          logger.dev('Secondary Response yield', x);
           yield x;
         },
 
@@ -189,12 +209,9 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
       ];
 
       const pipeline = [
-
-        xmllm(() => reqPipeline),
+        xmllmGen(() => reqPipeline, {llmStream}),
 
         async function*(output) {
-          logger.log(`[${new Date().toISOString()}] Starting to process output`);
-          logger.log('Output>>>>', input, output, isComplexIterable(input), isComplexIterable(output));
           if (!isComplexIterable(input)) {
             if (isComplexIterable(output)) {
               for await (const x of output) {
@@ -206,8 +223,6 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
             return;
           }
           for await (const x of input) {
-            logger.dev('inIndex', input, 'xx', x,' -> ', output);
-            
             if (isComplexIterable(output)) {
               for await (const y of output) {
                 yield mapper ? mapper(x, y) : x;
@@ -218,13 +233,9 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
           }
         }
       ];
-      logger.log(`[${new Date().toISOString()}] Calling inner xmllm`);
-      for await (const item of xmllm(() => pipeline)) {
-        logger.log('Main yield result', item);
+      for await (const item of xmllmGen(() => pipeline, {llmStream})) {
         yield item;
       }
-
-      logger.log(`[${new Date().toISOString()}] prompt finished`);
     };
   }
 
@@ -232,21 +243,14 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
     return function* (chunk) {
       xmlps.add([chunk].flat().join(''));
       let selection = xmlps.mapSelect(schema);
-      // logger.dev('mapSelect -> chunk:', chunk);
-      // logger.dev('mapSelect -> selection:', selection);
       if (selection && Object.keys(selection).length) {
         yield selection;
-      } else {
-        logger.dev('mapSelect -> No selection yielded');
       }
     }
   }
 
   function select(selector, mapperFn = x => x) {
     return function* (chunk) {
-
-      logger.log(`[${new Date().toISOString()}] select called with chunk length ${chunk.length}`);
-
       xmlps.add([chunk].flat().join(''));
 
       const selection = xmlps.dedupeSelect(selector);
@@ -254,12 +258,8 @@ async function* xmllm(pipelineFn, {timeout} = {}) {
         yield* selection.map(mapperFn);
       }
     }
-  };
+  }
 }
-
-
-module.exports = xmllm;
-
 
 function isComplexIterable(obj) {
   return obj != null && 
@@ -272,12 +272,17 @@ function isComplexIterable(obj) {
       typeof obj !== 'boolean' &&
       typeof obj !== 'symbol';
 }
-// main advantages over function-calling/json
 
-// - chain of thought more intact
-// - more forgiving while still being a fixed schema
-// - (can yield to you for finer grained decisions on filtering)
-// - quicker to get results and instigate other requests
-// - no absolute failure
-// - ordering can be more easily defined 
-// - more value and better results, less tunnel vision
+function xmllm(pipelineFn, options = {}) {
+  const g = xmllmGen(pipelineFn, options);
+  g.all = async function() {
+    const results = [];
+    for await (const item of this) {
+      results.push(item);
+    }
+    return results;
+  };
+  return g;
+}
+
+export default xmllm;

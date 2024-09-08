@@ -1,0 +1,17 @@
+{
+  "name": "xmllm-integration-tests",
+  "version": "1.0.0",
+  "dependencies": {
+    "xmllm": "file:../.."
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.m?js$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(streamops|other-esm-modules)/)"
+    ],
+    "testRegex": "tests/.*\\.mjs$",
+    "moduleFileExtensions": ["js", "mjs"]
+  }
+}

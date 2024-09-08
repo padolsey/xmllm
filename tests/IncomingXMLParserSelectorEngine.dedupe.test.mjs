@@ -1,4 +1,4 @@
-const IncomingXMLParserSelectorEngine = require('../src/IncomingXMLParserSelectorEngine');
+import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine Dedupe', () => {
   let engine;
@@ -14,11 +14,12 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     expect(firstResult).toHaveLength(2);
     expect(firstResult.map(item => item.text)).toEqual(['1', '2']);
     
-    engine.add('<item>3</item>');
+    engine.add('<item> 3');
+    engine.add(' </item>');
     
     const secondResult = engine.dedupeSelect('item');
     expect(secondResult).toHaveLength(1);
-    expect(secondResult[0].text).toBe('3');
+    expect(secondResult[0].text).toBe(' 3 ');
     
     engine.add('<item>4</item></root>');
     

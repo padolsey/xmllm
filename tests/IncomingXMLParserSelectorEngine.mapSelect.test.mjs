@@ -1,4 +1,4 @@
-const IncomingXMLParserSelectorEngine = require('../src/IncomingXMLParserSelectorEngine');
+import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine mapSelect', () => {
   let engine;

@@ -1,7 +1,7 @@
-const PROVIDERS = require('./PROVIDERS');
-const Provider = require('./Provider');
+import PROVIDERS from './PROVIDERS.mjs';
+import Provider from './Provider.mjs';
 
-const Logger = require('./Logger');
+import Logger from './Logger.mjs';
 
 const logger = new Logger('ProviderManager');
 
@@ -79,4 +79,4 @@ class ProviderManager {
   }
 }
 
-module.exports = ProviderManager;
+export default ProviderManager;

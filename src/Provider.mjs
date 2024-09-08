@@ -1,6 +1,6 @@
-const Logger = require('./Logger');
-const { createParser } = require('eventsource-parser');
-const innerTruncate = require('./innerTruncate');
+import Logger from './Logger.mjs';
+import { createParser } from 'eventsource-parser';
+import innerTruncate from './innerTruncate.mjs';
 
 function estimateTokenCount(m) { return m.length / 3; }
 
@@ -264,6 +264,9 @@ class Provider {
   }
 
   getHeaders() {
+    if (!this.key) {
+      throw new Error('No key is defined');
+    }
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${this.key}`,
@@ -372,6 +375,7 @@ class Provider {
       tokensUsed =
         data.usage.totalTokensUsed ||
         data.usage.total_tokens ||
+        data.usage.output_tokens ||
         estimateTokenCount(
           data?.choices?.[0]?.message
         );
@@ -395,4 +399,4 @@ class Provider {
   }
 }
 
-module.exports = Provider;
+export default Provider;

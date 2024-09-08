@@ -1,6 +1,6 @@
 function estimateTokenCount(m) { return m.length / 3; }
 
-module.exports = function innerTruncate(txt, separator, nSplits, totalTokensLimit) {
+export default function innerTruncate(txt, separator, nSplits, totalTokensLimit) {
     let tokenCount = estimateTokenCount(txt);
     if (tokenCount <= totalTokensLimit || nSplits <= 0) {
         return txt;

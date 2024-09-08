@@ -1,0 +1,42 @@
+{
+  "presets": [
+    ["@babel/preset-env", {
+      "targets": {
+        "node": "current",
+        "browsers": "> 0.25%, not dead"
+      }
+    }]
+  ],
+  "env": {
+    "cjs": {
+      "presets": [
+        ["@babel/preset-env", {
+          "modules": "commonjs",
+          "exclude": ["proposal-dynamic-import"]
+        }]
+      ],
+      "plugins": [
+        "@babel/plugin-syntax-dynamic-import",
+        ["babel-plugin-add-import-extension", { 
+          "extension": "js", 
+          "replace": true,
+          "observedScriptExtensions": ["mjs", "ts", "jsx", "tsx"]
+        }]
+      ]
+    },
+    "esm": {
+      "presets": [
+        ["@babel/preset-env", {
+          "modules": false
+        }]
+      ],
+      "plugins": [
+        ["babel-plugin-add-import-extension", { 
+          "extension": "mjs", 
+          "replace": true,
+          "observedScriptExtensions": ["js", "ts", "jsx", "tsx"]
+        }]
+      ]
+    }
+  }
+}

@@ -1,15 +1,17 @@
 const _PQueue = import('p-queue');
-const { createHash } = require('crypto');
-const { get: getCache, set: setCache } = require('./mainCache');
-const Logger = require('./Logger');
-const ProviderManager = require('./ProviderManager');
+import { createHash } from 'crypto';
+import { get as getCache, set as setCache } from './mainCache.mjs';
+import Logger from './Logger.mjs';
+import ProviderManager from './ProviderManager.mjs';
 
 const logger = new Logger('APIStream');
 let queue;
 const providerManager = new ProviderManager();  
 const ongoingRequests = new Map();
 
-module.exports = async function APIStream(payload) {
+export default async function APIStream(payload) {
+
+  console.log('APIStream()', payload);
 
   const PQueue = (await _PQueue).default;
 

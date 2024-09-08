@@ -1,4 +1,4 @@
-const IncomingXMLParserSelectorEngine = require('../src/IncomingXMLParserSelectorEngine');
+import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine', () => {
   let engine;
@@ -27,16 +27,9 @@ describe('IncomingXMLParserSelectorEngine', () => {
 
   test('should handle angle brackets within element content', () => {
     const engine = new IncomingXMLParserSelectorEngine();
-    // engine.add('<message><=hello=></message>');
+
     engine.add('<complex><![CDATA[<not>parsed</not>]]></complex>');
     engine.add('<math>2 < 3 && 5 > 4</math>');
-    
-    // const messageResult = engine.select('message');
-    // expect(messageResult).toHaveLength(1);
-    // expect(messageResult[0]).toMatchObject({
-    //   attr: {},
-    //   text: '<=hello=>'
-    // });
 
     const complexResult = engine.select('complex');
     expect(complexResult).toHaveLength(1);
@@ -133,15 +126,15 @@ describe('IncomingXMLParserSelectorEngine', () => {
   });
 
   test('should handle multiple chunks and incomplete tags', () => {
-    engine.add('<root><item>Item');
+    engine.add('<root><item> Item');
     expect(engine.select('item')).toEqual([]);
     
-    engine.add(' 1</item><item>Item 2</it');
+    engine.add(' 1 </item><item>Item 2</it');
     expect(engine.select('item')).toEqual([
       {
         key: 1,
         attr: {},
-        text: 'Item 1'
+        text: ' Item 1 '
       }
     ]);
     
@@ -150,7 +143,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
       {
         key: 1,
         attr: {},
-        text: 'Item 1'
+        text: ' Item 1 '
       },
       {
         key: 2,

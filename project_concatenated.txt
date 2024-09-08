@@ -1,0 +1,3201 @@
+// package.json
+{
+  "name": "xmllm",
+  "version": "0.0.2",
+  "main": "./dist/cjs/xmllm-main.js",
+  "module": "./dist/esm/xmllm-main.mjs",
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm",
+    "build:cjs": "cross-env BABEL_ENV=cjs babel src --out-dir dist/cjs --out-file-extension .js",
+    "build:esm": "cross-env BABEL_ENV=esm babel src --out-dir dist/esm --out-file-extension .mjs",
+    "test": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "proxy-server": "node ./src/xmllm-run-proxy.mjs"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.m?js$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(streamops|other-esm-modules)/)"
+    ],
+    "testRegex": "tests/.*\\.mjs$",
+    "moduleFileExtensions": [
+      "js",
+      "mjs"
+    ]
+  },
+  "exports": {
+    ".": {
+      "import": "./src/xmllm-main.mjs",
+      "require": "./dist/cjs/xmllm-main.js"
+    },
+    "./client": {
+      "import": "./src/xmllm-client.mjs",
+      "require": "./dist/cjs/xmllm-client.js"
+    },
+    "./proxy": {
+      "import": "./src/xmllm-proxy.mjs",
+      "require": "./dist/cjs/xmllm-proxy.js"
+    }
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "cors": "^2.8.5",
+    "crypto-browserify": "^3.12.0",
+    "css-select": "^5.1.0",
+    "dotenv": "^16.4.5",
+    "eventsource-parser": "^2.0.1",
+    "express": "^4.19.2",
+    "htmlparser2": "^9.1.0",
+    "jest": "^29.7.0",
+    "lru-cache": "^11.0.0",
+    "p-queue": "^8.0.1",
+    "path-browserify": "^1.0.1",
+    "querystring-es3": "^0.2.1",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "streamops": "^0.1.11",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
+    "vm-browserify": "^1.1.2"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.25.6",
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.4",
+    "babel-jest": "^29.7.0",
+    "babel-loader": "^9.1.3",
+    "babel-plugin-add-import-extension": "^1.6.0",
+    "babel-plugin-transform-import-extension": "^1.0.3",
+    "cross-env": "^7.0.3",
+    "jest-environment-jsdom": "^29.7.0",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "files": [
+    "src",
+    "dist"
+  ]
+}
+
+
+// README.md
+# xmllm: XML-based Language Model Pipeline
+
+xmllm is a tool for creating LLM-driven pipelines.
+
+> From me (the creator): I have found it useful in creating multi-'agent' LLM instantiations to solve more complex problems, where a single completion doesn't get the required results. LLMs suffer a lot from tunnel vision, so I've found it useful to break up tasks and do refinement/distillation loops to get to a final product. This library is my attempt at ~standardizing (for myself initially) this approach.
+
+## Features
+
+- Multi-step pipeline with native generator support (uses [streamops](https://github.com/padolsey/streamops))
+- Reliable XML-based schema with prompting, parsing and mapping included
+
+## Installation
+
+```bash
+npm install xmllm
+```
+
+## Quick Start
+
+E.g.
+
+```js
+const xmllm = require('xmllm');
+
+(async () => {
+  const results = await xmllm(({ prompt }) => [
+    prompt(
+      'List three popular programming languages.',
+      {
+        language: [{
+          name: String,
+          type: String
+        }]
+      }
+    )
+  ]);
+
+  console.log(results);
+})();
+```
+
+This might output:
+
+```json
+[
+  {
+    "language": [
+      {
+        "name": "Python",
+        "type": "Interpreted"
+      },
+      {
+        "name": "JavaScript",
+        "type": "Interpreted"
+      },
+      {
+        "name": "Java",
+        "type": "Compiled"
+      }
+    ]
+  }
+]
+```
+
+## Example
+
+This example shows how to use xmllm for a multi-step analysis of a topic:
+
+```javascript
+const xmllm = require('xmllm');
+
+(async () => {
+  const results = await xmllm(({ prompt }) => [
+    function* () {
+      yield "Artificial Intelligence";
+    },
+    prompt(
+      topic => `Provide three subtopics for "${topic}" from different perspectives: scientific, social, and economic.`,
+      {
+        subtopic: [{
+          perspective: String,
+          title: String
+        }]
+      }
+    ),
+    prompt(
+      (thing) => {
+        const { subtopic: [{ perspective, title }] } = thing;
+        return `Give a brief explanation of "${title}" from a ${perspective} perspective, and suggest one potential future development.`;
+      },
+      {
+        explanation: String,
+        future_development: String
+      }
+    )
+  ]);
+
+  console.log(results);
+})();
+```
+
+
+// src/ files:
+
+
+// File: ./src/IncomingXMLParserSelectorEngine.mjs
+import { Parser } from 'htmlparser2';
+import { selectOne, selectAll } from 'css-select';
+
+class Node {
+  constructor(name, o) {
+    Object.assign(this, o);
+  }
+}
+
+class IncomingXMLParserSelectorEngine {
+  constructor() {
+    this.buffer = '';
+    this.parsedData = [];
+    this.openElements = [];
+    this.selectors = new Map();
+    this.returnedElementSignatures = new Map();
+    this.elementIndex = 0;
+    
+    this.parser = new Parser({
+      onopentag: (name, attributes) => {
+        const element = {
+          key: this.elementIndex++,
+          type: 'tag',
+          name,
+          attributes,
+          children: [],
+          parent: this.openElements[this.openElements.length - 1] || null,
+          closed: false,
+          textContent: ''
+        };
+        
+        if (element.parent) {
+          element.parent.children.push(element);
+        } else {
+          this.parsedData.push(element);
+        }
+        
+        this.openElements.push(element);
+      },
+      ontext: (text) => {
+        if (this.openElements.length > 0) {
+          const currentElement = this.openElements[this.openElements.length - 1];
+          currentElement.children.push({
+            type: 'text',
+            data: text,
+          });
+        }
+      },
+      onclosetag: (name) => {
+        const closedElement = this.openElements.pop();
+        if (closedElement) {
+          closedElement.closed = true;
+          this.updateTextContent(closedElement);
+        }
+      },
+    }, { xmlMode: true });
+  }
+
+  updateTextContent(element) {
+    element.textContent = element.children.reduce((text, child) => {
+      if (child.type === 'text') {
+        return text + child.data;
+      } else if (child.type === 'tag') {
+        const childText = child.textContent || '';
+        return text + (childText ? childText : ' ');
+      }
+      return text;
+    }, '');
+
+    if (element.parent) {
+      this.updateTextContent(element.parent);
+    }
+  }
+
+  add(chunk) {
+    this.buffer += chunk;
+    this.parser.write(chunk);
+  }
+
+  getElementSignature(element) {
+    const ancestry = [];
+    let current = element;
+    while (current.parent) {
+      ancestry.unshift(`${current.name}[${current.parent.children.indexOf(current)}]`);
+      current = current.parent;
+    }
+    
+    const signature = {
+      ancestry: ancestry.join('/'),
+      name: element.name,
+      attributes: element.attributes,
+      textContent: element.textContent || '',
+      hasChildren: element.children.some(child => child.type === 'tag'),
+      closed: element.closed
+    };
+
+    return JSON.stringify(signature);
+  }
+
+  select(selector) {
+    const results = selectAll(selector, this.parsedData).filter(el => el.closed);
+    return this.formatResults(results);
+  }
+
+  dedupeSelect(selector) {
+    if (!this.returnedElementSignatures.has(selector)) {
+      this.returnedElementSignatures.set(selector, new Set());
+    }
+    
+    const results = selectAll(selector, this.parsedData).filter(el => el.closed);
+    const newResults = results.filter(result => {
+      const signature = this.getElementSignature(result);
+      if (this.returnedElementSignatures.get(selector).has(signature)) {
+        return false;
+      }
+      this.returnedElementSignatures.get(selector).add(signature);
+      return true;
+    });
+    
+    return this.formatResults(newResults);
+  }
+
+  formatResults(results) {
+    return results.map(this.formatElement.bind(this));
+  }
+
+  formatElement(element) {
+    const formatted = new Node(element.name, {
+      key: element.key,
+      attr: { ...element.attributes },
+      text: element.textContent,
+      // name: element.name
+    });
+    
+    element.children.forEach(child => {
+      if (child.type === 'tag') {
+        // console.log('formatted[child.name]', formatted[child.name]);
+        if (!formatted[child.name]) {
+          formatted[child.name] = [];
+        }
+        // if (typeof formatted[child.name] == 'string') {
+        //   formatted[child.name] = [formatted[child.name]];
+        // }
+        formatted[child.name].push(this.formatElement(child));
+      }
+    });
+    
+    return formatted;
+  }
+
+  mapSelect(mapping) {
+    const applyMapping = (element, map) => {
+      if (Array.isArray(map)) {
+        if (map.length !== 1) {
+          throw new Error('A map array must only have one element');
+        }
+        return Array.isArray(element) 
+          ? element.map(e => applyMapping(e, map[0]))
+          : [applyMapping(element, map[0])];
+      }
+
+      if (typeof map === 'function') {
+        return map(element.text);
+      }
+
+      if (typeof map !== 'object') {
+        throw new Error('Map must be an object, function, or array');
+      }
+
+      const out = {};
+
+      for (const k in map) {
+        if (k.startsWith('$')) {
+          // Handle attributes
+          const attrName = k.slice(1);
+          if (element.attr && element.attr[attrName] !== undefined) {
+            out[k] = map[k](element.attr[attrName]);
+          }
+        } else if (k === '_') {
+          // Handle text content
+          out[k] = map[k](element.text);
+        } else if (!element[k]) {
+          out[k] = Array.isArray(map[k]) ? [] : undefined;
+        } else if (Array.isArray(map[k])) {
+          out[k] = applyMapping(element[k], map[k]);
+        } else {
+          out[k] = applyMapping(Array.isArray(element[k]) ? element[k][0] : element[k], map[k]);
+        }
+      }
+
+      return out;
+    };
+
+    const isArrayMapping = Array.isArray(mapping);
+
+    if (isArrayMapping) {
+      const rootSelector = Object.keys(mapping[0])[0];
+      return this.dedupeSelect(rootSelector).map(element => ({
+        [rootSelector]: applyMapping(element, mapping[0][rootSelector])
+      }));
+    }
+
+    const rootSelectors = Object.keys(mapping);
+    const results = {};
+    
+    rootSelectors.forEach(selector => {
+      const elements = this.dedupeSelect(selector);
+
+      if (!elements?.length) {
+        return;
+      }
+
+      if (Array.isArray(mapping[selector])) {
+        elements.forEach((el) => {
+          results[selector] = (
+            results[selector] || []
+          ).concat(applyMapping(el, mapping[selector]));
+        });
+      } else {
+        results[selector] = applyMapping(elements[0], mapping[selector]);
+      }
+    });
+
+    return results;
+  }
+
+  static makeMapSelectXMLScaffold(schema, indent = 2) {
+    function processObject(obj, level = 0) {
+      let xml = '';
+      const indentation = ' '.repeat(level * indent);
+
+      for (let key in obj) {
+        const value = obj[key];
+
+        if (key === '_') continue;
+        if (key.startsWith('$')) continue;
+
+        const attrs = getAttributes(obj[key]);
+        
+        if (typeof value === 'function' || typeof value === 'string' || value === String || value === Number || value === Boolean) {
+          xml += `${indentation}<${key}${attrs}>...text content...</${key}>\n`;
+        } else if (Array.isArray(value)) {
+          const item = value[0];
+          if (typeof item === 'function' || typeof item === 'string' || item === String || item === Number || item === Boolean) {
+            xml += `${indentation}<${key}>...text content...</${key}>\n`;
+            xml += `${indentation}<${key}>...text content...</${key}>\n`;
+            xml += `${indentation}/*etc.*/\n`;
+          } else {
+            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
+            xml += processObject(item, level + 1);
+            if ('_' in item) {
+              xml += `${indentation}  ...text content...\n`;
+            }
+            xml += `${indentation}</${key}>\n`;
+            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
+            xml += processObject(item, level + 1);
+            if ('_' in item) {
+              xml += `${indentation}  ...text content...\n`;
+            }
+            xml += `${indentation}</${key}>\n`;
+            xml += `${indentation}/*etc.*/\n`;
+          }
+        } else if (typeof value === 'object') {
+          xml += `${indentation}<${key}${attrs}>\n`;
+          if ('_' in value) {
+            xml += `${indentation}  ...text content...\n`;
+          }
+          xml += processObject(value, level + 1);
+          xml += `${indentation}</${key}>\n`;
+        }
+      }
+
+      return xml;
+    }
+
+    function getAttributes(obj) {
+      if (typeof obj !== 'object' || obj === null) return '';
+      let attrs = '';
+      for (let key in obj) {
+        if (key.startsWith('$')) {
+          attrs += ` ${key.slice(1)}="..."`;
+        }
+      }
+      return attrs;
+    }
+
+    return processObject(schema);
+  }
+}
+
+export default IncomingXMLParserSelectorEngine;
+
+// File: ./src/Logger.mjs
+export default class {
+
+  constructor(name) {
+    this.name = name;
+  }
+
+  log(...args) {
+    return console.log(this.name, '==>', ...args);
+  }
+
+  error(...args) {
+    return console.error(this.name, '==>', ...args);
+  }
+
+  warn(...args) {
+    return console.warn(this.name, '==>', ...args);
+  }
+
+  dev(...args) {
+    if (process.env.NODE_ENV === 'production') return;
+    return console.log('DEV! ', this.name, '==>', ...args);
+  }
+
+  time(...args) {
+    return console.time(this.name, '==>', ...args);
+  }
+
+  timeEnd(...args) {
+    return console.timeEnd(this.name, '==>', ...args);
+  }
+  
+}
+
+// File: ./src/PROVIDERS.mjs
+import { config } from 'dotenv';
+
+config({
+  path: '.env'
+});
+
+const standardPayloader = ({
+  messages = [],
+  max_tokens = 300,
+  stop = null,
+  temperature = 0.5,
+  top_p = 1,
+  presence_penalty = 0,
+  system = ''
+}) => ({
+  messages: [{
+    role: 'system',
+    content: system || ''
+  }].concat(messages),
+  max_tokens,
+  stop,
+  temperature,
+  top_p,
+  presence_penalty
+});
+
+const taiStylePayloader = ({
+  messages = [],
+  max_tokens = 300,
+  stop = ['</s>','[/INST]'],
+  temperature = 0.5,
+  top_p = 1,
+  frequency_penalty = 0.01,
+  presence_penalty = 0,
+  system = ''
+}) => ({
+  messages: [{role:'system',content:system||''}].concat(messages),
+  max_tokens,
+  stop,
+  temperature,
+  top_p,
+  top_k: 50,
+  repetition_penalty: 1 + presence_penalty
+});
+
+// We anchor pricing/cost to the gpt3.5/7x8B level models
+// Note that 'cost' under 'constraints' is just used for scoring
+// which model to use - cheapest is best, so if we really want a model
+// to be used, we just set the cost to lower. lol.
+
+export default {
+  claude: {
+    //https://www.anthropic.com/api
+    constraints: {
+      cost: .2,
+      rpmLimit: 100
+    },
+    endpoint: 'https://api.anthropic.com/v1/messages',
+    key: process.env.ANTHROPIC_API_KEY,
+    models: {
+      superfast: {
+        // name: 'claude-3-5-sonnet-20240620',
+        name: 'claude-3-haiku-20240307',
+        costPer1MTokens: 0.50, //avg? i/o...
+        maxContextSize: 100_000
+      },
+      fast: {
+        // name: 'claude-3-5-sonnet-20240620',
+        name: 'claude-3-haiku-20240307',
+        costPer1MTokens: 1.50,
+        maxContextSize: 100_000
+      },
+      good: {
+        // name: 'claude-3-opus-20240229',
+        // name: 'claude-3-5-sonnet-20240620',
+        name: 'claude-3-haiku-20240307',
+        costPer1MTokens: 5.00, // avg i/o ?
+        maxContextSize: 100_000
+      }
+    },
+
+    headerGen() {
+      return {
+        'x-api-key': this.key,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json'
+      };
+    },
+
+    payloader({
+      messages = [],
+      system,
+      max_tokens = 300,
+      stop = null,
+      temperature = 0.5,
+      top_p = 1,
+      presence_penalty = 0
+    }) {
+      // const systemPrompt = messages.filter(m => m.role === 'system')?.[0];
+
+      return {
+        system,
+        messages,
+        max_tokens,
+        stop_sequences: stop,
+        temperature,
+        top_p,
+        // presence_penalty // not used by claude ...
+      };
+
+      const obj = {
+        max_tokens,
+        stop_sequences: stop,
+        temperature,
+        top_p,
+        presence_penalty
+      };
+
+      obj.messages = messages.filter(m => m.role !== 'system').map(m => {
+        return {
+          role: m.role,
+          content: (m.content || '').trim()
+          // claude seems to complain about whitespace,
+          // just with assistant role but still, may as well trim:
+          // E.g. {"type":"error","error":{"type":"invalid_request_error",
+          // "message":"messages: final assistant content cannot
+          // end with trailing whitespace"}}
+        }
+      })
+
+      return obj;
+    }
+  },
+  openai: {
+    constraints: {
+      cost: .5, // approx agg cost hueristic
+      rpmLimit: 20
+    }, 
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    key: process.env.OPENAI_API_KEY,
+    models: {
+      superfast: {
+        name: 'gpt-4o-mini',
+        costPer1MTokens: 1.50,
+        maxContextSize: 1_000_000
+      },
+      fast: {
+        name: 'gpt-4o-mini',
+        costPer1MTokens: 1.50,
+        maxContextSize: 1_000_000
+      },
+      good: {
+        name: 'gpt-4o-mini',
+        costPer1MTokens: 15,
+        maxContextSize: 128_000
+      }
+    },
+    payloader: standardPayloader
+  },
+  // togetherai: {
+  //   constraints: {
+  //     cost: 2,
+  //     rpmLimit: 10
+  //   }, 
+  //   endpoint: 'https://api.together.xyz/v1/chat/completions',
+  //   key: process.env.TOGETHER_API_KEY,
+  //   models: {
+  //     superfast: {
+  //       // name: 'Qwen/Qwen1.5-4B-Chat', //tiny context of 4k
+  //       name: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+  //       costPer1MTokens: 0.60,
+  //     },
+  //     fast: {
+  //       name: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+  //       costPer1MTokens: 0.60,
+  //     },
+  //     good: {
+  //       // name: 'mistralai/Mixtral-8x22B-Instruct-v0.1',
+  //       // name: 'meta-llama/Llama-2-70b-chat-hf',
+  //       name: 'Qwen/Qwen1.5-72B-Chat',
+  //       costPer1MTokens: 0.90
+  //     }
+  //   },
+  //   payloader: taiStylePayloader
+  // },
+  // perplexityai: {
+  //   constraints: {
+  //     cost: 3,
+  //     rpmLimit: 10
+  //   }, 
+  //   endpoint: 'https://api.perplexity.ai/chat/completions',
+  //   key: process.env.PERPLEXITY_API_KEY,
+  //   models: {
+  //     superfast: {
+  //       // name: 'llama-3-8b-instruct',
+  //       name: 'mixtral-8x7b-instruct',
+  //       costPer1MTokens: 0.60
+  //     },
+  //     fast: {
+  //       // name: 'llama-3-8b-instruct',
+  //       name: 'mixtral-8x7b-instruct',
+  //       costPer1MTokens: 0.60
+  //     },
+  //     good: {
+  //       // slightly more reliable in terms of prompting
+  //       // seemingly aligns well with how we've optimized the prompt for openai
+  //       name: 'llama-3-70b-instruct', 
+  //       // name: 'llama-3-sonar-large-32k-chat',
+  //       costPer1MTokens: 1.00
+  //     }
+  //   },
+  //   payloader: standardPayloader
+  // },
+  // anyscaleai: {
+  //   constraints: {
+  //     cost: 10, // I've upped this like scary because anyscale is unreliable
+  //     rpmLimit: 30
+  //   }, 
+  //   endpoint: 'https://api.endpoints.anyscale.com/v1/chat/completions',
+  //   key: process.env.ANYSCALE_API_KEY,
+  //   models: {
+  //     superfast: {
+  //       name: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+  //       costPer1MTokens: 0.001
+  //     },
+  //     fast: {
+  //       name: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+  //       costPer1MTokens: 0.001
+  //     },
+  //     good: {
+  //       name: 'mistralai/Mixtral-8x22B-Instruct-v0.1',
+  //       costPer1MTokens: 0.001
+  //     }
+  //   },
+  //   payloader: standardPayloader
+  // }
+};
+
+// File: ./src/Provider.mjs
+import Logger from './Logger.mjs';
+import { createParser } from 'eventsource-parser';
+import innerTruncate from './innerTruncate.mjs';
+
+function estimateTokenCount(m) { return m.length / 3; }
+
+const logger = new Logger('Provider');
+
+const DEFAULT_ASSUMED_MAX_CONTEXT_SIZE = 8_000;
+const DEFAULT_RESPONSE_TOKEN_LENGTH = 300;
+const MAX_TOKEN_HISTORICAL_MESSAGE = 600;
+
+class Provider {
+  constructor(name, details, fetchFn = fetch, configOverrides = {}) {
+    this.fetch = fetchFn;
+    this.name = name;
+    this.endpoint = details.endpoint;
+    this.key = details.key;
+    this.models = details.models;
+    this.payloader = details.payloader;
+    this.headerGen = details.headerGen;
+    this.cost = details.constraints.cost;
+    this.rpmLimit = details.constraints.rpmLimit;
+    this.currentCost = 0;
+    this.currentRPM = 0;
+
+    // Configurable properties with more sensible defaults or overrides
+    this.REQUEST_TIMEOUT_MS = configOverrides.REQUEST_TIMEOUT_MS || 50_000; 
+    this.MAX_RETRIES = configOverrides.MAX_RETRIES || 2; 
+    this.RETRY_DELAY_WHEN_OVERLOADED = configOverrides.RETRY_DELAY_WHEN_OVERLOADED || 1000;
+    this.RPM_RESET_TIME = configOverrides.RPM_RESET_TIME || 60_000;
+  }
+
+  async makeRequest(payload) {
+    let retries = 0;
+    const makeSingleRequest = async () => {
+
+      const preparedPayload = this.preparePayload(payload);
+      logger.log(
+        'Making request with payload',
+        this.name,
+        preparedPayload
+      );
+
+      let response;
+      try {
+        response = await Promise.race([
+          this.fetch(this.endpoint, {
+            method: 'POST',
+            headers: this.headerGen
+              ? this.headerGen.call(this)
+              : this.getHeaders(),
+            body: JSON.stringify(preparedPayload)
+          }),
+          this.timeout(this.REQUEST_TIMEOUT_MS)
+        ]);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        this.updateCostFromDataObj(payload.model, data);
+
+        // logger.dev('data', data);
+
+        // Different output types (oai vs anthropic styles)
+        return data?.content?.[0]?.text
+          ? {content: data?.content?.[0]?.text}
+          : data?.choices?.[0]?.message;
+        
+      } catch (error) {
+        logger.error(`Provider ${this.name} encountered an error: ${error}`);
+        logger.log('Errored payload, FYI: ', preparedPayload);
+        if (retries < this.MAX_RETRIES && this.shouldRetry(error, response?.status)) {
+          retries++;
+          logger.log(`Retrying request for ${this.name}, attempt ${retries}`);
+          await this.delay(this.RETRY_DELAY_WHEN_OVERLOADED);
+          return makeSingleRequest();
+        }
+        throw error;
+      }
+    };
+
+    return makeSingleRequest();
+  }
+
+  async createStream(payload, retries = 0) {
+    logger.log('Making STREAMING request with payload', payload);
+    
+    const encoder = new TextEncoder();
+    const inst = this;
+
+    let response;
+
+    this.currentRPM++;
+    payload.stream = true;
+    // Use clearTimeout to manage the decrement operation more cleanly
+    const timerId = setTimeout(() => this.currentRPM--, this.RPM_RESET_TIME);
+    const makeSingleStream = async () => {
+
+      const preparedPayload = this.preparePayload(payload);
+
+      logger.log(
+        'Making stream request with model',
+        preparedPayload.messages?.length
+      );
+      try {
+        logger.time('makeSingleStream:init');
+
+        console.log('>preparedPayload', preparedPayload);
+
+        response = await Promise.race([
+          this.fetch(`${this.endpoint}?stream=true`, {
+            method: 'POST',
+            headers: this.headerGen
+              ? this.headerGen.call(this)
+              : this.getHeaders(),
+            body: JSON.stringify(preparedPayload)
+          }),
+          this.timeout(this.REQUEST_TIMEOUT_MS)
+        ]);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+        }
+
+        let data = '';
+        let counter = 0;
+        let closed = false;
+
+        logger.time('makeSingleStream:streamStart');
+
+        return new ReadableStream({
+          async start(controller) {
+
+            logger.timeEnd('makeSingleStream:streamStart');
+            logger.timeEnd('makeSingleStream:init');
+
+            logger.log('Starting readable stream');
+
+            function onParse(event) {
+              if (closed) return;
+              if (event.type === 'event') {
+                const eventData = event.data;
+                if (eventData === '[DONE]') {
+                  clearTimeout(timerId);
+                  logger.log('[done] Closing readable stream');
+                  data += '\n';
+                  controller.enqueue(encoder.encode('\n'));
+                  controller.close();
+                  closed = true;
+                  return;
+                }
+                try {
+                  const json = JSON.parse(eventData);
+                  inst.updateCostFromDataObj(payload.model, json);
+
+                  // Various output formats depending on provider.
+                  let text =
+                    json?.delta?.text 
+                    ||
+                    json?.content_block?.text
+                    ||
+                    json.choices?.[0]?.delta?.content;
+
+
+                  if (json?.delta?.stop_reason) {
+                    clearTimeout(timerId);
+                    logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
+                    data += '\n';
+                    controller.enqueue(encoder.encode('\n'));
+                    controller.close();
+                    closed = true;
+                    return;
+                  }
+
+                  text = text || '';
+
+                  if (counter < 2 && (text.match(/\n/) || []).length) {
+                    return; //??? what is this for???
+                  }
+
+                  data += text;
+                  const queue = encoder.encode(text);
+                  controller.enqueue(queue);
+                  counter++;
+                } catch (e) {
+                  logger.error('controller error', e);
+                  clearTimeout(timerId);
+                  closed = true;
+                  controller.error(e);
+                }
+              }
+            }
+
+            const parser = createParser(onParse);
+
+            // console.log('response.body', response.body);
+            for await (const chunk of response.body) {
+              // console.log('Chunk', chunk);
+              const decoded = new TextDecoder().decode(chunk);
+              // console.log('decoded', decoded);
+              parser.feed(decoded);
+            }
+          },
+        });
+
+        return new ReadableStream({
+          start(controller) {
+            const reader = response.body.getReader();
+            function push() {
+              reader.read().then(({ done, value }) => {
+                if (done) {
+                  closed = true;
+                  controller.close();
+                  clearTimeout(timerId); // Ensure timer is cleared when done
+                  return;
+                }
+                controller.enqueue(value);
+                push();
+              }).catch(err => {
+                controller.error(err);
+                clearTimeout(timerId); // Ensure timer is cleared on error
+              });
+            }
+            push();
+          }
+        });
+      } catch (error) {
+        logger.error(`Error in streaming from ${this.name}: ${error}`);
+        clearTimeout(timerId); // Ensure timer is cleared on catch
+
+        // console.log({retries}, this.MAX_RETRIES, error, response);
+
+        if (retries < this.MAX_RETRIES && this.shouldRetry(error, response?.status)) {
+          retries++;
+          logger.log(`Retrying request for ${this.name}, attempt ${retries}`);
+          await this.delay(this.RETRY_DELAY_WHEN_OVERLOADED);
+          return this.createStream(payload, retries);
+        }
+
+        throw error;
+      }
+    };
+
+    return makeSingleStream();
+  }
+
+  timeout(ms) {
+    return new Promise((_, reject) => setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms));
+  }
+
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  shouldRetry(error, status) {
+    // Use error codes and more explicit checks instead of message content
+    return (status === 500 || error.message.includes('time')) && status !== 401;
+  }
+
+  getHeaders() {
+    if (!this.key) {
+      throw new Error('No key is defined');
+    }
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.key}`,
+    };
+  }
+
+  preparePayload(customPayload) {
+
+    // Ensure context-size limits are respected
+
+    const model = this.models[customPayload.model || 'fast'];
+
+    let messages = [
+      ...customPayload.messages
+    ];
+
+    const systemMessage = messages.shift();
+
+    if (!model) {
+      throw new Error('No model defined: ' + customPayload.model);
+    }
+
+    if (systemMessage.role !== 'system') {
+      throw new Error('Expected system message!');
+    }
+
+    // Determine max tokens left after sys message
+    const maxAvailableContextSize = 0 |
+      (
+        model.maxContextSize || DEFAULT_ASSUMED_MAX_CONTEXT_SIZE
+      )
+      - estimateTokenCount(systemMessage.content)
+      - DEFAULT_RESPONSE_TOKEN_LENGTH
+
+    logger.dev('maxAvailableContextSize remaining', maxAvailableContextSize);
+
+    let historyTokenCount = 0;
+
+    logger.dev('m12');
+    messages = messages.reverse().map((item) => {
+
+      // We are processing in reverse in order to prioritize
+      // later parts of the chat over earlier parts
+      // (i.e. short term memory)
+
+      console.log('999 message item', item);
+
+      const truncated = innerTruncate(
+        item.content,
+        '[...]',
+        10,
+        MAX_TOKEN_HISTORICAL_MESSAGE
+      );
+
+      historyTokenCount += estimateTokenCount(truncated);
+
+      if (historyTokenCount > maxAvailableContextSize) {
+        return null;
+      }
+
+      return {
+        role: item.role,
+        content: truncated
+      }
+    }).reverse().filter(Boolean);
+    logger.dev('m12 done');
+
+    logger.dev('deriving model specific payload');
+
+    const modelSpecificPayload = this.payloader({
+      system: systemMessage.content,
+      max_tokens: DEFAULT_RESPONSE_TOKEN_LENGTH,
+      ...customPayload,
+      messages,
+    });
+    
+    logger.dev('successfully derived model specific payload');
+
+    return {
+
+      ...modelSpecificPayload,
+
+      // messages: [
+      //   systemMessage,
+      //   ...messages
+      // ],
+
+      model: this.models[customPayload.model || 'fast']?.name,
+      stream: customPayload.stream || false
+    };
+  }
+
+  updateCostFromDataObj(model, data) {
+
+    if (!data) return;
+    
+    const costPer1MTokens = this.models[model]?.costPer1MTokens;
+    let tokensUsed = 0;
+    
+    if (data.usage) {
+
+      if (!costPer1MTokens) {
+        return;
+      }
+
+      tokensUsed =
+        data.usage.totalTokensUsed ||
+        data.usage.total_tokens ||
+        data.usage.output_tokens ||
+        estimateTokenCount(
+          data?.choices?.[0]?.message
+        );
+    } else if (data.choices?.[0]?.delta) {
+      tokensUsed = 1;
+    } else if (data.choices?.[0]?.message?.content) {
+      // Hueristic ... faster.
+      tokensUsed = 0 | data.choices[0].message.content.length / 3;
+      // tokensUsed = estimateTokenCount(
+      //   data.choices[0].message.content
+      // );
+    }
+
+    this.currentCost += tokensUsed * (costPer1MTokens / 1000000);
+
+    // logger.dev(`Updated cost for ${this.name}: ${this.currentCost}, (tokens used: ${tokensUsed}, per1MToken: ${costPer1MTokens})`);
+  }
+
+  getAvailable() {
+    return this.currentRPM < this.rpmLimit;
+  }
+}
+
+export default Provider;
+
+
+// File: ./src/ProviderManager.mjs
+import PROVIDERS from './PROVIDERS.mjs';
+import Provider from './Provider.mjs';
+
+import Logger from './Logger.mjs';
+
+const logger = new Logger('ProviderManager');
+
+class ProviderManager {
+  constructor() {
+    this.providers = Object.entries(PROVIDERS).map(([name, details]) => new Provider(name, details));
+  }
+
+  /**
+   * Selects the best available provider based on current availability and cost,
+   * excluding any providers that have already been tried.
+   * @param {Array} excludeProviders - An array of providers that should be excluded from selection.
+   */
+  pickProvider(excludeProviders = []) {
+    // Filter out providers that are not available or have been tried already.
+    const availableProviders = this.providers.filter(provider => 
+      provider.getAvailable() && !excludeProviders.includes(provider)
+    );
+
+    // Sort the available providers by cost, choosing the lowest cost option available.
+    availableProviders.sort((a, b) => a.cost - b.cost);
+
+    // Return the cheapest available provider or undefined if no providers are available.
+    return availableProviders.length > 0 ? availableProviders[0] : undefined;
+  }
+
+  async request(payload) {
+    let lastError = null;
+    let providersTried = [];
+    while (providersTried.length < this.providers.length) {
+      const provider = this.pickProvider(providersTried);
+      if (!provider) {
+        throw new Error(lastError || 'No available providers');
+      }
+      logger.log('Trying provider', provider.name);
+
+      providersTried.push(provider);
+
+      try {
+        return await provider.makeRequest(payload);
+      } catch (error) {
+        logger.error(`Error from provider ${provider.name}: ${error.message}`);
+        lastError = `${provider.name} failed, trying next one`;
+        // if (!error.message.includes('401')) {
+        //   throw error;
+        // }
+        // lastError = `Authorization failed for ${provider.name}, trying next provider.`;
+      }
+    }
+    throw new Error('All providers failed to fulfill the request.');
+  }
+
+  async streamRequest(payload) {
+    let lastError = null;
+    let providersTried = [];
+    while (providersTried.length < this.providers.length) {
+      const provider = this.pickProvider(providersTried);
+      if (!provider) {
+        throw new Error(lastError || 'No available provider for streaming');
+      }
+      logger.log('Trying provider', provider.name);
+      providersTried.push(provider);
+
+      try {
+        return await provider.createStream(payload);
+      } catch (error) {
+        logger.error(`Streaming error from provider ${provider.name}: ${error.message}`);
+        if (!error.message.includes('401')) {
+          throw error;
+        }
+        lastError = `Authorization failed for ${provider.name}, trying next provider.`;
+      }
+    }
+    throw new Error('All providers failed to fulfill the stream request.');
+  }
+}
+
+export default ProviderManager;
+
+
+// File: ./src/Stream.mjs
+const _PQueue = import('p-queue');
+import { createHash } from 'crypto';
+import { get as getCache, set as setCache } from './mainCache.mjs';
+import Logger from './Logger.mjs';
+import ProviderManager from './ProviderManager.mjs';
+
+const logger = new Logger('APIStream');
+let queue;
+const providerManager = new ProviderManager();  
+const ongoingRequests = new Map();
+
+export default async function APIStream(payload) {
+
+  console.log('APIStream()', payload);
+
+  const PQueue = (await _PQueue).default;
+
+  queue = queue || new PQueue({ concurrency: 2 });
+
+  return queue.add(async () => {
+    const encoder = new TextEncoder();
+
+    payload.stream = true;
+    let hash = createHash('md5').update(JSON.stringify(payload)).digest('hex');
+
+    let cachedData = await getCache(hash);
+    let ongoingRequest = ongoingRequests.get(hash);
+
+    if (cachedData) {
+      cachedData = cachedData.value;
+      logger.log('OpenAIStream: cached', hash);
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(cachedData));
+          controller.close();
+        },
+      });
+    } else if (ongoingRequest) {
+      logger.log('Request currently ongoing: we are awaiting and tee\'ing the stream', hash);
+      const ongoingRequestStream = await ongoingRequest;
+      const [stream1, stream2] = ongoingRequestStream.tee();
+      ongoingRequests.set(hash, stream2);
+      return stream1;
+    } else {
+      let streamPromise = providerManager.streamRequest(payload);
+      streamPromise = streamPromise.then(stream => {
+        const [stream1, stream2] = stream.tee();
+        ongoingRequests.set(hash, stream2);
+        return stream1;
+      });
+      ongoingRequests.set(hash, streamPromise);
+      return streamPromise;
+    }
+  });
+}
+
+
+// File: ./src/innerTruncate.mjs
+function estimateTokenCount(m) { return m.length / 3; }
+
+export default function innerTruncate(txt, separator, nSplits, totalTokensLimit) {
+    let tokenCount = estimateTokenCount(txt);
+    if (tokenCount <= totalTokensLimit || nSplits <= 0) {
+        return txt;
+    }
+
+    // let segmentSize = Math.floor(totalTokensLimit / (nSplits + 1));
+    let segmentSize = 0 | (txt.length / tokenCount * totalTokensLimit) / nSplits; // estimate
+    let segments = [];
+
+    let txtSplitted = txt.split('');
+    
+    for (let i = 0; i <= nSplits; i++) {
+        let segmentStart = i * segmentSize;
+        let segment = txtSplitted.splice(0, segmentSize);
+        segments.push(segment.join(''));
+    }
+
+    return segments.join(separator);
+}
+
+// File: ./src/mainCache.mjs
+import { LRUCache } from 'lru-cache';
+import Logger from './Logger.mjs';
+
+const logger = new Logger('mainCache');
+
+// Function to initialize cache
+function initializeCache() {
+  return new LRUCache({
+    max: 100000, // Maximum number of items in cache
+    maxSize: 5000000, // Maximum cache size (in arbitrary units, here bytes)
+    sizeCalculation: (value, key) => JSON.stringify(value).length,
+    dispose: function (value, key) {
+      logger.dev('Disposed old cache entry', key);
+    }
+  });
+}
+
+let cache = initializeCache();
+
+async function get(key) {
+  logger.dev('Getting value from cache', key);
+  return cache.get(key);
+}
+
+async function del(key) {
+  if (!cache.has(key)) {
+    logger.error('Attempted to delete a non-existent cache entry', key);
+    return;
+  }
+  try {
+    cache.delete(key);
+    logger.dev('Successfully deleted cache entry', key);
+  } catch (e) {
+    logger.error('Failed to delete cache entry', key, e);
+  }
+}
+
+async function set(key, value) {
+  if (!value) {
+    logger.error('Attempted to set a cache entry without value', key);
+    return;
+  }
+  try {
+    logger.dev('Committing to cache', key, 'json of length:', JSON.stringify(value).length);
+    const data = { value: value, time: Date.now() };
+    cache.set(key, data);
+    logger.dev('Successfully set cache', key);
+  } catch (e) {
+    logger.error('Failed to set cache', key, e);
+  }
+}
+
+function purgeOldEntries() {
+  logger.dev('Purging old entries');
+  const OLD_TIME_PERIOD = 1000 * 60 * 60 * 24 * 5; // 5 days
+  try {
+    for (const [key, value] of cache.entries()) {
+      if (Date.now() - value.time > OLD_TIME_PERIOD) {
+        cache.delete(key);
+        logger.dev('Purged old entry', key);
+      }
+    }
+  } catch (err) {
+    logger.error('Failed to purge old entries', err);
+  }
+}
+
+setInterval(purgeOldEntries, 1000 * 60 * 15); // Every 15 minutes
+
+export { get, set, del };
+
+// File: ./src/xmllm-client.mjs
+import xmllm from './xmllm.mjs';
+
+class ClientProvider {
+  constructor(endpoint = 'http://localhost:3000/api/stream') {
+    this.endpoint = endpoint;
+  }
+
+  async createStream(payload) {
+    console.log('createStream', payload);
+
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    return new ReadableStream({
+      async start(controller) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              controller.enqueue(new TextEncoder().encode(data.content));
+            }
+          }
+        }
+
+        controller.close();
+      }
+    });
+  }
+}
+
+function clientLlmStream(clientProvider) {
+  return async function(payload) {
+    return clientProvider.createStream(payload);
+  };
+}
+
+function xmllmClient(pipelineFn, clientProvider, options = {}) {
+
+  console.log('XMLLM Client', clientProvider, options)
+
+  const llmStream = typeof clientProvider === 'string'
+    ? clientLlmStream(new ClientProvider(clientProvider))
+    : clientLlmStream(clientProvider);
+
+  return xmllm(pipelineFn, { ...options, llmStream });
+}
+
+export { xmllmClient as xmllm, ClientProvider };
+export default { ClientProvider, xmllm: xmllmClient };
+
+// File: ./src/xmllm-main.mjs
+import xmllmCore from './xmllm.mjs';
+import Stream from './Stream.mjs';
+
+function xmllm(pipelineFn, options = {}) {
+  return xmllmCore(pipelineFn, { ...options, llmStream: options.Stream || Stream });
+}
+
+export default xmllm;
+
+// File: ./src/xmllm-proxy.mjs
+import express from 'express';
+import cors from 'cors';
+import ProviderManager from './ProviderManager.mjs';
+import Stream from './Stream.mjs';
+
+function createServer(config = {}) {
+  const app = express();
+  const port = config.port || process.env.PORT || 3000;
+
+  app.use(cors());
+  app.use(express.json());
+
+  const providerManager = new ProviderManager();
+
+  console.log('Starting Proxy Server with config', config, 'Port:', port);
+
+  app.post('/api/stream', async (req, res) => {
+    try {
+      const { messages, model = 'fast' } = req.body;
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ error: 'Invalid messages format' });
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      });
+      const stream = await Stream({
+        messages,
+        model,
+        stream: true
+      });
+      for await (const chunk of stream) {
+        if (chunk instanceof Uint8Array) {
+          const content = new TextDecoder().decode(chunk);
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        } else if (typeof chunk === 'string') {
+          res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        }
+      }
+      res.write('event: close\ndata: Stream ended\n\n');
+      res.end();
+    } catch (error) {
+      console.error('Error in stream request:', error);
+      res.write(`event: error\ndata: ${JSON.stringify({ error: 'Internal server error' })}\n\n`);
+      res.end();
+    }
+  });
+  
+  app.listen(port, () => {
+    console.log(`xmllm proxy server running on port ${port}`);
+  });
+
+  return app;
+
+}
+
+export default createServer;
+
+// File: ./src/xmllm-run-proxy.mjs
+console.log('Starting Proxy');
+import proxy from './xmllm-proxy.mjs';
+
+// File: ./src/xmllm.mjs
+import createStreaming from 'streamops';
+import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
+import Logger from './Logger.mjs';
+
+const logger = new Logger('xmllm');
+
+async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
+
+  const streamops = createStreaming({
+    timeout: timeout || 1e6
+  });
+
+  if (typeof pipelineFn !== 'function') {
+    throw new Error('You must pass a function to xmllm - and that function must return a pipeline array.');
+  }
+
+  const xmlps = new IncomingXMLParserSelectorEngine();
+  const pipeline = pipelineFn({
+    xmlReq,
+    req,
+    prompt,
+    mapSelect,
+    select,
+    reduce: streamops.reduce,
+    filter: streamops.filter,
+    map: streamops.map,
+    mergeAggregate: streamops.mergeAggregate
+  });
+
+  if (!Array.isArray(pipeline)) {
+    throw new Error('Pipeline creator function must return an array.');
+  }
+
+  const stream = streamops(pipeline);
+  yield* stream;
+
+  function req(config) {
+    return async function*(thing) {
+      let transformedConfig = config;
+
+      if (typeof transformedConfig == 'function') {
+        transformedConfig = transformedConfig(thing);
+      }
+
+      const {
+        system,
+        messages
+      } = transformedConfig;
+
+      if (!messages.length) {
+        throw new Error('Must be at least one message');
+      }
+
+      const stream = await (llmStream)({
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'system',
+            content: system
+          },
+          ...(messages || [])
+        ]
+      });
+
+      const reader = stream.getReader();
+
+      let accrued = '<thinking>';
+      let cancelled = false;
+
+      yield accrued;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (cancelled || done) break;
+
+          const text = new TextDecoder().decode(value);
+
+          accrued += text;
+
+          yield text;
+        }
+      } catch (e) {
+        logger.error(`Error reading stream:`, e);
+      } finally {
+        reader.releaseLock();
+      }
+    };
+  }
+
+  function xmlReq(prompt, mapSelectionSchema) {
+    return async function*(thing) {
+      let transformedPrompt = prompt;
+
+      const mapSelectionSchemaScaffold =
+        mapSelectionSchema &&
+        IncomingXMLParserSelectorEngine
+          .makeMapSelectXMLScaffold(mapSelectionSchema);
+
+      if (typeof transformedPrompt == 'function') {
+        transformedPrompt = transformedPrompt(thing);
+      }
+
+      if (mapSelectionSchemaScaffold) {
+        transformedPrompt += `
+    The data you return should be approximately like this:
+    \`\`\`
+    ${mapSelectionSchemaScaffold}
+    \`\`\`
+        `;
+      }
+
+      const systemPrompt = `
+    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.
+
+    You can output multiple results if you like.
+
+    E.g. if asked for several names, you could just return:
+    <name>sarah</name> <name>james</name>
+    etc.
+
+    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>
+
+    All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
+      `;
+
+      if (!transformedPrompt.trim()) {
+        throw new Error('we need a prompt');
+      }
+
+      const stream = await (llmStream)({
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: transformedPrompt
+          },
+          {
+            role: 'assistant',
+            content: '<thinking>'
+          }
+        ]
+      });
+
+      const reader = stream.getReader();
+
+      let accrued = '<thinking>';
+      let cancelled = false;
+
+      yield accrued;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (cancelled || done) break;
+
+          const text = new TextDecoder().decode(value);
+
+          accrued += text;
+
+          yield text;
+        }
+      } catch (e) {
+        logger.error(`Error reading stream:`, e);
+      } finally {
+        reader.releaseLock();
+      }
+    };
+  }
+
+  function prompt(prompt, selectionSchema, mapper, fakeResponse) {
+    if (!selectionSchema) {
+      return xmlReq(prompt);
+    }
+
+    return async function*(input) {
+      const reqPipeline = [
+        function*() {
+          if (input == null) {
+            yield [undefined];
+            return;
+          }
+          if (isComplexIterable(input)) {
+            yield* input;
+          } else {
+            yield input;
+          }
+        },
+
+        function*(x) {
+          yield x;
+        },
+
+        fakeResponse 
+          ? function*() {
+            yield* [fakeResponse]
+          }
+          : xmlReq(prompt, selectionSchema),
+
+        function*(x) {
+          yield x;
+        },
+
+        mapSelect(selectionSchema)
+      ];
+
+      const pipeline = [
+        xmllmGen(() => reqPipeline, {llmStream}),
+
+        async function*(output) {
+          if (!isComplexIterable(input)) {
+            if (isComplexIterable(output)) {
+              for await (const x of output) {
+                yield mapper ? mapper(input, x) : x;
+              }
+            } else {
+              yield mapper ? mapper(input, output) : output;
+            }
+            return;
+          }
+          for await (const x of input) {
+            if (isComplexIterable(output)) {
+              for await (const y of output) {
+                yield mapper ? mapper(x, y) : x;
+              }
+            } else {
+              yield mapper ? mapper(x, output) : output;
+            }
+          }
+        }
+      ];
+      for await (const item of xmllmGen(() => pipeline, {llmStream})) {
+        yield item;
+      }
+    };
+  }
+
+  function mapSelect(schema) {
+    return function* (chunk) {
+      xmlps.add([chunk].flat().join(''));
+      let selection = xmlps.mapSelect(schema);
+      if (selection && Object.keys(selection).length) {
+        yield selection;
+      }
+    }
+  }
+
+  function select(selector, mapperFn = x => x) {
+    return function* (chunk) {
+      xmlps.add([chunk].flat().join(''));
+
+      const selection = xmlps.dedupeSelect(selector);
+      if (selection?.length) {
+        yield* selection.map(mapperFn);
+      }
+    }
+  }
+}
+
+function isComplexIterable(obj) {
+  return obj != null && 
+    (
+      typeof obj[Symbol.iterator] === 'function' ||
+      typeof obj[Symbol.asyncIterator] === 'function'
+    ) &&
+      typeof obj !== 'string' &&
+      typeof obj !== 'number' &&
+      typeof obj !== 'boolean' &&
+      typeof obj !== 'symbol';
+}
+
+function xmllm(pipelineFn, options = {}) {
+  const g = xmllmGen(pipelineFn, options);
+  g.all = async function() {
+    const results = [];
+    for await (const item of this) {
+      results.push(item);
+    }
+    return results;
+  };
+  return g;
+}
+
+export default xmllm;
+
+
+// tests/ files:
+
+
+// File: ./tests/IncomingXMLParserSelectorEngine.dedupe.test.mjs
+import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+
+describe('IncomingXMLParserSelectorEngine Dedupe', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = new IncomingXMLParserSelectorEngine();
+  });
+
+  test('dedupeSelect should only return new elements as XML is parsed', () => {
+    engine.add('<root><item>1</item><item>2</item>');
+    
+    const firstResult = engine.dedupeSelect('item');
+    expect(firstResult).toHaveLength(2);
+    expect(firstResult.map(item => item.text)).toEqual(['1', '2']);
+    
+    engine.add('<item> 3');
+    engine.add(' </item>');
+    
+    const secondResult = engine.dedupeSelect('item');
+    expect(secondResult).toHaveLength(1);
+    expect(secondResult[0].text).toBe(' 3 ');
+    
+    engine.add('<item>4</item></root>');
+    
+    const thirdResult = engine.dedupeSelect('item');
+    expect(thirdResult).toHaveLength(1);
+    expect(thirdResult[0].text).toBe('4');
+    
+    const fourthResult = engine.dedupeSelect('item');
+    expect(fourthResult).toHaveLength(0);
+  });
+
+  test('dedupeSelect should maintain state across multiple XML chunks', () => {
+    engine.add('<root><item>First</item><item>Second</item>');
+    
+    const firstResult = engine.dedupeSelect('item');
+    expect(firstResult).toHaveLength(2);
+    expect(firstResult.map(item => item.text)).toEqual(['First', 'Second']);
+    
+    const secondResult = engine.dedupeSelect('item');
+    expect(secondResult).toHaveLength(0);
+    
+    engine.add('<item>Third</item><item>Fourth</item></root>');
+    
+    const thirdResult = engine.dedupeSelect('item');
+    expect(thirdResult).toHaveLength(2);
+    expect(thirdResult.map(item => item.text)).toEqual(['Third', 'Fourth']);
+    
+    const fourthResult = engine.dedupeSelect('item');
+    expect(fourthResult).toHaveLength(0);
+    
+    const allItems = engine.select('item');
+    expect(allItems).toHaveLength(4);
+    expect(allItems.map(item => item.text)).toEqual(['First', 'Second', 'Third', 'Fourth']);
+  });
+
+  test('dedupeSelect should handle streaming XML with partial and complete elements', () => {
+    engine.add('<root><item id="1">');
+    let result = engine.dedupeSelect('item');
+    expect(result).toHaveLength(0); // Item is not closed yet
+    
+    engine.add('First item</item><item id="2">Second ');
+    result = engine.dedupeSelect('item');
+    expect(result).toHaveLength(1); // Only the completed first item
+    expect(result[0].attr.id).toBe('1');
+    expect(result[0].text).toBe('First item');
+    
+    engine.add('item</item><item id="3">');
+    result = engine.dedupeSelect('item');
+    expect(result).toHaveLength(1); // Only the completed second item
+    expect(result[0].attr.id).toBe('2');
+    expect(result[0].text).toBe('Second item');
+    
+    engine.add('Third item</item></root>');
+    result = engine.dedupeSelect('item');
+    expect(result).toHaveLength(1); // Only the completed third item
+    expect(result[0].attr.id).toBe('3');
+    expect(result[0].text).toBe('Third item');
+    
+    result = engine.dedupeSelect('item');
+    expect(result).toHaveLength(0);
+    
+    result = engine.select('item');
+    expect(result).toHaveLength(3);
+  });
+
+  test('dedupeSelect should handle nested elements correctly', () => {
+    engine.add('<root><item nested="true"><item>Nested</item></item><item>Sibling</item></root>');
+    
+    const result = engine.dedupeSelect('item');
+    expect(result).toHaveLength(3);
+    expect(result.map(item => ({text: item.text.trim(), nested: item.attr.nested}))).toEqual([
+      {text: 'Nested', nested: 'true'},
+      {text: 'Nested', nested: undefined},
+      {text: 'Sibling', nested: undefined}
+    ]);
+    
+    const secondResult = engine.dedupeSelect('item');
+    expect(secondResult).toHaveLength(0);
+  });
+});
+
+// File: ./tests/IncomingXMLParserSelectorEngine.mapSelect.test.mjs
+import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+
+describe('IncomingXMLParserSelectorEngine mapSelect', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = new IncomingXMLParserSelectorEngine();
+  });
+
+  test('mapSelect should handle multiple items in arrays', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <root>
+        <baby_names>
+          <name>Luna</name>
+          <name>Zion</name>
+          <name>Nova</name>
+        </baby_names>
+        <activities>
+          <activity>Peekaboo</activity>
+          <activity>Singing</activity>
+        </activities>
+        <exercises>
+          <exercise>Tummy time</exercise>
+          <exercise>Leg bicycling</exercise>
+        </exercises>
+      </root>
+    `);
+
+    const result = engine.mapSelect({
+      'baby_names': { name: [String] },
+      activities: { activity: [String] },
+      exercises: { exercise: [String] }
+    });
+
+    expect(result).toEqual({
+      baby_names: {
+        name: [
+          'Luna',
+          'Zion',
+          'Nova'
+        ],
+      },
+      activities: {
+        activity: [
+          'Peekaboo',
+          'Singing'
+        ]
+      },
+      exercises: {
+        exercise: [
+          'Tummy time',
+          'Leg bicycling'
+        ]
+      }
+    });
+  });
+
+  test('non-existent element', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <thing>hhhh</think>
+    `);
+    expect(engine.mapSelect({
+      notExisting: String
+    })).toEqual({});
+  });
+
+  test('mapSelect should handle nested elements with multiple occurrences', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <thing><name>123</name></thing>
+      <thing><name>456</name><name>123</name></thing>
+    `);
+    
+    let result = engine.mapSelect([{
+      thing: {
+        name: [String]
+      }
+    }]);
+
+    expect(result).toEqual([
+      {
+        thing: {
+          name: ["123"]
+        }
+      },
+      {
+        thing: {
+          name: ["456", "123"]
+        }
+      }
+    ]);
+  });
+
+
+  test('mapSelect should handle simple structures', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <topic>blah</topic>
+      <topic>foo</topic>
+      <topic>123</topic>
+    `);
+
+    let result = engine.mapSelect([{
+      topic: String
+    }]);
+
+    expect(result).toEqual([
+      { topic: "blah" },
+      { topic: "foo" },
+      { topic: "123" }
+    ]);
+  });
+
+  test('mapSelect should handle simple structure #2', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <good>happy</good>
+      <good>elated</good>
+      <bad>sad</bad>
+    `);
+    let result = engine.mapSelect({
+      good: [String],
+      bad: [String]
+    });
+    expect(result).toEqual({
+      good: ["happy", "elated"],
+      bad: ["sad"]
+    });
+  });
+
+  test('mapSelect should handle attributes', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<foo blah="123" />');
+    
+    let result = engine.mapSelect({
+      foo: {
+        $blah: String
+      }
+    });
+
+    expect(result).toEqual({
+      foo: {
+        $blah: '123'
+      }
+    });
+  });
+
+  test('mapSelect should handle attributes and child elements', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<foo blah="123"><bar>456</bar></foo>');
+    
+    let result = engine.mapSelect({
+      foo: {
+        $blah: String,
+        bar: Number
+      }
+    });
+
+    expect(result).toEqual({
+      foo: {
+        $blah: '123',
+        bar: 456
+      }
+    });
+  });
+
+  test('mapSelect should handle a simple structure', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <book>
+        <title>The Great Gatsby</title>
+        <author>F. Scott Fitzgerald</author>
+        <reviews>
+          <review>it was good</review>
+          <review>it was alright</review>
+        </reviews>
+        <isbn><number>0000</number></isbn>
+        <isbn><number>1111</number></isbn>
+      </book>
+    `);
+
+    const result = engine.mapSelect({
+      book: {
+        title: title => title.toUpperCase(),
+        author: String,
+        reviews: {
+          review: [String]
+        },
+        isbn: [
+          {
+            number: n => 'ISBN: ' + n
+          }
+        ]
+      }
+    });
+
+    expect(result).toEqual({
+      book: {
+        title: 'THE GREAT GATSBY',
+        author: 'F. Scott Fitzgerald',
+        reviews: {
+          review: ['it was good', 'it was alright']
+        },
+        isbn: [
+          {
+            number: 'ISBN: 0000'
+          },
+          {
+            number: 'ISBN: 1111'
+          }
+        ]
+      }
+    });
+  });
+
+  test('mapSelect should handle nested structures', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <root>
+        <parent>
+          <child>
+            <grandchild>Hello</grandchild>
+            <grandchild>World</grandchild>
+          </child>
+          <child>
+            <grandchild>Foo</grandchild>
+            <grandchild>Bar</grandchild>
+          </child>
+        </parent>
+      </root>
+    `);
+    const result = engine.mapSelect({
+      root: {
+        parent: {
+          child: [
+            {
+              grandchild: [
+                text => text.toLowerCase()
+              ]
+            }
+          ]
+        }
+      }
+    });
+    expect(result).toEqual({
+      root: {
+        parent: {
+          child: [
+            {
+              grandchild: ['hello', 'world']
+            },
+            {
+              grandchild: ['foo', 'bar']
+            }
+          ]
+        }
+      }
+    });
+  });
+
+
+  test('mapSelect should handle attributes with $ prefix', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<item id="123" category="book">The Great Gatsby</item>');
+    
+    let result = engine.mapSelect({
+      item: {
+        $id: Number,
+        $category: String,
+        _: String
+      }
+    });
+
+    expect(result).toEqual({
+      item: {
+        $id: 123,
+        $category: 'book',
+        _: 'The Great Gatsby'
+      }
+    });
+  });
+
+  test('mapSelect should handle attributes and child elements together', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <product sku="ABC123">
+        <name lang="en">Laptop</name>
+        <price currency="USD">999.99</price>
+        <tags>
+          <tag>electronics</tag>
+          <tag>computer</tag>
+        </tags>
+      </product>
+    `);
+    
+    let result = engine.mapSelect({
+      product: {
+        $sku: String,
+        name: {
+          $lang: String,
+          _: String
+        },
+        price: {
+          $currency: String,
+          _: Number
+        },
+        tags: {
+          tag: [String]
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      product: {
+        $sku: 'ABC123',
+        name: {
+          $lang: 'en',
+          _: 'Laptop'
+        },
+        price: {
+          $currency: 'USD',
+          _: 999.99
+        },
+        tags: {
+          tag: ['electronics', 'computer']
+        }
+      }
+    });
+  });
+
+  test('mapSelect should handle multiple elements with attributes', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <library>
+        <book id="1" genre="fiction">
+          <title>1984</title>
+          <author>George Orwell</author>
+        </book>
+        <book id="2" genre="non-fiction">
+          <title>A Brief History of Time</title>
+          <author>Stephen Hawking</author>
+        </book>
+      </library>
+    `);
+    
+    let result = engine.mapSelect({
+      library: {
+        book: [{
+          $id: Number,
+          $genre: String,
+          title: String,
+          author: String
+        }]
+      }
+    });
+
+    expect(result).toEqual({
+      library: {
+        book: [
+          {
+            $id: 1,
+            $genre: 'fiction',
+            title: '1984',
+            author: 'George Orwell'
+          },
+          {
+            $id: 2,
+            $genre: 'non-fiction',
+            title: 'A Brief History of Time',
+            author: 'Stephen Hawking'
+          }
+        ]
+      }
+    });
+  });
+
+  test('mapSelect should handle both simple text and detailed content with attributes', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <root>
+        <simple>Just text</simple>
+        <complex attr="value">Text and attribute</complex>
+      </root>
+    `);
+    
+    let result = engine.mapSelect({
+      root: {
+        simple: String,
+        complex: {
+          _: String,
+          $attr: String
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      root: {
+        simple: "Just text",
+        complex: {
+          _: "Text and attribute",
+          $attr: "value"
+        }
+      }
+    });
+  });
+
+  test('makeMapSelectXMLScaffold should generate correct XML scaffold for simple schema with attributes and text', () => {
+    const schema = {
+      person: {
+        $id: Number,
+        name: String,
+        age: Number,
+        address: {
+          $type: String,
+          _: String
+        }
+      }
+    };
+
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    console.log("Generated scaffold:\n", result);  // Add this line to see the actual output
+
+    const expectedXML = `
+  <person id="...">
+    <name>...text content...</name>
+    <age>...text content...</age>
+    <address type="...">
+      ...text content...
+    </address>
+  </person>
+    `.trim().replace(/\s+/g, '');
+
+    expect(result.replace(/\s+/g, '')).toBe(expectedXML);
+  });
+
+  test('makeMapSelectXMLScaffold should generate correct XML scaffold for super simple schema', () => {
+
+    expect(
+      IncomingXMLParserSelectorEngine
+        .makeMapSelectXMLScaffold({
+          topic: String
+        })
+        .replace(/\s+/g, '')
+    ).toBe('<topic>...textcontent...</topic>');
+
+  });
+
+  test('makeMapSelectXMLScaffold should generate correct XML scaffold for simple schema', () => {
+    const schema = {
+      book: {
+        title: title => title.toUpperCase(),
+        author: String,
+        reviews: {
+          review: [String]
+        },
+        isbn: [
+          {
+            number: n => 'ISBN: ' + n
+          }
+        ]
+      }
+    };
+
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    console.log("Generated scaffold:\n", result);  // Keep this for debugging
+
+    const expectedXML = `
+  <book>
+    <title>...text content...</title>
+    <author>...text content...</author>
+    <reviews>
+      <review>...text content...</review>
+      <review>...text content...</review>
+      /*etc.*/
+    </reviews>
+    <isbn>
+      <number>...text content...</number>
+    </isbn>
+    <isbn>
+      <number>...text content...</number>
+    </isbn>
+    /*etc.*/
+  </book>
+    `.trim().replace(/\s+/g, '');
+
+    expect(result.replace(/\s+/g, '')).toBe(expectedXML);
+  });
+
+  test('makeMapSelectXMLScaffold should generate correct XML scaffold for complex schema', () => {
+    const schema = {
+      book: {
+        $id: Number,
+        title: {
+          _: String,
+          $lang: String
+        },
+        author: String,
+        reviews: {
+          review: [{
+            _: String,
+            $rating: Number
+          }]
+        },
+        isbn: [
+          {
+            $type: String,
+            _: n => 'ISBN: ' + n
+          }
+        ]
+      }
+    };
+
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    console.log("Generated scaffold:\n", result);
+
+    const expectedXML = `
+  <book id="...">
+    <title lang="...">
+      ...text content...
+    </title>
+    <author>...text content...</author>
+    <reviews>
+      <review rating="...">
+        ...text content...
+      </review>
+      <review rating="...">
+        ...text content...
+      </review>
+      /*etc.*/
+    </reviews>
+    <isbn type="...">
+      ...text content...
+    </isbn>
+    <isbn type="...">
+      ...text content...
+    </isbn>
+    /*etc.*/
+  </book>
+    `.trim().replace(/\s+/g, '');
+
+    expect(result.replace(/\s+/g, '')).toBe(expectedXML);
+  });
+});
+
+// File: ./tests/IncomingXMLParserSelectorEngine.test.mjs
+import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+
+describe('IncomingXMLParserSelectorEngine', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = new IncomingXMLParserSelectorEngine();
+  });
+
+  test('should parse XML chunks and select elements', () => {
+    engine.add('<root>');
+    console.log('After adding root:');
+    console.log(engine.select('root'));
+
+    engine.add('<item>Item 1</item>');
+    console.log('After adding first item:');
+    console.log(engine.select('item'));
+
+    engine.add('<item>Item 2</item>');
+    console.log('After adding second item:');
+    console.log(engine.select('item'));
+
+    engine.add('</root>');
+    console.log('After closing root:');
+    console.log(engine.select('root'));
+  });
+
+  test('should handle angle brackets within element content', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+
+    engine.add('<complex><![CDATA[<not>parsed</not>]]></complex>');
+    engine.add('<math>2 < 3 && 5 > 4</math>');
+
+    const complexResult = engine.select('complex');
+    expect(complexResult).toHaveLength(1);
+    expect(complexResult[0]).toMatchObject({
+      attr: {},
+      text: '<not>parsed</not>'
+    });
+
+    const mathResult = engine.select('math');
+    expect(mathResult).toHaveLength(1);
+    expect(mathResult[0]).toMatchObject({
+      attr: {},
+      text: '2 < 3 && 5 > 4'
+    });
+  });
+
+  test('should parse XML chunks and select elements', () => {
+    engine.add('<root>');
+    expect(engine.select('root')).toEqual([]);
+    
+    engine.add('<item>Item 1</item>');
+    expect(engine.select('item')).toEqual([
+      {
+        key: 1,
+        attr: {},
+        text: 'Item 1'
+      }
+    ]);
+    
+    engine.add('<item>Item 2</item>');
+    expect(engine.select('item')).toEqual([
+      {
+        key: 1,
+        attr: {},
+        text: 'Item 1'
+      },
+      {
+        key: 2,
+        attr: {},
+        text: 'Item 2'
+      }
+    ]);
+    
+    engine.add('</root>');
+    expect(engine.select('root')).toEqual([
+      {
+        key: 0,
+        attr: {},
+        text: 'Item 1Item 2',
+        item: [
+          {
+            key: 1,
+            attr: {},
+            text: 'Item 1'
+          },
+          {
+            key: 2,
+            attr: {},
+            text: 'Item 2'
+          }
+        ]
+      }
+    ]);
+  });
+
+  test('should handle nested elements and attributes', () => {
+    engine.add('<message type="greeting">');
+    engine.add('Hello, ');
+    engine.add('<name id="user1">John</name>');
+    engine.add('!</message>');
+    
+    expect(engine.select('message')).toEqual([
+      {
+        key: 0,
+        attr: { type: 'greeting' },
+        text: 'Hello, John!',
+        name: [
+          {
+            key: 1,
+            attr: { id: 'user1' },
+            text: 'John'
+          }
+        ]
+      }
+    ]);
+    
+    expect(engine.select('name')).toEqual([
+      {
+        key: 1,
+        attr: { id: 'user1' },
+        text: 'John'
+      }
+    ]);
+  });
+
+  test('should handle multiple chunks and incomplete tags', () => {
+    engine.add('<root><item> Item');
+    expect(engine.select('item')).toEqual([]);
+    
+    engine.add(' 1 </item><item>Item 2</it');
+    expect(engine.select('item')).toEqual([
+      {
+        key: 1,
+        attr: {},
+        text: ' Item 1 '
+      }
+    ]);
+    
+    engine.add('em></root>');
+    expect(engine.select('item')).toEqual([
+      {
+        key: 1,
+        attr: {},
+        text: ' Item 1 '
+      },
+      {
+        key: 2,
+        attr: {},
+        text: 'Item 2'
+      }
+    ]);
+  });
+
+  test('should handle empty elements', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root><empty></empty><self-closing />Text<empty-with-attr attr="value"></empty-with-attr></root>');
+    
+    const emptyResult = engine.select('empty');
+    expect(emptyResult).toHaveLength(1);
+    expect(emptyResult[0]).toMatchObject({
+      attr: {},
+      text: ''
+    });
+    expect(typeof emptyResult[0].key).toBe('number');
+
+    const selfClosingResult = engine.select('self-closing');
+    expect(selfClosingResult).toHaveLength(1);
+    expect(selfClosingResult[0]).toMatchObject({
+      attr: {},
+      text: ''
+    });
+    expect(typeof selfClosingResult[0].key).toBe('number');
+
+    const emptyWithAttrResult = engine.select('empty-with-attr');
+    expect(emptyWithAttrResult).toHaveLength(1);
+    expect(emptyWithAttrResult[0]).toMatchObject({
+      attr: { attr: 'value' },
+      text: ''
+    });
+    expect(typeof emptyWithAttrResult[0].key).toBe('number');
+
+    // Ensure keys are unique
+    const allKeys = [...emptyResult, ...selfClosingResult, ...emptyWithAttrResult].map(el => el.key);
+    expect(new Set(allKeys).size).toBe(allKeys.length);
+  });
+
+  test('should handle deeply nested elements', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root><level1><level2><level3>Deep</level3></level2></level1></root>');
+    
+    expect(engine.select('level3')).toEqual([
+      { key: 3, attr: {}, text: 'Deep' }
+    ]);
+    expect(engine.select('root level3')).toEqual([
+      { key: 3, attr: {}, text: 'Deep' }
+    ]);
+  });
+
+  test('should handle multiple elements with the same name', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root><item id="1">First</item><item id="2">Second</item><item id="3">Third</item></root>');
+    
+    expect(engine.select('item')).toEqual([
+      { key: 1, attr: { id: '1' }, text: 'First' },
+      { key: 2, attr: { id: '2' }, text: 'Second' },
+      { key: 3, attr: { id: '3' }, text: 'Third' }
+    ]);
+  });
+
+  test('should handle elements with mixed content', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root>Text <em>emphasized</em> and <strong>strong</strong>.</root>');
+    
+    expect(engine.select('root')).toEqual([
+      { 
+        key: 0, 
+        attr: {}, 
+        text: 'Text emphasized and strong.',
+        em: [{ key: 1, attr: {}, text: 'emphasized' }],
+        strong: [{ key: 2, attr: {}, text: 'strong' }]
+      }
+    ]);
+  });
+
+  test('should handle XML declaration and comments', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<?xml version="1.0" encoding="UTF-8"?>');
+    engine.add('<!-- This is a comment -->');
+    engine.add('<root><!-- Another comment -->Content</root>');
+    
+    expect(engine.select('root')).toEqual([
+      { key: 0, attr: {}, text: 'Content' }
+    ]);
+  });
+
+  test('should handle CDATA sections', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root><![CDATA[This is <not> parsed & preserved]]></root>');
+    
+    expect(engine.select('root')).toEqual([
+      { key: 0, attr: {}, text: 'This is <not> parsed & preserved' }
+    ]);
+  });
+
+  test('should handle special characters and entities', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root><item>&lt;Tag&gt;</item><item>AT&amp;T</item><item>&#x1F600;</item></root>');
+    
+    expect(engine.select('item')).toEqual([
+      { key: 1, attr: {}, text: '<Tag>' },
+      { key: 2, attr: {}, text: 'AT&T' },
+      { key: 3, attr: {}, text: '😀' }
+    ]);
+  });
+
+  test('should handle namespaces', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<root xmlns:ns="http://example.com"><ns:item>Namespaced</ns:item></root>');
+    
+    expect(engine.select('ns\\:item')).toEqual([
+      { key: 1, attr: {}, text: 'Namespaced' }
+    ]);
+  });
+
+  test('should handle realistic fragmented input and resolve selections as soon as possible', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+
+    // Simulate root element
+    engine.add('<root>');
+
+    engine.add('hello');
+    expect(engine.select('strong')).toEqual([]);
+
+    engine.add('these are arbitrary chunks which might break mid-');
+    expect(engine.select('strong')).toEqual([]);
+
+    engine.add('word or randomly<strong>');
+    expect(engine.select('strong')).toEqual([]);
+
+    engine.add('ok??</stro');
+    expect(engine.select('strong')).toEqual([]);
+
+    engine.add('ng>');
+    const strongResult = engine.select('strong');
+    expect(strongResult).toHaveLength(1);
+    expect(strongResult[0]).toMatchObject({
+      attr: {},
+      text: 'ok??'
+    });
+
+    engine.add('<data><x>hi</x>Boop!</da');
+    
+    const xResult = engine.select('data > x');
+    expect(xResult).toHaveLength(1);
+    expect(xResult[0]).toMatchObject({
+      attr: {},
+      text: 'hi'
+    });
+
+    expect(engine.select('data')).toEqual([]);
+
+    engine.add('ta>');
+    const dataResult = engine.select('data');
+    expect(dataResult).toHaveLength(1);
+    expect(dataResult[0]).toMatchObject({
+      attr: {},
+      text: 'hiBoop!',
+      x: [{ attr: {}, text: 'hi' }]
+    });
+
+    // Close root element
+    engine.add('</root>');
+  });
+
+});
+
+// File: ./tests/integration-package/cjs.test.mjs
+import { jest } from '@jest/globals';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+
+describe('CommonJS Imports', () => {
+  let xmllm, xmllmClient, xmllmProxy;
+
+  beforeAll(() => {
+    xmllm = require('xmllm');
+    xmllmClient = require('xmllm/client');
+    xmllmProxy = require('xmllm/proxy');
+  });
+
+  test('Main module can be required', () => {
+    expect(typeof xmllm).toBe('object');
+    expect(typeof xmllm.default).toBe('function');
+  });
+
+  test('Client module can be required', () => {
+    expect(typeof xmllmClient).toBe('object');
+    expect(typeof xmllmClient.default.xmllm).toBe('function');
+  });
+
+  test('Proxy module can be required', () => {
+    expect(typeof xmllmProxy).toBe('object');
+    expect(typeof xmllmProxy.default).toBe('function');
+  });
+
+  // Add a basic functionality test
+  test('xmllm function works', async () => {
+    const result = await xmllm.default(({ select }) => [
+      function* () {
+        yield '<root><item>Test</item></root>';
+      },
+      select('item')
+    ]);
+    
+    expect((await result.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+  });
+});
+
+// File: ./tests/integration-package/esm.test.mjs
+import { jest } from '@jest/globals';
+import xmllm from 'xmllm';
+import * as xmllmClient from 'xmllm/client';
+import xmllmProxy from 'xmllm/proxy';
+
+describe('ESM Imports', () => {
+  test('Main module can be imported', () => {
+    expect(typeof xmllm).toBe('function');
+  });
+
+  test('Client module can be imported', () => {
+    expect(typeof xmllmClient).toBe('object');
+    expect(typeof xmllmClient.default.xmllm).toBe('function');
+  });
+
+  test('Proxy module can be imported', () => {
+    expect(typeof xmllmProxy).toBe('function');
+  });
+
+  // Add a basic functionality test
+  test('xmllm function works', async () => {
+    const result = await xmllm(({ select }) => [
+      function* () {
+        yield '<root><item>Test</item></root>';
+      },
+      select('item')
+    ]);
+    
+    expect((await result.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+  });
+});
+
+// File: ./tests/integration-package/node_modules/.package-lock.json
+{
+  "name": "xmllm-integration-tests",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "../..": {
+      "version": "0.0.2",
+      "dependencies": {
+        "buffer": "^6.0.3",
+        "cors": "^2.8.5",
+        "crypto-browserify": "^3.12.0",
+        "css-select": "^5.1.0",
+        "dotenv": "^16.4.5",
+        "eventsource-parser": "^2.0.1",
+        "express": "^4.19.2",
+        "htmlparser2": "^9.1.0",
+        "jest": "^29.7.0",
+        "lru-cache": "^11.0.0",
+        "p-queue": "^8.0.1",
+        "path-browserify": "^1.0.1",
+        "querystring-es3": "^0.2.1",
+        "stream-browserify": "^3.0.0",
+        "stream-http": "^3.2.0",
+        "streamops": "^0.1.11",
+        "url": "^0.11.4",
+        "util": "^0.12.5",
+        "vm-browserify": "^1.1.2"
+      },
+      "devDependencies": {
+        "@babel/cli": "^7.25.6",
+        "@babel/core": "^7.25.2",
+        "@babel/preset-env": "^7.25.4",
+        "babel-jest": "^29.7.0",
+        "babel-loader": "^9.1.3",
+        "babel-plugin-add-import-extension": "^1.6.0",
+        "babel-plugin-transform-import-extension": "^1.0.3",
+        "cross-env": "^7.0.3",
+        "webpack": "^5.94.0",
+        "webpack-cli": "^5.1.4"
+      }
+    },
+    "node_modules/xmllm": {
+      "resolved": "../..",
+      "link": true
+    }
+  }
+}
+
+
+// File: ./tests/integration-package/package.json
+{
+  "name": "xmllm-integration-tests",
+  "version": "1.0.0",
+  "dependencies": {
+    "xmllm": "file:../.."
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.m?js$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(streamops|other-esm-modules)/)"
+    ],
+    "testRegex": "tests/.*\\.mjs$",
+    "moduleFileExtensions": ["js", "mjs"]
+  }
+}
+
+// File: ./tests/integration-package/readme.md
+Tests that the dependency (xmllm) can be imported in ESM and CJS style
+by consumers
+
+// File: ./tests/xmllm.result_accrual.test.mjs
+import xmllm from '../src/xmllm';
+
+describe('xmllm - Gathering results from multiple prompts', () => {
+  it('should gather baby names, activities, and exercises from separate prompts', async () => {
+    const stream = await xmllm(({ filter, prompt, merge, reduce }) => [
+      [
+        prompt(
+          'Give me some fun baby names',
+          {
+            baby_names: { name: [String] }
+          },
+          null,
+          '<thinking><baby_names><name>Luna</name><name>Zion</name><name>Nova</name></baby_names></thinking>'
+        ),
+        prompt(
+          'Give me some fun baby activities and exercises',
+          {
+            activities: { activity: [String] },
+            exercises: { exercise: [String] }
+          },
+          null,
+          '<thinking><activities><activity>Peekaboo</activity><activity>Singing</activity></activities><exercises><exercise>Tummy time</exercise><exercise>Leg bicycling</exercise></exercises></thinking>'
+        )
+      ],
+
+      function*(thing99) {
+        console.log('thing99', thing99);
+        yield thing99;
+      },
+
+      reduce((acc, item) => {
+        console.log('>>', {acc, item})
+        return { ...acc, ...item };
+      }, {}),
+
+      filter(r => r.activities && r.exercises && r.baby_names),
+
+      function*(thing77) {
+        console.log('thing77', thing77);
+        yield thing77;
+      },
+
+      // function*(results) {
+      //   const [namesResult, activitiesExercisesResult] = results.flat();
+      //   console.log('Names result:', JSON.stringify(namesResult, null, 2));
+      //   console.log('Activities and exercises result:', JSON.stringify(activitiesExercisesResult, null, 2));
+        
+      //   const combinedResult = {
+      //     baby_names: namesResult.baby_names,
+      //     activities: activitiesExercisesResult.activities,
+      //     exercises: activitiesExercisesResult.exercises
+      //   };
+        
+      //   console.log('Combined result:', JSON.stringify(combinedResult, null, 2));
+      //   yield combinedResult;
+      // }
+    ]);
+
+    const results = [];
+    for await (const r of stream) {
+      results.push(r);
+    }
+
+    console.log('Final results:', JSON.stringify(results, null, 2));
+
+    // expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      baby_names: {
+        name: ['Luna', 'Zion', 'Nova']
+      },
+      activities: {
+        activity: ['Peekaboo', 'Singing']
+      },
+      exercises: {
+        exercise: ['Tummy time', 'Leg bicycling']
+      }
+    });
+  });
+});
+
+// File: ./tests/xmllm.test.mjs
+import _xmllm from '../src/xmllm-main.mjs';
+import { jest } from '@jest/globals';
+
+const TestStream = (() => {
+  const mockFn = jest.fn();
+  mockFn
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<thinking>'), done: false })
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<item><name>Test Result</name><value>42</value></item>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }))
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<thinking><subtopic><perspective>Test Result</perspective><title>Test Result</title></subtopic></thinking>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }))
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<thinking><explanation>Test Result</explanation></thinking>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }));
+  return mockFn;
+})();
+
+const xmllm = (pipeline, opts) => {
+  return _xmllm(pipeline, {
+    ...(opts || {}),
+    Stream: TestStream // Inject TestStream Service so no real reqs are made
+  })
+}
+
+describe('xmllm', () => {
+  describe('Simple pipeline', () => {
+    it('should process a single step pipeline', async () => {
+      const results = xmllm(({ select }) => [
+        function* () {
+          yield '<root><item>Test</item></root>';
+        },
+        select('item')
+      ]);
+      
+      expect((await results.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+    });
+  });
+
+  describe('xmllm.prompt', () => {
+    it('should process a prompt and apply selection schema', async () => {
+      const results = await xmllm(({ prompt }) => [
+        prompt(
+          'List an item',
+          {
+            item: {
+              name: String,
+              value: Number
+            }
+          }
+        ),
+        function*(thing) {
+          yield thing;
+        }
+      ]);
+
+      expect((await results.next()).value).toEqual({
+        item: {
+          name: 'Test Result',
+          value: 42 
+        }
+      });
+    });
+  });
+
+  describe('xmllm.mapSelect', () => {
+    it('should select and map XML content', async () => {
+      const results = await xmllm(({ mapSelect }) => [
+        function* () {
+          yield '<root><item><name>Item 1</name><value>10</value></item><item><name>Item 2</name><value>20</value></item></root>';
+        },
+        mapSelect({
+          item: [{
+            name: String,
+            value: Number
+          }]
+        })
+      ]);
+
+      expect((await results.next()).value).toEqual({
+        item: [
+          { name: 'Item 1', value: 10 },
+          { name: 'Item 2', value: 20 }
+        ]
+      });
+    });
+  });
+
+  describe('Complex pipeline', () => {
+    it('should process a multi-step pipeline', async () => {
+      const stream = await xmllm(({ prompt }) => [
+        function* () {
+          yield "Artificial Intelligence";
+        },
+        prompt(
+          topic => `Provide a subtopic for "${topic}" from a scientific perspective.`,
+          {
+            subtopic: [{
+              perspective: String,
+              title: String
+            }]
+          }
+        ),
+        prompt(
+          (thing) => {
+            const {subtopic: [{perspective, title}]} = thing;
+            return `Give a brief explanation of "${title}" from a ${perspective} perspective.`;
+          },
+          {
+            explanation: String
+          },
+          function({subtopic}, {explanation}) {
+            return {
+              subtopic, explanation
+            }
+          }
+        )
+      ]);
+
+      const results = [];
+      for await (const r of stream) results.push(r);
+
+      expect(results[0].subtopic).toBeDefined();
+      expect(results[0].subtopic[0].perspective).toBe('Test Result');
+      expect(results[0].subtopic[0].title).toBe('Test Result');
+      expect(results[0].explanation).toBe('Test Result');
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should handle empty input', async () => {
+      const results = await xmllm(({ select }) => [
+        function* () {
+          yield '';
+        },
+        select('item')
+      ]);
+
+      expect((await results.next()).value).toEqual(undefined);
+    });
+
+    it('should handle malformed XML', async () => {
+      const results = await xmllm(({ select }) => [
+        function* () {
+          yield '<root><item>Test</item><unclosed>';
+        },
+        select('item')
+      ]);
+
+      expect((await results.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+    });
+  });
+});

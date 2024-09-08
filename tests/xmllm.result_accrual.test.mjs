@@ -1,4 +1,4 @@
-const xmllm = require('../src/xmllm.js');
+import xmllm from '../src/xmllm';
 
 describe('xmllm - Gathering results from multiple prompts', () => {
   it('should gather baby names, activities, and exercises from separate prompts', async () => {

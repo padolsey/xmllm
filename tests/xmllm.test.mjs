@@ -1,7 +1,7 @@
-const xmllm = require('../src/xmllm.js');
+import _xmllm from '../src/xmllm-main.mjs';
+import { jest } from '@jest/globals';
 
-// Mock the llmStream function
-jest.mock('../src/Stream.js', () => {
+const TestStream = (() => {
   const mockFn = jest.fn();
   mockFn
     .mockImplementationOnce(() => ({
@@ -30,7 +30,14 @@ jest.mock('../src/Stream.js', () => {
       })
     }));
   return mockFn;
-});
+})();
+
+const xmllm = (pipeline, opts) => {
+  return _xmllm(pipeline, {
+    ...(opts || {}),
+    Stream: TestStream // Inject TestStream Service so no real reqs are made
+  })
+}
 
 describe('xmllm', () => {
   describe('Simple pipeline', () => {
@@ -59,7 +66,6 @@ describe('xmllm', () => {
           }
         ),
         function*(thing) {
-          console.log(888, thing);
           yield thing;
         }
       ]);

@@ -1,8 +1,8 @@
-const {Parser} = require('htmlparser2');
-const { selectOne, selectAll } = require('css-select');
+import { Parser } from 'htmlparser2';
+import { selectOne, selectAll } from 'css-select';
 
 class Node {
-  constructor(o) {
+  constructor(name, o) {
     Object.assign(this, o);
   }
 }
@@ -62,10 +62,10 @@ class IncomingXMLParserSelectorEngine {
         return text + child.data;
       } else if (child.type === 'tag') {
         const childText = child.textContent || '';
-        return text + (childText.trim() ? childText : ' ');
+        return text + (childText ? childText : ' ');
       }
       return text;
-    }, '').trim();
+    }, '');
 
     if (element.parent) {
       this.updateTextContent(element.parent);
@@ -89,7 +89,7 @@ class IncomingXMLParserSelectorEngine {
       ancestry: ancestry.join('/'),
       name: element.name,
       attributes: element.attributes,
-      textContent: element.textContent.trim() || '',
+      textContent: element.textContent || '',
       hasChildren: element.children.some(child => child.type === 'tag'),
       closed: element.closed
     };
@@ -125,17 +125,22 @@ class IncomingXMLParserSelectorEngine {
   }
 
   formatElement(element) {
-    const formatted = new Node({
+    const formatted = new Node(element.name, {
       key: element.key,
       attr: { ...element.attributes },
       text: element.textContent,
+      // name: element.name
     });
     
     element.children.forEach(child => {
       if (child.type === 'tag') {
+        // console.log('formatted[child.name]', formatted[child.name]);
         if (!formatted[child.name]) {
           formatted[child.name] = [];
         }
+        // if (typeof formatted[child.name] == 'string') {
+        //   formatted[child.name] = [formatted[child.name]];
+        // }
         formatted[child.name].push(this.formatElement(child));
       }
     });
@@ -283,4 +288,4 @@ class IncomingXMLParserSelectorEngine {
   }
 }
 
-module.exports = IncomingXMLParserSelectorEngine;
+export default IncomingXMLParserSelectorEngine;
