@@ -84,9 +84,22 @@ function _xmllmGen() {
                 }, _callee9);
               });
             };
-            prompt = function _prompt(prompt, selectionSchema, mapper, fakeResponse) {
-              if (!selectionSchema) {
-                return xmlReq(prompt);
+            prompt = function _prompt(prompt, schema, mapper, fakeResponse) {
+              var config = {
+                prompt: prompt,
+                schema: schema,
+                mapper: mapper,
+                fakeResponse: fakeResponse
+              };
+              if (typeof prompt != 'string' && (prompt === null || prompt === void 0 ? void 0 : prompt.prompt) != null) {
+                // Config object
+                config = prompt;
+              }
+              if (!config.schema) {
+                return xmlReq({
+                  system: config.system,
+                  prompt: config.prompt
+                });
               }
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(input) {
@@ -94,6 +107,7 @@ function _xmllmGen() {
                   return _regeneratorRuntime().wrap(function _callee8$(_context8) {
                     while (1) switch (_context8.prev = _context8.next) {
                       case 0:
+                        console.log('398182');
                         reqPipeline = [/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
                           return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                             while (1) switch (_context3.prev = _context3.next) {
@@ -134,17 +148,21 @@ function _xmllmGen() {
                                 return _context4.stop();
                             }
                           }, _callee4);
-                        }), fakeResponse ? /*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
+                        }), config.fakeResponse ? /*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
                           return _regeneratorRuntime().wrap(function _callee5$(_context5) {
                             while (1) switch (_context5.prev = _context5.next) {
                               case 0:
-                                return _context5.delegateYield([fakeResponse], "t0", 1);
+                                return _context5.delegateYield([config.fakeResponse], "t0", 1);
                               case 1:
                               case "end":
                                 return _context5.stop();
                             }
                           }, _callee5);
-                        }) : xmlReq(prompt, selectionSchema), /*#__PURE__*/_regeneratorRuntime().mark(function _callee6(x) {
+                        }) : xmlReq({
+                          system: config.system,
+                          prompt: config.prompt,
+                          schema: config.schema
+                        }), /*#__PURE__*/_regeneratorRuntime().mark(function _callee6(x) {
                           return _regeneratorRuntime().wrap(function _callee6$(_context6) {
                             while (1) switch (_context6.prev = _context6.next) {
                               case 0:
@@ -155,7 +173,7 @@ function _xmllmGen() {
                                 return _context6.stop();
                             }
                           }, _callee6);
-                        }), mapSelect(selectionSchema)];
+                        }), mapSelect(config.schema)];
                         pipeline = [xmllmGen(function () {
                           return reqPipeline;
                         }, {
@@ -188,7 +206,7 @@ function _xmllmGen() {
                                   }
                                   x = _step3.value;
                                   _context7.next = 12;
-                                  return mapper ? mapper(input, x) : x;
+                                  return config.mapper ? config.mapper(input, x) : x;
                                 case 12:
                                   _iteratorAbruptCompletion3 = false;
                                   _context7.next = 6;
@@ -226,7 +244,7 @@ function _xmllmGen() {
                                   break;
                                 case 33:
                                   _context7.next = 35;
-                                  return mapper ? mapper(input, output) : output;
+                                  return config.mapper ? config.mapper(input, output) : output;
                                 case 35:
                                   return _context7.abrupt("return");
                                 case 36:
@@ -261,7 +279,7 @@ function _xmllmGen() {
                                   }
                                   y = _step5.value;
                                   _context7.next = 55;
-                                  return mapper ? mapper(_x6, y) : _x6;
+                                  return config.mapper ? config.mapper(_x6, y) : _x6;
                                 case 55:
                                   _iteratorAbruptCompletion5 = false;
                                   _context7.next = 49;
@@ -299,7 +317,7 @@ function _xmllmGen() {
                                   break;
                                 case 76:
                                   _context7.next = 78;
-                                  return mapper ? mapper(_x6, output) : output;
+                                  return config.mapper ? config.mapper(_x6, output) : output;
                                 case 78:
                                   _iteratorAbruptCompletion4 = false;
                                   _context7.next = 40;
@@ -344,67 +362,70 @@ function _xmllmGen() {
                         }())];
                         _iteratorAbruptCompletion2 = false;
                         _didIteratorError2 = false;
-                        _context8.prev = 4;
+                        _context8.prev = 5;
                         _iterator2 = _asyncIterator(xmllmGen(function () {
                           return pipeline;
                         }, {
                           llmStream: llmStream
                         }));
-                      case 6:
-                        _context8.next = 8;
+                      case 7:
+                        _context8.next = 9;
                         return _awaitAsyncGenerator(_iterator2.next());
-                      case 8:
+                      case 9:
                         if (!(_iteratorAbruptCompletion2 = !(_step2 = _context8.sent).done)) {
-                          _context8.next = 15;
+                          _context8.next = 16;
                           break;
                         }
                         item = _step2.value;
-                        _context8.next = 12;
+                        _context8.next = 13;
                         return item;
-                      case 12:
+                      case 13:
                         _iteratorAbruptCompletion2 = false;
-                        _context8.next = 6;
+                        _context8.next = 7;
                         break;
-                      case 15:
-                        _context8.next = 21;
+                      case 16:
+                        _context8.next = 22;
                         break;
-                      case 17:
-                        _context8.prev = 17;
-                        _context8.t0 = _context8["catch"](4);
+                      case 18:
+                        _context8.prev = 18;
+                        _context8.t0 = _context8["catch"](5);
                         _didIteratorError2 = true;
                         _iteratorError2 = _context8.t0;
-                      case 21:
-                        _context8.prev = 21;
+                      case 22:
                         _context8.prev = 22;
+                        _context8.prev = 23;
                         if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
-                          _context8.next = 26;
+                          _context8.next = 27;
                           break;
                         }
-                        _context8.next = 26;
+                        _context8.next = 27;
                         return _awaitAsyncGenerator(_iterator2["return"]());
-                      case 26:
-                        _context8.prev = 26;
+                      case 27:
+                        _context8.prev = 27;
                         if (!_didIteratorError2) {
-                          _context8.next = 29;
+                          _context8.next = 30;
                           break;
                         }
                         throw _iteratorError2;
-                      case 29:
-                        return _context8.finish(26);
                       case 30:
-                        return _context8.finish(21);
+                        return _context8.finish(27);
                       case 31:
+                        return _context8.finish(22);
+                      case 32:
                       case "end":
                         return _context8.stop();
                     }
-                  }, _callee8, null, [[4, 17, 21, 31], [22,, 26, 30]]);
+                  }, _callee8, null, [[5, 18, 22, 32], [23,, 27, 31]]);
                 }));
                 return function (_x4) {
                   return _ref3.apply(this, arguments);
                 };
               }();
             };
-            xmlReq = function _xmlReq(prompt, mapSelectionSchema) {
+            xmlReq = function _xmlReq(_ref6) {
+              var prompt = _ref6.prompt,
+                schema = _ref6.schema,
+                system = _ref6.system;
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
                   var transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, text;
@@ -412,14 +433,14 @@ function _xmllmGen() {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
                         transformedPrompt = prompt;
-                        mapSelectionSchemaScaffold = mapSelectionSchema && _IncomingXMLParserSelectorEngine["default"].makeMapSelectXMLScaffold(mapSelectionSchema);
+                        mapSelectionSchemaScaffold = schema && _IncomingXMLParserSelectorEngine["default"].makeMapSelectXMLScaffold(schema);
                         if (typeof transformedPrompt == 'function') {
                           transformedPrompt = transformedPrompt(thing);
                         }
                         if (mapSelectionSchemaScaffold) {
                           transformedPrompt += "\n    The data you return should be approximately like this:\n    ```\n    ".concat(mapSelectionSchemaScaffold, "\n    ```\n        ");
                         }
-                        systemPrompt = "\n    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.\n\n    You can output multiple results if you like.\n\n    E.g. if asked for several names, you could just return:\n    <name>sarah</name> <name>james</name>\n    etc.\n\n    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>\n\n    All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.\n      ";
+                        systemPrompt = "\n    META & OUTPUT STRUCTURE RULES:\n    ===\n\n    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.\n\n    You can output multiple results if you like.\n\n    E.g. if asked for several names, you could just return:\n    <name>sarah</name> <name>james</name>\n    etc.\n\n    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>\n\n    All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.\n      \n\n    HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:\n    (you must follow these religiously)\n    ===\n    ".concat(system || 'you are an ai assistant and respond to the request.');
                         if (transformedPrompt.trim()) {
                           _context2.next = 7;
                           break;
@@ -442,8 +463,8 @@ function _xmllmGen() {
                         }));
                       case 9:
                         stream = _context2.sent;
-                        reader = stream.getReader();
-                        accrued = '<thinking>';
+                        reader = stream.getReader(); // let accrued = '<thinking>';
+                        accrued = '';
                         cancelled = false;
                         _context2.next = 15;
                         return accrued;
@@ -451,7 +472,7 @@ function _xmllmGen() {
                         _context2.prev = 15;
                       case 16:
                         if (!true) {
-                          _context2.next = 30;
+                          _context2.next = 31;
                           break;
                         }
                         _context2.next = 19;
@@ -464,31 +485,32 @@ function _xmllmGen() {
                           _context2.next = 24;
                           break;
                         }
-                        return _context2.abrupt("break", 30);
+                        return _context2.abrupt("break", 31);
                       case 24:
                         text = new TextDecoder().decode(value);
                         accrued += text;
-                        _context2.next = 28;
+                        console.log('text>>', text);
+                        _context2.next = 29;
                         return text;
-                      case 28:
+                      case 29:
                         _context2.next = 16;
                         break;
-                      case 30:
-                        _context2.next = 35;
+                      case 31:
+                        _context2.next = 36;
                         break;
-                      case 32:
-                        _context2.prev = 32;
+                      case 33:
+                        _context2.prev = 33;
                         _context2.t0 = _context2["catch"](15);
                         logger.error("Error reading stream:", _context2.t0);
-                      case 35:
-                        _context2.prev = 35;
+                      case 36:
+                        _context2.prev = 36;
                         reader.releaseLock();
-                        return _context2.finish(35);
-                      case 38:
+                        return _context2.finish(36);
+                      case 39:
                       case "end":
                         return _context2.stop();
                     }
-                  }, _callee2, null, [[15, 32, 35, 38]]);
+                  }, _callee2, null, [[15, 33, 36, 39]]);
                 }));
                 return function (_x3) {
                   return _ref2.apply(this, arguments);

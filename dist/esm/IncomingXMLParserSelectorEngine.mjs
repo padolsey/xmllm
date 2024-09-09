@@ -65,15 +65,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   return _createClass(IncomingXMLParserSelectorEngine, [{
     key: "updateTextContent",
     value: function updateTextContent(element) {
-      element.textContent = element.children.reduce(function (text, child) {
-        if (child.type === 'text') {
-          return text + child.data;
-        } else if (child.type === 'tag') {
-          var childText = child.textContent || '';
-          return text + (childText ? childText : ' ');
-        }
-        return text;
-      }, '');
+      element.textContent = this.getTextContent(element);
       if (element.parent) {
         this.updateTextContent(element.parent);
       }
@@ -87,6 +79,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "getElementSignature",
     value: function getElementSignature(element) {
+      var forDeduping = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       var ancestry = [];
       var current = element;
       while (current.parent) {
@@ -96,14 +89,26 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var signature = {
         ancestry: ancestry.join('/'),
         name: element.name,
-        attributes: element.attributes,
-        textContent: element.textContent || '',
-        hasChildren: element.children.some(function (child) {
-          return child.type === 'tag';
-        }),
+        key: element.key,
         closed: element.closed
       };
+      if (!forDeduping) {
+        signature.textContent = this.getTextContent(element);
+      }
       return JSON.stringify(signature);
+    }
+  }, {
+    key: "getTextContent",
+    value: function getTextContent(element) {
+      var _this2 = this;
+      return (element.children || []).reduce(function (text, child) {
+        if (child.type === 'text') {
+          return text + child.data;
+        } else if (child.type === 'tag') {
+          return text + _this2.getTextContent(child);
+        }
+        return text;
+      }, '');
     }
   }, {
     key: "select",
@@ -116,32 +121,43 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "dedupeSelect",
     value: function dedupeSelect(selector) {
-      var _this2 = this;
+      var _this3 = this;
+      var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       if (!this.returnedElementSignatures.has(selector)) {
-        this.returnedElementSignatures.set(selector, new Set());
+        this.returnedElementSignatures.set(selector, new Map());
       }
       var results = selectAll(selector, this.parsedData).filter(function (el) {
-        return el.closed;
+        return includeOpenTags || el.closed;
       });
       var newResults = results.filter(function (result) {
-        var signature = _this2.getElementSignature(result);
-        if (_this2.returnedElementSignatures.get(selector).has(signature)) {
-          return false;
+        var dedupeSignature = _this3.getElementSignature(result, true);
+        var fullSignature = _this3.getElementSignature(result, false);
+        var existingSignature = _this3.returnedElementSignatures.get(selector).get(dedupeSignature);
+        if (!existingSignature) {
+          _this3.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
+          return true;
         }
-        _this2.returnedElementSignatures.get(selector).add(signature);
-        return true;
+        if (!result.closed && existingSignature !== fullSignature) {
+          _this3.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
+          return true;
+        }
+        return false;
       });
-      return this.formatResults(newResults);
+      return this.formatResults(newResults, includeOpenTags);
     }
   }, {
     key: "formatResults",
     value: function formatResults(results) {
-      return results.map(this.formatElement.bind(this));
+      var _this4 = this;
+      var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+      return results.map(function (r) {
+        return _this4.formatElement(r, includeOpenTags);
+      });
     }
   }, {
-    key: "formatElement",
-    value: function formatElement(element) {
-      var _this3 = this;
+    key: "formatEle3ment",
+    value: function formatEle3ment(element) {
+      var _this5 = this;
       var formatted = new Node(element.name, {
         key: element.key,
         attr: _objectSpread({}, element.attributes),
@@ -150,22 +166,54 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       });
       element.children.forEach(function (child) {
         if (child.type === 'tag') {
-          // console.log('formatted[child.name]', formatted[child.name]);
           if (!formatted[child.name]) {
             formatted[child.name] = [];
           }
-          // if (typeof formatted[child.name] == 'string') {
-          //   formatted[child.name] = [formatted[child.name]];
-          // }
-          formatted[child.name].push(_this3.formatElement(child));
+          formatted[child.name].push(_this5.formatElement(child));
         }
       });
       return formatted;
     }
   }, {
+    key: "formatElement",
+    value: function formatElement(element) {
+      var _element$children,
+        _this6 = this;
+      var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+      // If includeOpenTags is true, we will use getTextContent as that is the 
+      // only way to get iterative text if 'closed' is false
+      // (relevant to streaming)
+      var _getTextContent = function getTextContent(el) {
+        return (el.children || []).reduce(function (text, child) {
+          if (child.type === 'text') {
+            return text + child.data;
+          } else if (child.type === 'tag') {
+            return text + _getTextContent(child);
+          }
+          return text;
+        }, '');
+      };
+      var formatted = new Node(element.name, {
+        key: element.key,
+        attr: _objectSpread({}, element.attributes),
+        text: includeOpenTags ? element.closed ? element.textContent : this.getTextContent(element) : element.textContent
+      });
+      if ((_element$children = element.children) !== null && _element$children !== void 0 && _element$children.length) {
+        element.children.forEach(function (child) {
+          if (child.type === 'tag') {
+            if (!formatted[child.name]) {
+              formatted[child.name] = [];
+            }
+            formatted[child.name].push(_this6.formatElement(child));
+          }
+        });
+      }
+      return formatted;
+    }
+  }, {
     key: "mapSelect",
     value: function mapSelect(mapping) {
-      var _this4 = this;
+      var _this7 = this;
       var _applyMapping = function applyMapping(element, map) {
         if (Array.isArray(map)) {
           if (map.length !== 1) {
@@ -205,14 +253,14 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var isArrayMapping = Array.isArray(mapping);
       if (isArrayMapping) {
         var rootSelector = Object.keys(mapping[0])[0];
-        return this.dedupeSelect(rootSelector).map(function (element) {
+        return this.dedupeSelect(rootSelector, true).map(function (element) {
           return _defineProperty({}, rootSelector, _applyMapping(element, mapping[0][rootSelector]));
         });
       }
       var rootSelectors = Object.keys(mapping);
       var results = {};
       rootSelectors.forEach(function (selector) {
-        var elements = _this4.dedupeSelect(selector);
+        var elements = _this7.dedupeSelect(selector, true);
         if (!(elements !== null && elements !== void 0 && elements.length)) {
           return;
         }

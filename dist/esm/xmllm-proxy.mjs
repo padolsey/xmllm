@@ -18,12 +18,12 @@ function createServer() {
   console.log('Starting Proxy Server with config', config, 'Port:', port);
   app.post('/api/stream', /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(req, res) {
-      var _req$body, messages, _req$body$model, model, stream, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, chunk, content;
+      var _req$body, messages, _req$body$model, model, max_tokens, stream, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, chunk, content;
       return _regeneratorRuntime().wrap(function _callee$(_context) {
         while (1) switch (_context.prev = _context.next) {
           case 0:
             _context.prev = 0;
-            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? 'fast' : _req$body$model;
+            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? 'good' : _req$body$model, max_tokens = _req$body.max_tokens;
             if (!(!messages || !Array.isArray(messages))) {
               _context.next = 4;
               break;
@@ -40,6 +40,7 @@ function createServer() {
             _context.next = 7;
             return Stream({
               messages: messages,
+              max_tokens: max_tokens,
               model: model,
               stream: true
             });

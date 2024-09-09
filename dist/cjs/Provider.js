@@ -436,7 +436,7 @@ var Provider = /*#__PURE__*/function () {
       }, customPayload), {}, {
         messages: messages
       }));
-      logger.dev('successfully derived model specific payload');
+      logger.dev('successfully derived model specific payload', modelSpecificPayload);
       return _objectSpread(_objectSpread({}, modelSpecificPayload), {}, {
         // messages: [
         //   systemMessage,
