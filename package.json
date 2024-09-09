@@ -1,6 +1,6 @@
 {
   "name": "xmllm",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "./dist/cjs/xmllm-main.js",
   "module": "./dist/esm/xmllm-main.mjs",
   "scripts": {
@@ -8,6 +8,7 @@
     "build:cjs": "cross-env BABEL_ENV=cjs babel src --out-dir dist/cjs --out-file-extension .js",
     "build:esm": "cross-env BABEL_ENV=esm babel src --out-dir dist/esm --out-file-extension .mjs",
     "test": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "onlytest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "proxy-server": "node ./src/xmllm-run-proxy.mjs"
   },
   "jest": {
