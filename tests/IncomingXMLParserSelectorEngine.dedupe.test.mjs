@@ -99,4 +99,74 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     const secondResult = engine.dedupeSelect('item');
     expect(secondResult).toHaveLength(0);
   });
+
+  test('dedupeSelect should handle open tags correctly when includeOpenTags is true', () => {
+    engine.add('<root><item>1</item><item>2<subitem>');
+    
+    let result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(2);
+    expect(result.map(item => item.text)).toEqual(['1', '2']);
+    
+    engine.add('sub');
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(1);  // Only the updated open tag
+    expect(result[0].text).toBe('2sub');
+    
+    engine.add('</subitem></item><item>3</item>');
+    
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(2);  // The now-closed tag and the new tag
+    expect(result.map(item => item.text)).toEqual(['2sub', '3']);
+    
+    // No changes, so no results
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(0);
+  });
+
+  test('dedupeSelect should update open tags as they are completed', () => {
+    engine.add('<root><item id="1">Start');
+    
+    let result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('Start');
+    
+    engine.add(' Middle');
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('Start Middle');
+    
+    engine.add(' End</item>');
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('Start Middle End');
+  });
+
+  test('dedupeSelect should handle siblings and nested elements with open tags', () => {
+    engine.add('<root><item id="1"><subitem>Sub 1');
+    
+    let result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(1);
+    expect(result[0].attr.id).toBe('1');
+    expect(result[0].text).toBe('Sub 1');
+    
+    engine.add('</subitem></item><item id="2"><subitem>Sub 2</subitem>');
+    
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(2);  // Both items should be returned
+    expect(result[0].attr.id).toBe('1');  // First item is now closed
+    expect(result[0].text).toBe('Sub 1');
+    expect(result[1].attr.id).toBe('2');
+    expect(result[1].text).toBe('Sub 2');
+    
+    result = engine.dedupeSelect('subitem', true);
+    expect(result).toHaveLength(2);
+    expect(result.map(item => item.text)).toEqual(['Sub 1', 'Sub 2']);
+    
+    // Additional check to ensure no more selections are made
+    result = engine.dedupeSelect('item', true);
+    expect(result).toHaveLength(0);
+    
+    result = engine.dedupeSelect('subitem', true);
+    expect(result).toHaveLength(0);
+  });
 });

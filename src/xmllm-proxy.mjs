@@ -16,7 +16,7 @@ function createServer(config = {}) {
 
   app.post('/api/stream', async (req, res) => {
     try {
-      const { messages, model = 'fast' } = req.body;
+      const { messages, model = 'good', max_tokens } = req.body;
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });
       }
@@ -27,6 +27,7 @@ function createServer(config = {}) {
       });
       const stream = await Stream({
         messages,
+        max_tokens,
         model,
         stream: true
       });

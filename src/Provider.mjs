@@ -343,7 +343,7 @@ class Provider {
       messages,
     });
     
-    logger.dev('successfully derived model specific payload');
+    logger.dev('successfully derived model specific payload', modelSpecificPayload);
 
     return {
 

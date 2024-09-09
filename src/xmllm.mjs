@@ -88,14 +88,14 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function xmlReq(prompt, mapSelectionSchema) {
+  function xmlReq({prompt, schema, system}) {
     return async function*(thing) {
       let transformedPrompt = prompt;
 
       const mapSelectionSchemaScaffold =
-        mapSelectionSchema &&
+        schema &&
         IncomingXMLParserSelectorEngine
-          .makeMapSelectXMLScaffold(mapSelectionSchema);
+          .makeMapSelectXMLScaffold(schema);
 
       if (typeof transformedPrompt == 'function') {
         transformedPrompt = transformedPrompt(thing);
@@ -111,6 +111,9 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
 
       const systemPrompt = `
+    META & OUTPUT STRUCTURE RULES:
+    ===
+
     You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.
 
     You can output multiple results if you like.
@@ -122,7 +125,12 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>
 
     All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
-      `;
+      
+
+    HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:
+    (you must follow these religiously)
+    ===
+    ${system || 'you are an ai assistant and respond to the request.'}`;
 
       if (!transformedPrompt.trim()) {
         throw new Error('we need a prompt');
@@ -148,7 +156,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
       const reader = stream.getReader();
 
-      let accrued = '<thinking>';
+      // let accrued = '<thinking>';
+      let accrued = '';
       let cancelled = false;
 
       yield accrued;
@@ -172,9 +181,25 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function prompt(prompt, selectionSchema, mapper, fakeResponse) {
-    if (!selectionSchema) {
-      return xmlReq(prompt);
+  function prompt(prompt, schema, mapper, fakeResponse) {
+
+    let config = {
+      prompt,
+      schema,
+      mapper,
+      fakeResponse
+    };
+
+    if (typeof prompt != 'string' && prompt?.prompt != null) {
+      // Config object instead of string prompt
+      config = prompt;
+    }
+
+    if (!config.schema) {
+      return xmlReq({
+        system: config.system,
+        prompt: config.prompt
+      });
     }
 
     return async function*(input) {
@@ -192,20 +217,24 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         },
 
         function*(x) {
-          yield x;
+          yield x; // debug opportunity
         },
 
-        fakeResponse 
+        config.fakeResponse 
           ? function*() {
-            yield* [fakeResponse]
+            yield* [config.fakeResponse]
           }
-          : xmlReq(prompt, selectionSchema),
+          : xmlReq({
+            system: config.system,
+            prompt: config.prompt,
+            schema: config.schema
+          }),
 
         function*(x) {
           yield x;
         },
 
-        mapSelect(selectionSchema)
+        mapSelect(config.schema)
       ];
 
       const pipeline = [
@@ -215,20 +244,20 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           if (!isComplexIterable(input)) {
             if (isComplexIterable(output)) {
               for await (const x of output) {
-                yield mapper ? mapper(input, x) : x;
+                yield config.mapper ? config.mapper(input, x) : x;
               }
             } else {
-              yield mapper ? mapper(input, output) : output;
+              yield config.mapper ? config.mapper(input, output) : output;
             }
             return;
           }
           for await (const x of input) {
             if (isComplexIterable(output)) {
               for await (const y of output) {
-                yield mapper ? mapper(x, y) : x;
+                yield config.mapper ? config.mapper(x, y) : x;
               }
             } else {
-              yield mapper ? mapper(x, output) : output;
+              yield config.mapper ? config.mapper(x, output) : output;
             }
           }
         }

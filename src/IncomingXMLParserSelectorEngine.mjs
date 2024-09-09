@@ -57,15 +57,7 @@ class IncomingXMLParserSelectorEngine {
   }
 
   updateTextContent(element) {
-    element.textContent = element.children.reduce((text, child) => {
-      if (child.type === 'text') {
-        return text + child.data;
-      } else if (child.type === 'tag') {
-        const childText = child.textContent || '';
-        return text + (childText ? childText : ' ');
-      }
-      return text;
-    }, '');
+    element.textContent = this.getTextContent(element);
 
     if (element.parent) {
       this.updateTextContent(element.parent);
@@ -77,7 +69,7 @@ class IncomingXMLParserSelectorEngine {
     this.parser.write(chunk);
   }
 
-  getElementSignature(element) {
+  getElementSignature(element, forDeduping = false) {
     const ancestry = [];
     let current = element;
     while (current.parent) {
@@ -88,13 +80,26 @@ class IncomingXMLParserSelectorEngine {
     const signature = {
       ancestry: ancestry.join('/'),
       name: element.name,
-      attributes: element.attributes,
-      textContent: element.textContent || '',
-      hasChildren: element.children.some(child => child.type === 'tag'),
+      key: element.key,
       closed: element.closed
     };
 
+    if (!forDeduping) {
+      signature.textContent = this.getTextContent(element);
+    }
+
     return JSON.stringify(signature);
+  }
+
+  getTextContent(element) {
+    return (element.children || []).reduce((text, child) => {
+      if (child.type === 'text') {
+        return text + child.data;
+      } else if (child.type === 'tag') {
+        return text + this.getTextContent(child);
+      }
+      return text;
+    }, '');
   }
 
   select(selector) {
@@ -102,29 +107,41 @@ class IncomingXMLParserSelectorEngine {
     return this.formatResults(results);
   }
 
-  dedupeSelect(selector) {
+  dedupeSelect(selector, includeOpenTags = false) {
     if (!this.returnedElementSignatures.has(selector)) {
-      this.returnedElementSignatures.set(selector, new Set());
+      this.returnedElementSignatures.set(selector, new Map());
     }
     
-    const results = selectAll(selector, this.parsedData).filter(el => el.closed);
+    const results = selectAll(selector, this.parsedData).filter(el => includeOpenTags || el.closed);
     const newResults = results.filter(result => {
-      const signature = this.getElementSignature(result);
-      if (this.returnedElementSignatures.get(selector).has(signature)) {
-        return false;
+      const dedupeSignature = this.getElementSignature(result, true);
+      const fullSignature = this.getElementSignature(result, false);
+      
+      const existingSignature = this.returnedElementSignatures.get(selector).get(dedupeSignature);
+      
+      if (!existingSignature) {
+        this.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
+        return true;
       }
-      this.returnedElementSignatures.get(selector).add(signature);
-      return true;
+      
+      if (!result.closed && existingSignature !== fullSignature) {
+        this.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
+        return true;
+      }
+      
+      return false;
     });
     
-    return this.formatResults(newResults);
+    return this.formatResults(newResults, includeOpenTags);
   }
 
-  formatResults(results) {
-    return results.map(this.formatElement.bind(this));
+  formatResults(results, includeOpenTags = false) {
+    return results.map(r => {
+      return this.formatElement(r, includeOpenTags);
+    });
   }
 
-  formatElement(element) {
+  formatEle3ment(element) {
     const formatted = new Node(element.name, {
       key: element.key,
       attr: { ...element.attributes },
@@ -134,16 +151,51 @@ class IncomingXMLParserSelectorEngine {
     
     element.children.forEach(child => {
       if (child.type === 'tag') {
-        // console.log('formatted[child.name]', formatted[child.name]);
         if (!formatted[child.name]) {
           formatted[child.name] = [];
         }
-        // if (typeof formatted[child.name] == 'string') {
-        //   formatted[child.name] = [formatted[child.name]];
-        // }
         formatted[child.name].push(this.formatElement(child));
       }
     });
+    
+    return formatted;
+  }
+
+  formatElement(element, includeOpenTags = false) {
+
+    // If includeOpenTags is true, we will use getTextContent as that is the 
+    // only way to get iterative text if 'closed' is false
+    // (relevant to streaming)
+    const getTextContent = (el) => {
+      return (el.children||[]).reduce((text, child) => {
+        if (child.type === 'text') {
+          return text + child.data;
+        } else if (child.type === 'tag') {
+          return text + getTextContent(child);
+        }
+        return text;
+      }, '');
+    };
+
+    const formatted = new Node(element.name, {
+      key: element.key,
+      attr: { ...element.attributes },
+      text: 
+        includeOpenTags ? (
+          element.closed ? element.textContent : this.getTextContent(element)
+        ) : element.textContent
+    });
+    
+    if (element.children?.length) {
+      element.children.forEach(child => {
+        if (child.type === 'tag') {
+          if (!formatted[child.name]) {
+            formatted[child.name] = [];
+          }
+          formatted[child.name].push(this.formatElement(child));
+        }
+      });
+    }
     
     return formatted;
   }
@@ -195,7 +247,7 @@ class IncomingXMLParserSelectorEngine {
 
     if (isArrayMapping) {
       const rootSelector = Object.keys(mapping[0])[0];
-      return this.dedupeSelect(rootSelector).map(element => ({
+      return this.dedupeSelect(rootSelector, true).map(element => ({
         [rootSelector]: applyMapping(element, mapping[0][rootSelector])
       }));
     }
@@ -204,7 +256,7 @@ class IncomingXMLParserSelectorEngine {
     const results = {};
     
     rootSelectors.forEach(selector => {
-      const elements = this.dedupeSelect(selector);
+      const elements = this.dedupeSelect(selector, true);
 
       if (!elements?.length) {
         return;

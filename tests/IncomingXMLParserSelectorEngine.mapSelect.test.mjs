@@ -93,7 +93,6 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     ]);
   });
 
-
   test('mapSelect should handle simple structures', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add(`
@@ -541,5 +540,48 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     `.trim().replace(/\s+/g, '');
 
     expect(result.replace(/\s+/g, '')).toBe(expectedXML);
+  });
+
+  test('mapSelect should always include open tags', () => {
+    engine.add('<root><item>1</item><item>2<subitem>');
+    
+    let result = engine.mapSelect({
+      item: [{
+        _: String
+      }],
+      subitem: [{
+        _: String
+      }]
+    });
+
+    expect(result).toEqual({
+      item: [
+        { _: '1' },
+        { _: '2' }
+      ],
+      subitem: [
+        { _: '' }  // Open tag with no content yet
+      ]
+    });
+
+    engine.add('sub-content</subitem></item>');
+    
+    result = engine.mapSelect({
+      item: [{
+        _: String
+      }],
+      subitem: [{
+        _: String
+      }]
+    });
+
+    expect(result).toEqual({
+      item: [
+        { _: '2sub-content' }  // Updated content
+      ],
+      subitem: [
+        { _: 'sub-content' }  // Now closed with content
+      ]
+    });
   });
 });
