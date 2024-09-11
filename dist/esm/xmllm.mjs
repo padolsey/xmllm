@@ -85,7 +85,7 @@ function _xmllmGen() {
                 fakeResponse: fakeResponse
               };
               if (typeof prompt != 'string' && (prompt === null || prompt === void 0 ? void 0 : prompt.prompt) != null) {
-                // Config object
+                // Config object instead of string prompt
                 config = prompt;
               }
               if (!config.schema) {
@@ -100,7 +100,6 @@ function _xmllmGen() {
                   return _regeneratorRuntime().wrap(function _callee8$(_context8) {
                     while (1) switch (_context8.prev = _context8.next) {
                       case 0:
-                        console.log('398182');
                         reqPipeline = [/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
                           return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                             while (1) switch (_context3.prev = _context3.next) {
@@ -355,60 +354,60 @@ function _xmllmGen() {
                         }())];
                         _iteratorAbruptCompletion2 = false;
                         _didIteratorError2 = false;
-                        _context8.prev = 5;
+                        _context8.prev = 4;
                         _iterator2 = _asyncIterator(xmllmGen(function () {
                           return pipeline;
                         }, {
                           llmStream: llmStream
                         }));
-                      case 7:
-                        _context8.next = 9;
+                      case 6:
+                        _context8.next = 8;
                         return _awaitAsyncGenerator(_iterator2.next());
-                      case 9:
+                      case 8:
                         if (!(_iteratorAbruptCompletion2 = !(_step2 = _context8.sent).done)) {
-                          _context8.next = 16;
+                          _context8.next = 15;
                           break;
                         }
                         item = _step2.value;
-                        _context8.next = 13;
+                        _context8.next = 12;
                         return item;
-                      case 13:
+                      case 12:
                         _iteratorAbruptCompletion2 = false;
-                        _context8.next = 7;
+                        _context8.next = 6;
                         break;
-                      case 16:
-                        _context8.next = 22;
+                      case 15:
+                        _context8.next = 21;
                         break;
-                      case 18:
-                        _context8.prev = 18;
-                        _context8.t0 = _context8["catch"](5);
+                      case 17:
+                        _context8.prev = 17;
+                        _context8.t0 = _context8["catch"](4);
                         _didIteratorError2 = true;
                         _iteratorError2 = _context8.t0;
-                      case 22:
+                      case 21:
+                        _context8.prev = 21;
                         _context8.prev = 22;
-                        _context8.prev = 23;
                         if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
-                          _context8.next = 27;
+                          _context8.next = 26;
                           break;
                         }
-                        _context8.next = 27;
+                        _context8.next = 26;
                         return _awaitAsyncGenerator(_iterator2["return"]());
-                      case 27:
-                        _context8.prev = 27;
+                      case 26:
+                        _context8.prev = 26;
                         if (!_didIteratorError2) {
-                          _context8.next = 30;
+                          _context8.next = 29;
                           break;
                         }
                         throw _iteratorError2;
+                      case 29:
+                        return _context8.finish(26);
                       case 30:
-                        return _context8.finish(27);
+                        return _context8.finish(21);
                       case 31:
-                        return _context8.finish(22);
-                      case 32:
                       case "end":
                         return _context8.stop();
                     }
-                  }, _callee8, null, [[5, 18, 22, 32], [23,, 27, 31]]);
+                  }, _callee8, null, [[4, 17, 21, 31], [22,, 26, 30]]);
                 }));
                 return function (_x4) {
                   return _ref3.apply(this, arguments);
@@ -465,7 +464,7 @@ function _xmllmGen() {
                         _context2.prev = 15;
                       case 16:
                         if (!true) {
-                          _context2.next = 31;
+                          _context2.next = 30;
                           break;
                         }
                         _context2.next = 19;
@@ -478,32 +477,31 @@ function _xmllmGen() {
                           _context2.next = 24;
                           break;
                         }
-                        return _context2.abrupt("break", 31);
+                        return _context2.abrupt("break", 30);
                       case 24:
                         text = new TextDecoder().decode(value);
                         accrued += text;
-                        console.log('text>>', text);
-                        _context2.next = 29;
+                        _context2.next = 28;
                         return text;
-                      case 29:
+                      case 28:
                         _context2.next = 16;
                         break;
-                      case 31:
-                        _context2.next = 36;
+                      case 30:
+                        _context2.next = 35;
                         break;
-                      case 33:
-                        _context2.prev = 33;
+                      case 32:
+                        _context2.prev = 32;
                         _context2.t0 = _context2["catch"](15);
                         logger.error("Error reading stream:", _context2.t0);
-                      case 36:
-                        _context2.prev = 36;
+                      case 35:
+                        _context2.prev = 35;
                         reader.releaseLock();
-                        return _context2.finish(36);
-                      case 39:
+                        return _context2.finish(35);
+                      case 38:
                       case "end":
                         return _context2.stop();
                     }
-                  }, _callee2, null, [[15, 33, 36, 39]]);
+                  }, _callee2, null, [[15, 32, 35, 38]]);
                 }));
                 return function (_x3) {
                   return _ref2.apply(this, arguments);

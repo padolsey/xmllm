@@ -50,7 +50,7 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
               return _context2.abrupt("return", new ReadableStream({
                 start: function start(controller) {
                   return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-                    var reader, decoder, _yield$reader$read, done, value, chunk, lines, _iterator, _step, line, data;
+                    var reader, decoder, _yield$reader$read, done, value, chunk, lines, _iterator, _step, line, _data, data;
                     return _regeneratorRuntime().wrap(function _callee$(_context) {
                       while (1) switch (_context.prev = _context.next) {
                         case 0:
@@ -80,8 +80,13 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
                             for (_iterator.s(); !(_step = _iterator.n()).done;) {
                               line = _step.value;
                               if (line.startsWith('data: ')) {
-                                data = JSON.parse(line.slice(6));
-                                controller.enqueue(new TextEncoder().encode(data.content));
+                                data = void 0;
+                                try {
+                                  data = JSON.parse(line.slice(6));
+                                } catch (e) {
+                                  console.error('Invalid chunk/line', line);
+                                }
+                                controller.enqueue(new TextEncoder().encode(((_data = data) === null || _data === void 0 ? void 0 : _data.content) || ''));
                               }
                             }
                           } catch (err) {

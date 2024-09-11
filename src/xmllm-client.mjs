@@ -30,8 +30,15 @@ class ClientProvider {
           
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = JSON.parse(line.slice(6));
-              controller.enqueue(new TextEncoder().encode(data.content));
+              let data;
+
+              try {
+                data = JSON.parse(line.slice(6));
+              } catch(e) {
+                console.error('Invalid chunk/line', line);
+              }
+
+              controller.enqueue(new TextEncoder().encode(data?.content || ''));
             }
           }
         }
