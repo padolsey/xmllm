@@ -12,7 +12,16 @@ function createServer() {
   var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
   var app = express();
   var port = config.port || process.env.PORT || 3124;
-  app.use(cors());
+  var corsOptions = {
+    origin: config.corsOrigins || '*',
+    // all by default
+    methods: ['GET', 'POST'],
+    // Allowed HTTP methods
+    allowedHeaders: ['Content-Type'],
+    // Allowed headers
+    credentials: true // Allow sending credentials (cookies, etc.)
+  };
+  app.use(cors(corsOptions));
   app.use(express.json());
   var providerManager = new ProviderManager();
   console.log('Starting Proxy Server with config', config, 'Port:', port);

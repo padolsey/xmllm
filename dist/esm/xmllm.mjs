@@ -572,7 +572,7 @@ function _xmllmGen() {
                       case 7:
                         stream = _context.sent;
                         reader = stream.getReader();
-                        accrued = '<thinking>';
+                        accrued = config.accrued || '';
                         cancelled = false;
                         _context.next = 13;
                         return accrued;

@@ -7,7 +7,14 @@ function createServer(config = {}) {
   const app = express();
   const port = config.port || process.env.PORT || 3124;
 
-  app.use(cors());
+  const corsOptions = {
+    origin: config.corsOrigins || '*', // all by default
+    methods: ['GET', 'POST'], // Allowed HTTP methods
+    allowedHeaders: ['Content-Type'], // Allowed headers
+    credentials: true, // Allow sending credentials (cookies, etc.)
+  };
+
+  app.use(cors(corsOptions));
   app.use(express.json());
 
   const providerManager = new ProviderManager();
