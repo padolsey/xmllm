@@ -64,7 +64,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
       const reader = stream.getReader();
 
-      let accrued = '<thinking>';
+      let accrued = config.accrued || '';
       let cancelled = false;
 
       yield accrued;
