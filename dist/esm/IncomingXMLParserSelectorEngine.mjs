@@ -211,9 +211,15 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       return formatted;
     }
   }, {
+    key: "mapSelectClosed",
+    value: function mapSelectClosed(mapping) {
+      return this.mapSelect(mapping, false);
+    }
+  }, {
     key: "mapSelect",
     value: function mapSelect(mapping) {
       var _this7 = this;
+      var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
       var _applyMapping = function applyMapping(element, map) {
         if (Array.isArray(map)) {
           if (map.length !== 1) {
@@ -253,14 +259,14 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var isArrayMapping = Array.isArray(mapping);
       if (isArrayMapping) {
         var rootSelector = Object.keys(mapping[0])[0];
-        return this.dedupeSelect(rootSelector, true).map(function (element) {
+        return this.dedupeSelect(rootSelector, includeOpenTags).map(function (element) {
           return _defineProperty({}, rootSelector, _applyMapping(element, mapping[0][rootSelector]));
         });
       }
       var rootSelectors = Object.keys(mapping);
       var results = {};
       rootSelectors.forEach(function (selector) {
-        var elements = _this7.dedupeSelect(selector, true);
+        var elements = _this7.dedupeSelect(selector, includeOpenTags);
         if (!(elements !== null && elements !== void 0 && elements.length)) {
           return;
         }

@@ -56,7 +56,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         messages: [
           {
             role: 'system',
-            content: system
+            content: system || ''
           },
           ...(messages || [])
         ]
@@ -88,7 +88,22 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function xmlReq({prompt, schema, system}) {
+  function xmlReq({schema, system, messages}) {
+
+    messages = (messages || []).slice();
+
+    let prompt = '';
+
+    if (messages?.length) {
+      if (messages[messages.length - 1]?.role !== 'user') {
+        throw new Error('Last message should have role of "user"');
+      }
+      if (!messages[messages.length - 1].content) {
+        throw new Error('Last message should have a non-empty content property');
+      }
+      prompt = messages.pop().content;
+    }
+
     return async function*(thing) {
       let transformedPrompt = prompt;
 
@@ -102,8 +117,18 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
 
       if (mapSelectionSchemaScaffold) {
-        transformedPrompt += `
-    The data you return should be approximately like this:
+        transformedPrompt = `
+    FYI: The data you return should be approximately like this:
+    \`\`\`
+    ${mapSelectionSchemaScaffold}
+    \`\`\`
+
+    Prompt:
+    ==== BEGIN PROMPT ====
+    ${transformedPrompt}
+    ==== END PROMPT ====
+
+    Finally, remember: The data you return should be approximately like this:
     \`\`\`
     ${mapSelectionSchemaScaffold}
     \`\`\`
@@ -143,10 +168,16 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             role: 'system',
             content: systemPrompt
           },
+
+          ...(
+            messages?.length && messages || []
+          ),
+
           {
             role: 'user',
             content: transformedPrompt
           },
+
           {
             role: 'assistant',
             content: '<thinking>'
@@ -183,22 +214,51 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   function prompt(prompt, schema, mapper, fakeResponse) {
 
-    let config = {
-      prompt,
-      schema,
-      mapper,
-      fakeResponse
-    };
-
-    if (typeof prompt != 'string' && prompt?.prompt != null) {
-      // Config object instead of string prompt
-      config = prompt;
+    if (typeof prompt === 'string' || typeof prompt === 'function') {
+      return promptComplex({
+        schema,
+        mapper,
+        fakeResponse,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
     }
 
-    if (!config.schema) {
+    // Assuming prompt is a config object
+    return promptComplex(prompt);
+
+  }
+
+  function promptComplex({
+    messages,
+    schema,
+    mapper,
+    system,
+    fakeResponse
+  }) {
+
+    logger.dev('promptComplex()', {
+      messages,
+      schema,
+      mapper,
+      system,
+      fakeResponse
+    });
+
+    if (
+      mapper && !schema 
+    ) {
+      throw new Error('You cannot have a schema without a mapper; it makes no sense.');
+    }
+
+    if (!schema) {
       return xmlReq({
-        system: config.system,
-        prompt: config.prompt
+        system: system,
+        messages
       });
     }
 
@@ -220,21 +280,21 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           yield x; // debug opportunity
         },
 
-        config.fakeResponse 
+        fakeResponse 
           ? function*() {
-            yield* [config.fakeResponse]
+            yield* [fakeResponse]
           }
           : xmlReq({
-            system: config.system,
-            prompt: config.prompt,
-            schema: config.schema
+            system: system,
+            messages: messages,
+            schema: schema
           }),
 
         function*(x) {
           yield x;
         },
 
-        mapSelect(config.schema)
+        mapSelect(schema)
       ];
 
       const pipeline = [
@@ -244,20 +304,20 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           if (!isComplexIterable(input)) {
             if (isComplexIterable(output)) {
               for await (const x of output) {
-                yield config.mapper ? config.mapper(input, x) : x;
+                yield mapper ? mapper(input, x) : x;
               }
             } else {
-              yield config.mapper ? config.mapper(input, output) : output;
+              yield mapper ? mapper(input, output) : output;
             }
             return;
           }
           for await (const x of input) {
             if (isComplexIterable(output)) {
               for await (const y of output) {
-                yield config.mapper ? config.mapper(x, y) : x;
+                yield mapper ? mapper(x, y) : x;
               }
             } else {
-              yield config.mapper ? config.mapper(x, output) : output;
+              yield mapper ? mapper(x, output) : output;
             }
           }
         }

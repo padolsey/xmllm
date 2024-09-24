@@ -81,15 +81,15 @@ var _default = exports["default"] = {
     key: process.env.ANTHROPIC_API_KEY,
     models: {
       superfast: {
-        name: 'claude-3-5-sonnet-20240620',
-        // name: 'claude-3-haiku-20240307',
+        // name: 'claude-3-5-sonnet-20240620',
+        name: 'claude-3-haiku-20240307',
         costPer1MTokens: 0.50,
         //avg? i/o...
         maxContextSize: 100000
       },
       fast: {
-        name: 'claude-3-5-sonnet-20240620',
-        // name: 'claude-3-haiku-20240307',
+        // name: 'claude-3-5-sonnet-20240620',
+        name: 'claude-3-haiku-20240307',
         costPer1MTokens: 1.50,
         maxContextSize: 100000
       },

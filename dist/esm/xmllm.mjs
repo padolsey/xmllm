@@ -29,7 +29,7 @@ function _xmllmGen() {
       timeout = _ref5.timeout,
       llmStream = _ref5.llmStream;
     return /*#__PURE__*/_regeneratorRuntime().mark(function _callee11() {
-      var streamops, xmlps, pipeline, stream, req, xmlReq, prompt, mapSelect, select;
+      var streamops, xmlps, pipeline, stream, req, xmlReq, prompt, promptComplex, mapSelect, select;
       return _regeneratorRuntime().wrap(function _callee11$(_context11) {
         while (1) switch (_context11.prev = _context11.next) {
           case 0:
@@ -77,21 +77,26 @@ function _xmllmGen() {
                 }, _callee9);
               });
             };
-            prompt = function _prompt(prompt, schema, mapper, fakeResponse) {
-              var config = {
-                prompt: prompt,
+            promptComplex = function _promptComplex(_ref7) {
+              var messages = _ref7.messages,
+                schema = _ref7.schema,
+                mapper = _ref7.mapper,
+                system = _ref7.system,
+                fakeResponse = _ref7.fakeResponse;
+              logger.dev('promptComplex()', {
+                messages: messages,
                 schema: schema,
                 mapper: mapper,
+                system: system,
                 fakeResponse: fakeResponse
-              };
-              if (typeof prompt != 'string' && (prompt === null || prompt === void 0 ? void 0 : prompt.prompt) != null) {
-                // Config object instead of string prompt
-                config = prompt;
+              });
+              if (mapper && !schema) {
+                throw new Error('You cannot have a schema without a mapper; it makes no sense.');
               }
-              if (!config.schema) {
+              if (!schema) {
                 return xmlReq({
-                  system: config.system,
-                  prompt: config.prompt
+                  system: system,
+                  messages: messages
                 });
               }
               return /*#__PURE__*/function () {
@@ -140,20 +145,20 @@ function _xmllmGen() {
                                 return _context4.stop();
                             }
                           }, _callee4);
-                        }), config.fakeResponse ? /*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
+                        }), fakeResponse ? /*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
                           return _regeneratorRuntime().wrap(function _callee5$(_context5) {
                             while (1) switch (_context5.prev = _context5.next) {
                               case 0:
-                                return _context5.delegateYield([config.fakeResponse], "t0", 1);
+                                return _context5.delegateYield([fakeResponse], "t0", 1);
                               case 1:
                               case "end":
                                 return _context5.stop();
                             }
                           }, _callee5);
                         }) : xmlReq({
-                          system: config.system,
-                          prompt: config.prompt,
-                          schema: config.schema
+                          system: system,
+                          messages: messages,
+                          schema: schema
                         }), /*#__PURE__*/_regeneratorRuntime().mark(function _callee6(x) {
                           return _regeneratorRuntime().wrap(function _callee6$(_context6) {
                             while (1) switch (_context6.prev = _context6.next) {
@@ -165,7 +170,7 @@ function _xmllmGen() {
                                 return _context6.stop();
                             }
                           }, _callee6);
-                        }), mapSelect(config.schema)];
+                        }), mapSelect(schema)];
                         pipeline = [xmllmGen(function () {
                           return reqPipeline;
                         }, {
@@ -198,7 +203,7 @@ function _xmllmGen() {
                                   }
                                   x = _step3.value;
                                   _context7.next = 12;
-                                  return config.mapper ? config.mapper(input, x) : x;
+                                  return mapper ? mapper(input, x) : x;
                                 case 12:
                                   _iteratorAbruptCompletion3 = false;
                                   _context7.next = 6;
@@ -236,7 +241,7 @@ function _xmllmGen() {
                                   break;
                                 case 33:
                                   _context7.next = 35;
-                                  return config.mapper ? config.mapper(input, output) : output;
+                                  return mapper ? mapper(input, output) : output;
                                 case 35:
                                   return _context7.abrupt("return");
                                 case 36:
@@ -271,7 +276,7 @@ function _xmllmGen() {
                                   }
                                   y = _step5.value;
                                   _context7.next = 55;
-                                  return config.mapper ? config.mapper(_x6, y) : _x6;
+                                  return mapper ? mapper(_x6, y) : _x6;
                                 case 55:
                                   _iteratorAbruptCompletion5 = false;
                                   _context7.next = 49;
@@ -309,7 +314,7 @@ function _xmllmGen() {
                                   break;
                                 case 76:
                                   _context7.next = 78;
-                                  return config.mapper ? config.mapper(_x6, output) : output;
+                                  return mapper ? mapper(_x6, output) : output;
                                 case 78:
                                   _iteratorAbruptCompletion4 = false;
                                   _context7.next = 40;
@@ -414,12 +419,42 @@ function _xmllmGen() {
                 };
               }();
             };
+            prompt = function _prompt(prompt, schema, mapper, fakeResponse) {
+              if (typeof prompt === 'string' || typeof prompt === 'function') {
+                return promptComplex({
+                  schema: schema,
+                  mapper: mapper,
+                  fakeResponse: fakeResponse,
+                  messages: [{
+                    role: 'user',
+                    content: prompt
+                  }]
+                });
+              }
+
+              // Assuming prompt is a config object
+              return promptComplex(prompt);
+            };
             xmlReq = function _xmlReq(_ref6) {
-              var prompt = _ref6.prompt,
-                schema = _ref6.schema,
-                system = _ref6.system;
+              var _messages;
+              var schema = _ref6.schema,
+                system = _ref6.system,
+                messages = _ref6.messages;
+              messages = (messages || []).slice();
+              var prompt = '';
+              if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
+                var _messages2;
+                if (((_messages2 = messages[messages.length - 1]) === null || _messages2 === void 0 ? void 0 : _messages2.role) !== 'user') {
+                  throw new Error('Last message should have role of "user"');
+                }
+                if (!messages[messages.length - 1].content) {
+                  throw new Error('Last message should have a non-empty content property');
+                }
+                prompt = messages.pop().content;
+              }
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
+                  var _messages3;
                   var transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, text;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
@@ -430,7 +465,7 @@ function _xmllmGen() {
                           transformedPrompt = transformedPrompt(thing);
                         }
                         if (mapSelectionSchemaScaffold) {
-                          transformedPrompt += "\n    The data you return should be approximately like this:\n    ```\n    ".concat(mapSelectionSchemaScaffold, "\n    ```\n        ");
+                          transformedPrompt = "\n    FYI: The data you return should be approximately like this:\n    ```\n    ".concat(mapSelectionSchemaScaffold, "\n    ```\n\n    Prompt:\n    ==== BEGIN PROMPT ====\n    ").concat(transformedPrompt, "\n    ==== END PROMPT ====\n\n    Finally, remember: The data you return should be approximately like this:\n    ```\n    ").concat(mapSelectionSchemaScaffold, "\n    ```\n        ");
                         }
                         systemPrompt = "\n    META & OUTPUT STRUCTURE RULES:\n    ===\n\n    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.\n\n    You can output multiple results if you like.\n\n    E.g. if asked for several names, you could just return:\n    <name>sarah</name> <name>james</name>\n    etc.\n\n    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>\n\n    All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.\n      \n\n    HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:\n    (you must follow these religiously)\n    ===\n    ".concat(system || 'you are an ai assistant and respond to the request.');
                         if (transformedPrompt.trim()) {
@@ -445,13 +480,13 @@ function _xmllmGen() {
                           messages: [{
                             role: 'system',
                             content: systemPrompt
-                          }, {
+                          }].concat(_toConsumableArray(((_messages3 = messages) === null || _messages3 === void 0 ? void 0 : _messages3.length) && messages || []), [{
                             role: 'user',
                             content: transformedPrompt
                           }, {
                             role: 'assistant',
                             content: '<thinking>'
-                          }]
+                          }])
                         }));
                       case 9:
                         stream = _context2.sent;
@@ -531,7 +566,7 @@ function _xmllmGen() {
                           max_tokens: 4000,
                           messages: [{
                             role: 'system',
-                            content: system
+                            content: system || ''
                           }].concat(_toConsumableArray(messages || []))
                         }));
                       case 7:
@@ -593,11 +628,11 @@ function _xmllmGen() {
               timeout: timeout || 1e6
             });
             if (!(typeof pipelineFn !== 'function')) {
-              _context11.next = 8;
+              _context11.next = 9;
               break;
             }
             throw new Error('You must pass a function to xmllm - and that function must return a pipeline array.');
-          case 8:
+          case 9:
             xmlps = new IncomingXMLParserSelectorEngine();
             pipeline = pipelineFn({
               xmlReq: xmlReq,
@@ -611,14 +646,14 @@ function _xmllmGen() {
               mergeAggregate: streamops.mergeAggregate
             });
             if (Array.isArray(pipeline)) {
-              _context11.next = 12;
+              _context11.next = 13;
               break;
             }
             throw new Error('Pipeline creator function must return an array.');
-          case 12:
+          case 13:
             stream = streamops(pipeline);
-            return _context11.delegateYield(_asyncGeneratorDelegate(_asyncIterator(stream), _awaitAsyncGenerator), "t0", 14);
-          case 14:
+            return _context11.delegateYield(_asyncGeneratorDelegate(_asyncIterator(stream), _awaitAsyncGenerator), "t0", 15);
+          case 15:
           case "end":
             return _context11.stop();
         }

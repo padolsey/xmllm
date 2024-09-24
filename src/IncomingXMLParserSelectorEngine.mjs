@@ -200,7 +200,11 @@ class IncomingXMLParserSelectorEngine {
     return formatted;
   }
 
-  mapSelect(mapping) {
+  mapSelectClosed(mapping) {
+    return this.mapSelect(mapping, false);
+  }
+
+  mapSelect(mapping, includeOpenTags = true) {
     const applyMapping = (element, map) => {
       if (Array.isArray(map)) {
         if (map.length !== 1) {
@@ -247,7 +251,7 @@ class IncomingXMLParserSelectorEngine {
 
     if (isArrayMapping) {
       const rootSelector = Object.keys(mapping[0])[0];
-      return this.dedupeSelect(rootSelector, true).map(element => ({
+      return this.dedupeSelect(rootSelector, includeOpenTags).map(element => ({
         [rootSelector]: applyMapping(element, mapping[0][rootSelector])
       }));
     }
@@ -256,7 +260,7 @@ class IncomingXMLParserSelectorEngine {
     const results = {};
     
     rootSelectors.forEach(selector => {
-      const elements = this.dedupeSelect(selector, true);
+      const elements = this.dedupeSelect(selector, includeOpenTags);
 
       if (!elements?.length) {
         return;
