@@ -17,19 +17,33 @@ var logger = new Logger('APIStream');
 var queue;
 var providerManager = new ProviderManager();
 var ongoingRequests = new Map();
+
+// Default preferred providers list
+var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
+
+/**
+ * Creates a stream for AI responses.
+ * @param {Object} payload - The request payload.
+ * @param {string} [payload.model] - The model to use. This will be overridden if a model is specified in preferredProviders.
+ * @param {string[]} [preferredProviders=DEFAULT_PREFERRED_PROVIDERS] - List of preferred providers in 'provider:model' format.
+ * @returns {Promise<ReadableStream>} A readable stream of the AI response.
+ */
 export default function APIStream(_x) {
   return _APIStream.apply(this, arguments);
 }
 function _APIStream() {
   _APIStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
-    var PQueue;
+    var preferredProviders,
+      PQueue,
+      _args2 = arguments;
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
-          console.log('APIStream()', payload);
-          _context2.next = 3;
+          preferredProviders = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : DEFAULT_PREFERRED_PROVIDERS;
+          console.log('APIStream()', payload, preferredProviders);
+          _context2.next = 4;
           return _PQueue;
-        case 3:
+        case 4:
           PQueue = _context2.sent["default"];
           queue = queue || new PQueue({
             concurrency: 2
@@ -73,7 +87,7 @@ function _APIStream() {
                   ongoingRequests.set(hash, stream2);
                   return _context.abrupt("return", stream1);
                 case 23:
-                  streamPromise = providerManager.streamRequest(payload);
+                  streamPromise = providerManager.streamRequest(payload, preferredProviders);
                   streamPromise = streamPromise.then(function (stream) {
                     var _stream$tee = stream.tee(),
                       _stream$tee2 = _slicedToArray(_stream$tee, 2),
@@ -90,7 +104,7 @@ function _APIStream() {
               }
             }, _callee);
           }))));
-        case 6:
+        case 7:
         case "end":
           return _context2.stop();
       }

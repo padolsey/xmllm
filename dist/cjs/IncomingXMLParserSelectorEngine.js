@@ -210,6 +210,9 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             if (!formatted[child.name]) {
               formatted[child.name] = [];
             }
+            if (!Array.isArray(formatted[child.name])) {
+              formatted[child.name] = [formatted[child.name]];
+            }
             formatted[child.name].push(_this6.formatElement(child));
           }
         });

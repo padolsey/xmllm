@@ -192,6 +192,9 @@ class IncomingXMLParserSelectorEngine {
           if (!formatted[child.name]) {
             formatted[child.name] = [];
           }
+          if (!Array.isArray(formatted[child.name])) {
+            formatted[child.name] = [formatted[child.name]];
+          }
           formatted[child.name].push(this.formatElement(child));
         }
       });

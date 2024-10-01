@@ -19,9 +19,7 @@ class Provider {
     this.models = details.models;
     this.payloader = details.payloader;
     this.headerGen = details.headerGen;
-    this.cost = details.constraints.cost;
     this.rpmLimit = details.constraints.rpmLimit;
-    this.currentCost = 0;
     this.currentRPM = 0;
 
     // Configurable properties with more sensible defaults or overrides
@@ -61,10 +59,6 @@ class Provider {
         }
 
         const data = await response.json();
-
-        this.updateCostFromDataObj(payload.model, data);
-
-        // logger.dev('data', data);
 
         // Different output types (oai vs anthropic styles)
         return data?.content?.[0]?.text
@@ -157,7 +151,6 @@ class Provider {
                 }
                 try {
                   const json = JSON.parse(eventData);
-                  inst.updateCostFromDataObj(payload.model, json);
 
                   // Various output formats depending on provider.
                   let text =
@@ -199,7 +192,7 @@ class Provider {
 
             const parser = createParser(onParse);
 
-            // console.log('response.body', response.body);
+            console.log('response.body', response.body);
             for await (const chunk of response.body) {
               // console.log('Chunk', chunk);
               const decoded = new TextDecoder().decode(chunk);
@@ -207,28 +200,6 @@ class Provider {
               parser.feed(decoded);
             }
           },
-        });
-
-        return new ReadableStream({
-          start(controller) {
-            const reader = response.body.getReader();
-            function push() {
-              reader.read().then(({ done, value }) => {
-                if (done) {
-                  closed = true;
-                  controller.close();
-                  clearTimeout(timerId); // Ensure timer is cleared when done
-                  return;
-                }
-                controller.enqueue(value);
-                push();
-              }).catch(err => {
-                controller.error(err);
-                clearTimeout(timerId); // Ensure timer is cleared on error
-              });
-            }
-            push();
-          }
         });
       } catch (error) {
         logger.error(`Error in streaming from ${this.name}: ${error}`);
@@ -274,20 +245,20 @@ class Provider {
   }
 
   preparePayload(customPayload) {
-
     // Ensure context-size limits are respected
 
-    const model = this.models[customPayload.model || 'fast'];
-
-    let messages = [
-      ...customPayload.messages
-    ];
-
-    const systemMessage = messages.shift();
+    // First, try to use the model specified in the preference
+    // If not found, fall back to 'fast', then to the first available model
+    const modelType = customPayload.model || 'fast';
+    const model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
 
     if (!model) {
-      throw new Error('No model defined: ' + customPayload.model);
+      throw new Error('No valid model found for: ' + this.name);
     }
+
+    let messages = [...customPayload.messages];
+
+    const systemMessage = messages.shift();
 
     if (systemMessage.role !== 'system') {
       throw new Error('Expected system message!');
@@ -307,7 +278,6 @@ class Provider {
 
     logger.dev('m12');
     messages = messages.reverse().map((item) => {
-
       // We are processing in reverse in order to prioritize
       // later parts of the chat over earlier parts
       // (i.e. short term memory)
@@ -346,52 +316,10 @@ class Provider {
     logger.dev('successfully derived model specific payload', modelSpecificPayload);
 
     return {
-
       ...modelSpecificPayload,
-
-      // messages: [
-      //   systemMessage,
-      //   ...messages
-      // ],
-
-      model: this.models[customPayload.model || 'fast']?.name,
+      model: model.name,
       stream: customPayload.stream || false
     };
-  }
-
-  updateCostFromDataObj(model, data) {
-
-    if (!data) return;
-    
-    const costPer1MTokens = this.models[model]?.costPer1MTokens;
-    let tokensUsed = 0;
-    
-    if (data.usage) {
-
-      if (!costPer1MTokens) {
-        return;
-      }
-
-      tokensUsed =
-        data.usage.totalTokensUsed ||
-        data.usage.total_tokens ||
-        data.usage.output_tokens ||
-        estimateTokenCount(
-          data?.choices?.[0]?.message
-        );
-    } else if (data.choices?.[0]?.delta) {
-      tokensUsed = 1;
-    } else if (data.choices?.[0]?.message?.content) {
-      // Hueristic ... faster.
-      tokensUsed = 0 | data.choices[0].message.content.length / 3;
-      // tokensUsed = estimateTokenCount(
-      //   data.choices[0].message.content
-      // );
-    }
-
-    this.currentCost += tokensUsed * (costPer1MTokens / 1000000);
-
-    // logger.dev(`Updated cost for ${this.name}: ${this.currentCost}, (tokens used: ${tokensUsed}, per1MToken: ${costPer1MTokens})`);
   }
 
   getAvailable() {

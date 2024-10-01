@@ -9,9 +9,18 @@ let queue;
 const providerManager = new ProviderManager();  
 const ongoingRequests = new Map();
 
-export default async function APIStream(payload) {
+// Default preferred providers list
+const DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 
-  console.log('APIStream()', payload);
+/**
+ * Creates a stream for AI responses.
+ * @param {Object} payload - The request payload.
+ * @param {string} [payload.model] - The model to use. This will be overridden if a model is specified in preferredProviders.
+ * @param {string[]} [preferredProviders=DEFAULT_PREFERRED_PROVIDERS] - List of preferred providers in 'provider:model' format.
+ * @returns {Promise<ReadableStream>} A readable stream of the AI response.
+ */
+export default async function APIStream(payload, preferredProviders = DEFAULT_PREFERRED_PROVIDERS) {
+  console.log('APIStream()', payload, preferredProviders);
 
   const PQueue = (await _PQueue).default;
 
@@ -42,7 +51,7 @@ export default async function APIStream(payload) {
       ongoingRequests.set(hash, stream2);
       return stream1;
     } else {
-      let streamPromise = providerManager.streamRequest(payload);
+      let streamPromise = providerManager.streamRequest(payload, preferredProviders);
       streamPromise = streamPromise.then(stream => {
         const [stream1, stream2] = stream.tee();
         ongoingRequests.set(hash, stream2);

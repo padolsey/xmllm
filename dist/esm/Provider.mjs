@@ -40,9 +40,7 @@ var Provider = /*#__PURE__*/function () {
     this.models = details.models;
     this.payloader = details.payloader;
     this.headerGen = details.headerGen;
-    this.cost = details.constraints.cost;
     this.rpmLimit = details.constraints.rpmLimit;
-    this.currentCost = 0;
     this.currentRPM = 0;
 
     // Configurable properties with more sensible defaults or overrides
@@ -92,36 +90,31 @@ var Provider = /*#__PURE__*/function () {
                         return response.json();
                       case 13:
                         data = _context.sent;
-                        _this.updateCostFromDataObj(payload.model, data);
-
-                        // logger.dev('data', data);
-
-                        // Different output types (oai vs anthropic styles)
                         return _context.abrupt("return", data !== null && data !== void 0 && (_data$content = data.content) !== null && _data$content !== void 0 && (_data$content = _data$content[0]) !== null && _data$content !== void 0 && _data$content.text ? {
                           content: data === null || data === void 0 || (_data$content2 = data.content) === null || _data$content2 === void 0 || (_data$content2 = _data$content2[0]) === null || _data$content2 === void 0 ? void 0 : _data$content2.text
                         } : data === null || data === void 0 || (_data$choices = data.choices) === null || _data$choices === void 0 || (_data$choices = _data$choices[0]) === null || _data$choices === void 0 ? void 0 : _data$choices.message);
-                      case 18:
-                        _context.prev = 18;
+                      case 17:
+                        _context.prev = 17;
                         _context.t0 = _context["catch"](2);
                         logger.error("Provider ".concat(_this.name, " encountered an error: ").concat(_context.t0));
                         logger.log('Errored payload, FYI: ', preparedPayload);
                         if (!(retries < _this.MAX_RETRIES && _this.shouldRetry(_context.t0, (_response = response) === null || _response === void 0 ? void 0 : _response.status))) {
-                          _context.next = 28;
+                          _context.next = 27;
                           break;
                         }
                         retries++;
                         logger.log("Retrying request for ".concat(_this.name, ", attempt ").concat(retries));
-                        _context.next = 27;
+                        _context.next = 26;
                         return _this.delay(_this.RETRY_DELAY_WHEN_OVERLOADED);
-                      case 27:
+                      case 26:
                         return _context.abrupt("return", _makeSingleRequest());
-                      case 28:
+                      case 27:
                         throw _context.t0;
-                      case 29:
+                      case 28:
                       case "end":
                         return _context.stop();
                     }
-                  }, _callee, null, [[2, 18]]);
+                  }, _callee, null, [[2, 17]]);
                 }));
                 return function makeSingleRequest() {
                   return _ref.apply(this, arguments);
@@ -221,7 +214,6 @@ var Provider = /*#__PURE__*/function () {
                                         try {
                                           var _json$delta, _json$content_block, _json$choices, _json$delta2;
                                           var json = JSON.parse(eventData);
-                                          inst.updateCostFromDataObj(payload.model, json);
 
                                           // Various output formats depending on provider.
                                           var text = (json === null || json === void 0 || (_json$delta = json.delta) === null || _json$delta === void 0 ? void 0 : _json$delta.text) || (json === null || json === void 0 || (_json$content_block = json.content_block) === null || _json$content_block === void 0 ? void 0 : _json$content_block.text) || ((_json$choices = json.choices) === null || _json$choices === void 0 || (_json$choices = _json$choices[0]) === null || _json$choices === void 0 || (_json$choices = _json$choices.delta) === null || _json$choices === void 0 ? void 0 : _json$choices.content);
@@ -253,87 +245,88 @@ var Provider = /*#__PURE__*/function () {
                                     logger.timeEnd('makeSingleStream:streamStart');
                                     logger.timeEnd('makeSingleStream:init');
                                     logger.log('Starting readable stream');
-                                    parser = createParser(onParse); // console.log('response.body', response.body);
+                                    parser = createParser(onParse);
+                                    console.log('response.body', response.body);
                                     _iteratorAbruptCompletion = false;
                                     _didIteratorError = false;
-                                    _context3.prev = 7;
+                                    _context3.prev = 8;
                                     _iterator = _asyncIterator(response.body);
-                                  case 9:
-                                    _context3.next = 11;
+                                  case 10:
+                                    _context3.next = 12;
                                     return _iterator.next();
-                                  case 11:
+                                  case 12:
                                     if (!(_iteratorAbruptCompletion = !(_step = _context3.sent).done)) {
-                                      _context3.next = 18;
+                                      _context3.next = 19;
                                       break;
                                     }
                                     chunk = _step.value;
                                     // console.log('Chunk', chunk);
                                     decoded = new TextDecoder().decode(chunk); // console.log('decoded', decoded);
                                     parser.feed(decoded);
-                                  case 15:
+                                  case 16:
                                     _iteratorAbruptCompletion = false;
-                                    _context3.next = 9;
+                                    _context3.next = 10;
                                     break;
-                                  case 18:
-                                    _context3.next = 24;
+                                  case 19:
+                                    _context3.next = 25;
                                     break;
-                                  case 20:
-                                    _context3.prev = 20;
-                                    _context3.t0 = _context3["catch"](7);
+                                  case 21:
+                                    _context3.prev = 21;
+                                    _context3.t0 = _context3["catch"](8);
                                     _didIteratorError = true;
                                     _iteratorError = _context3.t0;
-                                  case 24:
-                                    _context3.prev = 24;
+                                  case 25:
                                     _context3.prev = 25;
+                                    _context3.prev = 26;
                                     if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
-                                      _context3.next = 29;
+                                      _context3.next = 30;
                                       break;
                                     }
-                                    _context3.next = 29;
+                                    _context3.next = 30;
                                     return _iterator["return"]();
-                                  case 29:
-                                    _context3.prev = 29;
+                                  case 30:
+                                    _context3.prev = 30;
                                     if (!_didIteratorError) {
-                                      _context3.next = 32;
+                                      _context3.next = 33;
                                       break;
                                     }
                                     throw _iteratorError;
-                                  case 32:
-                                    return _context3.finish(29);
                                   case 33:
-                                    return _context3.finish(24);
+                                    return _context3.finish(30);
                                   case 34:
+                                    return _context3.finish(25);
+                                  case 35:
                                   case "end":
                                     return _context3.stop();
                                 }
-                              }, _callee3, null, [[7, 20, 24, 34], [25,, 29, 33]]);
+                              }, _callee3, null, [[8, 21, 25, 35], [26,, 30, 34]]);
                             }))();
                           }
                         }));
-                      case 21:
-                        _context4.prev = 21;
+                      case 20:
+                        _context4.prev = 20;
                         _context4.t0 = _context4["catch"](2);
                         logger.error("Error in streaming from ".concat(_this2.name, ": ").concat(_context4.t0));
                         clearTimeout(timerId); // Ensure timer is cleared on catch
 
                         // console.log({retries}, this.MAX_RETRIES, error, response);
                         if (!(retries < _this2.MAX_RETRIES && _this2.shouldRetry(_context4.t0, (_response2 = response) === null || _response2 === void 0 ? void 0 : _response2.status))) {
-                          _context4.next = 31;
+                          _context4.next = 30;
                           break;
                         }
                         retries++;
                         logger.log("Retrying request for ".concat(_this2.name, ", attempt ").concat(retries));
-                        _context4.next = 30;
+                        _context4.next = 29;
                         return _this2.delay(_this2.RETRY_DELAY_WHEN_OVERLOADED);
-                      case 30:
+                      case 29:
                         return _context4.abrupt("return", _this2.createStream(payload, retries));
-                      case 31:
+                      case 30:
                         throw _context4.t0;
-                      case 32:
+                      case 31:
                       case "end":
                         return _context4.stop();
                     }
-                  }, _callee4, null, [[2, 21]]);
+                  }, _callee4, null, [[2, 20]]);
                 }));
                 return function makeSingleStream() {
                   return _ref2.apply(this, arguments);
@@ -387,15 +380,17 @@ var Provider = /*#__PURE__*/function () {
   }, {
     key: "preparePayload",
     value: function preparePayload(customPayload) {
-      var _this$models;
       // Ensure context-size limits are respected
 
-      var model = this.models[customPayload.model || 'fast'];
+      // First, try to use the model specified in the preference
+      // If not found, fall back to 'fast', then to the first available model
+      var modelType = customPayload.model || 'fast';
+      var model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
+      if (!model) {
+        throw new Error('No valid model found for: ' + this.name);
+      }
       var messages = _toConsumableArray(customPayload.messages);
       var systemMessage = messages.shift();
-      if (!model) {
-        throw new Error('No model defined: ' + customPayload.model);
-      }
       if (systemMessage.role !== 'system') {
         throw new Error('Expected system message!');
       }
@@ -431,40 +426,9 @@ var Provider = /*#__PURE__*/function () {
       }));
       logger.dev('successfully derived model specific payload', modelSpecificPayload);
       return _objectSpread(_objectSpread({}, modelSpecificPayload), {}, {
-        // messages: [
-        //   systemMessage,
-        //   ...messages
-        // ],
-
-        model: (_this$models = this.models[customPayload.model || 'fast']) === null || _this$models === void 0 ? void 0 : _this$models.name,
+        model: model.name,
         stream: customPayload.stream || false
       });
-    }
-  }, {
-    key: "updateCostFromDataObj",
-    value: function updateCostFromDataObj(model, data) {
-      var _this$models$model, _data$choices3, _data$choices4;
-      if (!data) return;
-      var costPer1MTokens = (_this$models$model = this.models[model]) === null || _this$models$model === void 0 ? void 0 : _this$models$model.costPer1MTokens;
-      var tokensUsed = 0;
-      if (data.usage) {
-        var _data$choices2;
-        if (!costPer1MTokens) {
-          return;
-        }
-        tokensUsed = data.usage.totalTokensUsed || data.usage.total_tokens || data.usage.output_tokens || estimateTokenCount(data === null || data === void 0 || (_data$choices2 = data.choices) === null || _data$choices2 === void 0 || (_data$choices2 = _data$choices2[0]) === null || _data$choices2 === void 0 ? void 0 : _data$choices2.message);
-      } else if ((_data$choices3 = data.choices) !== null && _data$choices3 !== void 0 && (_data$choices3 = _data$choices3[0]) !== null && _data$choices3 !== void 0 && _data$choices3.delta) {
-        tokensUsed = 1;
-      } else if ((_data$choices4 = data.choices) !== null && _data$choices4 !== void 0 && (_data$choices4 = _data$choices4[0]) !== null && _data$choices4 !== void 0 && (_data$choices4 = _data$choices4.message) !== null && _data$choices4 !== void 0 && _data$choices4.content) {
-        // Hueristic ... faster.
-        tokensUsed = 0 | data.choices[0].message.content.length / 3;
-        // tokensUsed = estimateTokenCount(
-        //   data.choices[0].message.content
-        // );
-      }
-      this.currentCost += tokensUsed * (costPer1MTokens / 1000000);
-
-      // logger.dev(`Updated cost for ${this.name}: ${this.currentCost}, (tokens used: ${tokensUsed}, per1MToken: ${costPer1MTokens})`);
     }
   }, {
     key: "getAvailable",

@@ -19,12 +19,16 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     xmlReq,
     req,
     prompt,
+    promptClosed,
     mapSelect,
+    mapSelectClosed,
     select,
     reduce: streamops.reduce,
     filter: streamops.filter,
+    waitUntil: streamops.waitUntil,
     map: streamops.map,
-    mergeAggregate: streamops.mergeAggregate
+    mergeAggregate: streamops.mergeAggregate,
+    tap: streamops.tap
   });
 
   if (!Array.isArray(pipeline)) {
@@ -52,7 +56,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
 
       const stream = await (llmStream)({
-        max_tokens: 4000,
+        max_tokens: config.max_tokens || 4000,
         messages: [
           {
             role: 'system',
@@ -88,7 +92,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function xmlReq({schema, system, messages}) {
+  function xmlReq({schema, system, messages, max_tokens}) {
 
     messages = (messages || []).slice();
 
@@ -139,7 +143,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     META & OUTPUT STRUCTURE RULES:
     ===
 
-    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it. You can express your thinking, but use XML <thinking/> elements to do this.
+    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it.
 
     You can output multiple results if you like.
 
@@ -149,20 +153,25 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
     Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>
 
-    All outputs begin with '<thinking>', followed by your output in XML. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
+    All outputs should begin with the XML structure you have been given. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
       
-
     HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:
     (you must follow these religiously)
     ===
     ${system || 'you are an ai assistant and respond to the request.'}`;
 
+      if (typeof transformedPrompt !== 'string') {
+        throw new Error('transformedPrompt must be a string');
+      }
+
       if (!transformedPrompt.trim()) {
         throw new Error('we need a prompt');
       }
 
+      console.log('transformedPrompt\n\n\n', transformedPrompt, '\n\n\n');
+
       const stream = await (llmStream)({
-        max_tokens: 4000,
+        max_tokens: max_tokens || 4000,
         messages: [
           {
             role: 'system',
@@ -176,18 +185,12 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           {
             role: 'user',
             content: transformedPrompt
-          },
-
-          {
-            role: 'assistant',
-            content: '<thinking>'
           }
         ]
       });
 
       const reader = stream.getReader();
 
-      // let accrued = '<thinking>';
       let accrued = '';
       let cancelled = false;
 
@@ -210,6 +213,28 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         reader.releaseLock();
       }
     };
+  }
+
+  function promptClosed(prompt, schema, mapper, fakeResponse) {
+
+    if (typeof prompt === 'string' || typeof prompt === 'function') {
+      return promptComplex({
+        schema,
+        mapper,
+        fakeResponse,
+        doMapSelectClosed: true,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+    }
+
+    // Assuming prompt is a config object
+    return promptComplex({...prompt, doMapSelectClosed: true});
+
   }
 
   function prompt(prompt, schema, mapper, fakeResponse) {
@@ -238,7 +263,9 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     schema,
     mapper,
     system,
-    fakeResponse
+    max_tokens,
+    fakeResponse,
+    doMapSelectClosed = false
   }) {
 
     logger.dev('promptComplex()', {
@@ -246,7 +273,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       schema,
       mapper,
       system,
-      fakeResponse
+      fakeResponse,
+      max_tokens
     });
 
     if (
@@ -258,7 +286,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     if (!schema) {
       return xmlReq({
         system: system,
-        messages
+        messages,
+        max_tokens
       });
     }
 
@@ -287,6 +316,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           : xmlReq({
             system: system,
             messages: messages,
+            max_tokens,
             schema: schema
           }),
 
@@ -294,7 +324,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           yield x;
         },
 
-        mapSelect(schema)
+        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema)
       ];
 
       const pipeline = [
@@ -332,6 +362,16 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     return function* (chunk) {
       xmlps.add([chunk].flat().join(''));
       let selection = xmlps.mapSelect(schema);
+      if (selection && Object.keys(selection).length) {
+        yield selection;
+      }
+    }
+  }
+
+  function mapSelectClosed(schema) {
+    return function* (chunk) {
+      xmlps.add([chunk].flat().join(''));
+      let selection = xmlps.mapSelectClosed(schema);
       if (selection && Object.keys(selection).length) {
         yield selection;
       }
