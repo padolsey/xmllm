@@ -23,7 +23,7 @@ function createServer(config = {}) {
 
   app.post('/api/stream', async (req, res) => {
     try {
-      const { messages, model = 'good', max_tokens } = req.body;
+      const { messages, model = ['claude:good', 'openai:good', 'togetherai:good'], max_tokens } = req.body;
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });
       }

@@ -39,7 +39,7 @@ function createServer() {
         while (1) switch (_context.prev = _context.next) {
           case 0:
             _context.prev = 0;
-            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? 'good' : _req$body$model, max_tokens = _req$body.max_tokens;
+            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens;
             if (!(!messages || !Array.isArray(messages))) {
               _context.next = 4;
               break;

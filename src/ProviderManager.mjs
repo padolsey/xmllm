@@ -13,9 +13,9 @@ class ProviderManager {
     }
   }
 
-  getProviderByPreference(preference, payloadModel) {
+  getProviderByPreference(preference) {
     let [providerName, modelType] = preference.split(':');
-    modelType = modelType || payloadModel || DEFAULT_MODEL_TYPE;
+    modelType = modelType || DEFAULT_MODEL_TYPE;
     
     const provider = this.providers[providerName];
     if (!provider) {
@@ -27,11 +27,13 @@ class ProviderManager {
     return { provider, modelType };
   }
 
-  pickProvider(excludeProviders = [], preferredProviders = [], payloadModel) {
+  pickProvider(excludeProviders = [], payload) {
+    const preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
+
     if (preferredProviders.length > 0) {
       for (const preference of preferredProviders) {
         try {
-          const { provider, modelType } = this.getProviderByPreference(preference, payloadModel);
+          const { provider, modelType } = this.getProviderByPreference(preference);
           if (provider.getAvailable() && !excludeProviders.includes(provider)) {
             console.log('PICKING provider', provider.name, 'with model', modelType);
             return { provider, modelType };
@@ -44,13 +46,14 @@ class ProviderManager {
     return { provider: undefined, modelType: undefined };
   }
 
-  async request(payload, preferredProviders = []) {
+  async request(payload) {
     let lastError = null;
     let providersTried = [];
+    const preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
     const totalProviders = preferredProviders.length;
 
     while (providersTried.length < totalProviders) {
-      const provider = this.pickProvider(providersTried, preferredProviders);
+      const { provider, modelType } = this.pickProvider(providersTried, payload);
       if (!provider) {
         throw new Error(lastError || 'No available providers');
       }
@@ -59,7 +62,7 @@ class ProviderManager {
       providersTried.push(provider);
 
       try {
-        return await provider.makeRequest(payload);
+        return await provider.makeRequest({ ...payload, model: modelType });
       } catch (error) {
         logger.error(`Error from provider ${provider.name}: ${error.message}`);
         lastError = `${provider.name} failed: ${error.message}`;
@@ -71,13 +74,14 @@ class ProviderManager {
     throw new Error('All providers failed to fulfill the request.');
   }
 
-  async streamRequest(payload, preferredProviders = []) {
+  async streamRequest(payload) {
     let lastError = null;
     let providersTried = [];
+    const preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
     const totalProviders = preferredProviders.length;
 
     while (providersTried.length < totalProviders) {
-      const { provider, modelType } = this.pickProvider(providersTried, preferredProviders, payload.model);
+      const { provider, modelType } = this.pickProvider(providersTried, payload);
       if (!provider) {
         throw new Error(lastError || 'No available provider for streaming');
       }

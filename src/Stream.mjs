@@ -9,7 +9,7 @@ let queue;
 const providerManager = new ProviderManager();  
 const ongoingRequests = new Map();
 
-// Default preferred providers list
+// Default preferred providers list (only used if payload.model is not provided)
 const DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 
 const DEFAULT_CONCURRENCY = 2;
@@ -17,12 +17,11 @@ const DEFAULT_CONCURRENCY = 2;
 /**
  * Creates a stream for AI responses.
  * @param {Object} payload - The request payload.
- * @param {string} [payload.model] - The model to use. This will be overridden if a model is specified in preferredProviders.
- * @param {string[]} [preferredProviders=DEFAULT_PREFERRED_PROVIDERS] - List of preferred providers in 'provider:model' format.
+ * @param {string|string[]} [payload.model] - The model(s) to use, either a string or an array of strings.
  * @returns {Promise<ReadableStream>} A readable stream of the AI response.
  */
-export default async function APIStream(payload, preferredProviders = DEFAULT_PREFERRED_PROVIDERS) {
-  console.log('APIStream()', payload, preferredProviders);
+export default async function APIStream(payload) {
+  console.log('APIStream()', payload);
 
   const PQueue = (await _PQueue).default;
 
@@ -32,6 +31,12 @@ export default async function APIStream(payload, preferredProviders = DEFAULT_PR
     const encoder = new TextEncoder();
 
     payload.stream = true;
+
+    // Convert payload.model to an array if it's a string
+    if (typeof payload.model === 'string') {
+      payload.model = [payload.model];
+    }
+
     let hash = createHash('md5').update(JSON.stringify(payload)).digest('hex');
 
     let cachedData = await getCache(hash);
@@ -53,7 +58,7 @@ export default async function APIStream(payload, preferredProviders = DEFAULT_PR
       ongoingRequests.set(hash, stream2);
       return stream1;
     } else {
-      let streamPromise = providerManager.streamRequest(payload, preferredProviders);
+      let streamPromise = providerManager.streamRequest(payload);
       streamPromise = streamPromise.then(stream => {
         const [stream1, stream2] = stream.tee();
         ongoingRequests.set(hash, stream2);

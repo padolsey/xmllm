@@ -111,12 +111,14 @@ function _xmllmGen() {
                 max_tokens = _ref7.max_tokens,
                 fakeResponse = _ref7.fakeResponse,
                 _ref7$doMapSelectClos = _ref7.doMapSelectClosed,
-                doMapSelectClosed = _ref7$doMapSelectClos === void 0 ? false : _ref7$doMapSelectClos;
+                doMapSelectClosed = _ref7$doMapSelectClos === void 0 ? false : _ref7$doMapSelectClos,
+                model = _ref7.model;
               logger.dev('promptComplex()', {
                 messages: messages,
                 schema: schema,
                 mapper: mapper,
                 system: system,
+                model: model,
                 fakeResponse: fakeResponse,
                 max_tokens: max_tokens
               });
@@ -127,7 +129,8 @@ function _xmllmGen() {
                 return xmlReq({
                   system: system,
                   messages: messages,
-                  max_tokens: max_tokens
+                  max_tokens: max_tokens,
+                  model: model
                 });
               }
               return /*#__PURE__*/function () {
@@ -190,7 +193,8 @@ function _xmllmGen() {
                           system: system,
                           messages: messages,
                           max_tokens: max_tokens,
-                          schema: schema
+                          schema: schema,
+                          model: model
                         }), /*#__PURE__*/_regeneratorRuntime().mark(function _callee6(x) {
                           return _regeneratorRuntime().wrap(function _callee6$(_context6) {
                             while (1) switch (_context6.prev = _context6.next) {
@@ -491,7 +495,8 @@ function _xmllmGen() {
               var schema = _ref6.schema,
                 system = _ref6.system,
                 messages = _ref6.messages,
-                max_tokens = _ref6.max_tokens;
+                max_tokens = _ref6.max_tokens,
+                model = _ref6.model;
               messages = (messages || []).slice();
               var prompt = '';
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
@@ -542,17 +547,12 @@ function _xmllmGen() {
                           }].concat(_toConsumableArray(((_messages3 = messages) === null || _messages3 === void 0 ? void 0 : _messages3.length) && messages || []), [{
                             role: 'user',
                             content: transformedPrompt
-                          }
-
-                          // {
-                          //   role: 'assistant',
-                          //   content: '<thinking>'
-                          // }
-                          ])
+                          }]),
+                          model: model
                         }));
                       case 12:
                         stream = _context2.sent;
-                        reader = stream.getReader(); // let accrued = '<thinking>';
+                        reader = stream.getReader();
                         accrued = '';
                         cancelled = false;
                         _context2.next = 18;
@@ -608,7 +608,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(thing) {
-                  var transformedConfig, _transformedConfig, system, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, text;
+                  var transformedConfig, _transformedConfig, system, model, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, text;
                   return _regeneratorRuntime().wrap(function _callee$(_context) {
                     while (1) switch (_context.prev = _context.next) {
                       case 0:
@@ -616,7 +616,7 @@ function _xmllmGen() {
                         if (typeof transformedConfig == 'function') {
                           transformedConfig = transformedConfig(thing);
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, messages = _transformedConfig.messages;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, messages = _transformedConfig.messages;
                         if (messages.length) {
                           _context.next = 5;
                           break;
@@ -629,7 +629,8 @@ function _xmllmGen() {
                           messages: [{
                             role: 'system',
                             content: system || ''
-                          }].concat(_toConsumableArray(messages || []))
+                          }].concat(_toConsumableArray(messages || [])),
+                          model: model
                         }));
                       case 7:
                         stream = _context.sent;

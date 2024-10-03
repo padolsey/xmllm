@@ -48,6 +48,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
       const {
         system,
+        model,
         messages
       } = transformedConfig;
 
@@ -63,7 +64,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             content: system || ''
           },
           ...(messages || [])
-        ]
+        ],
+        model
       });
 
       const reader = stream.getReader();
@@ -92,7 +94,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function xmlReq({schema, system, messages, max_tokens}) {
+  function xmlReq({schema, system, messages, max_tokens, model}) {
 
     messages = (messages || []).slice();
 
@@ -186,7 +188,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             role: 'user',
             content: transformedPrompt
           }
-        ]
+        ],
+        model
       });
 
       const reader = stream.getReader();
@@ -265,7 +268,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     system,
     max_tokens,
     fakeResponse,
-    doMapSelectClosed = false
+    doMapSelectClosed = false,
+    model
   }) {
 
     logger.dev('promptComplex()', {
@@ -273,6 +277,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       schema,
       mapper,
       system,
+      model,
       fakeResponse,
       max_tokens
     });
@@ -287,7 +292,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       return xmlReq({
         system: system,
         messages,
-        max_tokens
+        max_tokens,
+        model
       });
     }
 
@@ -317,7 +323,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             system: system,
             messages: messages,
             max_tokens,
-            schema: schema
+            schema: schema,
+            model
           }),
 
         function*(x) {

@@ -25,14 +25,14 @@ var queue;
 var providerManager = new _ProviderManager["default"]();
 var ongoingRequests = new Map();
 
-// Default preferred providers list
+// Default preferred providers list (only used if payload.model is not provided)
 var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
+var DEFAULT_CONCURRENCY = 2;
 
 /**
  * Creates a stream for AI responses.
  * @param {Object} payload - The request payload.
- * @param {string} [payload.model] - The model to use. This will be overridden if a model is specified in preferredProviders.
- * @param {string[]} [preferredProviders=DEFAULT_PREFERRED_PROVIDERS] - List of preferred providers in 'provider:model' format.
+ * @param {string|string[]} [payload.model] - The model(s) to use, either a string or an array of strings.
  * @returns {Promise<ReadableStream>} A readable stream of the AI response.
  */
 function APIStream(_x) {
@@ -40,20 +40,17 @@ function APIStream(_x) {
 }
 function _APIStream() {
   _APIStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
-    var preferredProviders,
-      PQueue,
-      _args2 = arguments;
+    var PQueue;
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
-          preferredProviders = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : DEFAULT_PREFERRED_PROVIDERS;
-          console.log('APIStream()', payload, preferredProviders);
-          _context2.next = 4;
+          console.log('APIStream()', payload);
+          _context2.next = 3;
           return _PQueue;
-        case 4:
+        case 3:
           PQueue = _context2.sent["default"];
           queue = queue || new PQueue({
-            concurrency: 2
+            concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY
           });
           return _context2.abrupt("return", queue.add(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
             var encoder, hash, cachedData, ongoingRequest, ongoingRequestStream, _ongoingRequestStream, _ongoingRequestStream2, stream1, stream2, streamPromise;
@@ -62,14 +59,19 @@ function _APIStream() {
                 case 0:
                   encoder = new TextEncoder();
                   payload.stream = true;
+
+                  // Convert payload.model to an array if it's a string
+                  if (typeof payload.model === 'string') {
+                    payload.model = [payload.model];
+                  }
                   hash = (0, _crypto.createHash)('md5').update(JSON.stringify(payload)).digest('hex');
-                  _context.next = 5;
+                  _context.next = 6;
                   return (0, _mainCache.get)(hash);
-                case 5:
+                case 6:
                   cachedData = _context.sent;
                   ongoingRequest = ongoingRequests.get(hash);
                   if (!cachedData) {
-                    _context.next = 13;
+                    _context.next = 14;
                     break;
                   }
                   cachedData = cachedData.value;
@@ -80,21 +82,21 @@ function _APIStream() {
                       controller.close();
                     }
                   }));
-                case 13:
+                case 14:
                   if (!ongoingRequest) {
-                    _context.next = 23;
+                    _context.next = 24;
                     break;
                   }
                   logger.log('Request currently ongoing: we are awaiting and tee\'ing the stream', hash);
-                  _context.next = 17;
+                  _context.next = 18;
                   return ongoingRequest;
-                case 17:
+                case 18:
                   ongoingRequestStream = _context.sent;
                   _ongoingRequestStream = ongoingRequestStream.tee(), _ongoingRequestStream2 = _slicedToArray(_ongoingRequestStream, 2), stream1 = _ongoingRequestStream2[0], stream2 = _ongoingRequestStream2[1];
                   ongoingRequests.set(hash, stream2);
                   return _context.abrupt("return", stream1);
-                case 23:
-                  streamPromise = providerManager.streamRequest(payload, preferredProviders);
+                case 24:
+                  streamPromise = providerManager.streamRequest(payload);
                   streamPromise = streamPromise.then(function (stream) {
                     var _stream$tee = stream.tee(),
                       _stream$tee2 = _slicedToArray(_stream$tee, 2),
@@ -105,13 +107,13 @@ function _APIStream() {
                   });
                   ongoingRequests.set(hash, streamPromise);
                   return _context.abrupt("return", streamPromise);
-                case 27:
+                case 28:
                 case "end":
                   return _context.stop();
               }
             }, _callee);
           }))));
-        case 7:
+        case 6:
         case "end":
           return _context2.stop();
       }

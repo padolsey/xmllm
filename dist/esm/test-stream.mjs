@@ -8,11 +8,12 @@ function testStream() {
 }
 function _testStream() {
   _testStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-    var payload, preferredProviders, stream, reader, decoder, _yield$reader$read, done, value;
+    var payload1, payload2, payload3, testCases, i, stream, reader, decoder, _yield$reader$read, done, value;
     return _regeneratorRuntime().wrap(function _callee$(_context) {
       while (1) switch (_context.prev = _context.next) {
         case 0:
-          payload = {
+          // Test case 1: Using a single model
+          payload1 = {
             messages: [{
               role: 'system',
               content: 'You are a helpful assistant.'
@@ -20,49 +21,78 @@ function _testStream() {
               role: 'user',
               content: 'Hello, how are you?'
             }],
-            model: 'good'
-          }; // const preferredProviders = ['claude:good', 'openai:good', 'openai:fast', 'claude:fast'];
-          // 
-          preferredProviders = ['togetherai:superfast'];
-          _context.prev = 2;
-          _context.next = 5;
-          return APIStream(payload, preferredProviders);
+            model: 'togetherai:superfast'
+          }; // Test case 2: Using multiple models in order of preference
+          payload2 = {
+            messages: [{
+              role: 'system',
+              content: 'You are a helpful assistant.'
+            }, {
+              role: 'user',
+              content: 'What is the capital of France?'
+            }],
+            model: ['openai', 'claude:good', 'openai:good', 'togetherai:fast']
+          }; // Test case 3: Without specifying a model (will use DEFAULT_PREFERRED_PROVIDERS)
+          payload3 = {
+            messages: [{
+              role: 'system',
+              content: 'You are a helpful assistant.'
+            }, {
+              role: 'user',
+              content: 'Explain quantum computing in simple terms.'
+            }]
+          };
+          testCases = [payload1, payload2, payload3];
+          i = 0;
         case 5:
+          if (!(i < testCases.length)) {
+            _context.next = 32;
+            break;
+          }
+          console.log("\nRunning test case ".concat(i + 1, ":"));
+          _context.prev = 7;
+          _context.next = 10;
+          return APIStream(testCases[i]);
+        case 10:
           stream = _context.sent;
           reader = stream.getReader();
           decoder = new TextDecoder();
-        case 8:
+        case 13:
           if (!true) {
-            _context.next = 19;
+            _context.next = 24;
             break;
           }
-          _context.next = 11;
+          _context.next = 16;
           return reader.read();
-        case 11:
+        case 16:
           _yield$reader$read = _context.sent;
           done = _yield$reader$read.done;
           value = _yield$reader$read.value;
           if (!done) {
-            _context.next = 16;
+            _context.next = 21;
             break;
           }
-          return _context.abrupt("break", 19);
-        case 16:
-          console.log(decoder.decode(value));
-          _context.next = 8;
-          break;
-        case 19:
-          _context.next = 24;
-          break;
+          return _context.abrupt("break", 24);
         case 21:
-          _context.prev = 21;
-          _context.t0 = _context["catch"](2);
-          console.error('Error:', _context.t0.message);
+          console.log(decoder.decode(value));
+          _context.next = 13;
+          break;
         case 24:
+          _context.next = 29;
+          break;
+        case 26:
+          _context.prev = 26;
+          _context.t0 = _context["catch"](7);
+          console.error("Error in test case ".concat(i + 1, ":"), _context.t0.message);
+        case 29:
+          i++;
+          _context.next = 5;
+          break;
+        case 32:
         case "end":
           return _context.stop();
       }
-    }, _callee, null, [[2, 21]]);
+    }, _callee, null, [[7, 26]]);
   }));
   return _testStream.apply(this, arguments);
 }
