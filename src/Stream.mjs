@@ -12,6 +12,8 @@ const ongoingRequests = new Map();
 // Default preferred providers list
 const DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 
+const DEFAULT_CONCURRENCY = 2;
+
 /**
  * Creates a stream for AI responses.
  * @param {Object} payload - The request payload.
@@ -24,7 +26,7 @@ export default async function APIStream(payload, preferredProviders = DEFAULT_PR
 
   const PQueue = (await _PQueue).default;
 
-  queue = queue || new PQueue({ concurrency: 2 });
+  queue = queue || new PQueue({ concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY });
 
   return queue.add(async () => {
     const encoder = new TextEncoder();
