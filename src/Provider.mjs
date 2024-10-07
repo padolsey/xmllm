@@ -192,11 +192,8 @@ class Provider {
 
             const parser = createParser(onParse);
 
-            console.log('response.body', response.body);
             for await (const chunk of response.body) {
-              // console.log('Chunk', chunk);
               const decoded = new TextDecoder().decode(chunk);
-              // console.log('decoded', decoded);
               parser.feed(decoded);
             }
           },
@@ -276,13 +273,10 @@ class Provider {
 
     let historyTokenCount = 0;
 
-    logger.dev('m12');
     messages = messages.reverse().map((item) => {
       // We are processing in reverse in order to prioritize
       // later parts of the chat over earlier parts
       // (i.e. short term memory)
-
-      console.log('999 message item', item);
 
       const truncated = innerTruncate(
         item.content,

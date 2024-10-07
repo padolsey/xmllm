@@ -5,6 +5,14 @@ import Logger from './Logger.mjs';
 const logger = new Logger('ProviderManager');
 const DEFAULT_MODEL_TYPE = 'fast';
 
+// Default preferred providers list (only used if payload.model is not provided)
+const DEFAULT_PREFERRED_PROVIDERS = [
+  'claude:good', 
+  'openai:good', 
+  'claude:fast', 
+  'openai:fast'
+];
+
 class ProviderManager {
   constructor() {
     this.providers = {};
@@ -27,78 +35,47 @@ class ProviderManager {
     return { provider, modelType };
   }
 
-  pickProvider(excludeProviders = [], payload) {
-    const preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
+  async pickProviderWithFallback(payload, action) {
+    const preferredProviders = payload.model
+      ? Array.isArray(payload.model)
+        ? payload.model
+        : [payload.model]
+      : DEFAULT_PREFERRED_PROVIDERS;
 
-    if (preferredProviders.length > 0) {
-      for (const preference of preferredProviders) {
-        try {
-          const { provider, modelType } = this.getProviderByPreference(preference);
-          if (provider.getAvailable() && !excludeProviders.includes(provider)) {
-            console.log('PICKING provider', provider.name, 'with model', modelType);
-            return { provider, modelType };
+    let lastError = null;
+
+    for (const preference of preferredProviders) {
+      try {
+        const { provider, modelType } = this.getProviderByPreference(preference);
+        if (provider.getAvailable()) {
+          logger.log('Trying provider', provider.name, 'with model', modelType);
+          try {
+            return await action(provider, { ...payload, model: modelType });
+          } catch (error) {
+            logger.error(`Error from provider ${provider.name}: ${error.message}`);
+            lastError = `${provider.name} failed: ${error.message}`;
+            if (preferredProviders.length === 1) {
+              throw error;
+            }
           }
-        } catch (error) {
-          logger.error(`Error picking preferred provider: ${error.message}`);
         }
+      } catch (error) {
+        logger.error(`Error picking preferred provider: ${error.message}`);
       }
     }
-    return { provider: undefined, modelType: undefined };
+    throw new Error(lastError || 'All providers failed to fulfill the request.');
   }
 
   async request(payload) {
-    let lastError = null;
-    let providersTried = [];
-    const preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
-    const totalProviders = preferredProviders.length;
-
-    while (providersTried.length < totalProviders) {
-      const { provider, modelType } = this.pickProvider(providersTried, payload);
-      if (!provider) {
-        throw new Error(lastError || 'No available providers');
-      }
-      logger.log('Trying provider', provider.name);
-
-      providersTried.push(provider);
-
-      try {
-        return await provider.makeRequest({ ...payload, model: modelType });
-      } catch (error) {
-        logger.error(`Error from provider ${provider.name}: ${error.message}`);
-        lastError = `${provider.name} failed: ${error.message}`;
-        if (preferredProviders.length === 1) {
-          throw error;
-        }
-      }
-    }
-    throw new Error('All providers failed to fulfill the request.');
+    return this.pickProviderWithFallback(payload, (provider, updatedPayload) => 
+      provider.makeRequest(updatedPayload)
+    );
   }
 
   async streamRequest(payload) {
-    let lastError = null;
-    let providersTried = [];
-    const preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
-    const totalProviders = preferredProviders.length;
-
-    while (providersTried.length < totalProviders) {
-      const { provider, modelType } = this.pickProvider(providersTried, payload);
-      if (!provider) {
-        throw new Error(lastError || 'No available provider for streaming');
-      }
-      logger.log('Trying provider', provider.name, 'with model', modelType);
-      providersTried.push(provider);
-
-      try {
-        return await provider.createStream({ ...payload, model: modelType });
-      } catch (error) {
-        logger.error(`Streaming error from provider ${provider.name}: ${error.message}`);
-        lastError = `${provider.name} failed: ${error.message}`;
-        if (preferredProviders.length === 1) {
-          throw error;
-        }
-      }
-    }
-    throw new Error('All providers failed to fulfill the stream request.');
+    return this.pickProviderWithFallback(payload, (provider, updatedPayload) => 
+      provider.createStream(updatedPayload)
+    );
   }
 }
 

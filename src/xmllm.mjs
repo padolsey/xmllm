@@ -18,17 +18,20 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   const pipeline = pipelineFn({
     xmlReq,
     req,
+    rawStream: req,
     prompt,
     promptClosed,
     mapSelect,
     mapSelectClosed,
     select,
+    take: streamops.take,
+    accrue: streamops.accrue,
     reduce: streamops.reduce,
     filter: streamops.filter,
     waitUntil: streamops.waitUntil,
     map: streamops.map,
     mergeAggregate: streamops.mergeAggregate,
-    tap: streamops.tap
+    tap: streamops.tap,
   });
 
   if (!Array.isArray(pipeline)) {
@@ -39,11 +42,24 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   yield* stream;
 
   function req(config) {
+
     return async function*(thing) {
       let transformedConfig = config;
 
       if (typeof transformedConfig == 'function') {
         transformedConfig = transformedConfig(thing);
+      }
+
+      if (typeof transformedConfig === 'string') {
+        transformedConfig = {
+          system: '',
+          messages: [
+            {
+              role: 'user',
+              content: transformedConfig
+            }
+          ]
+        }
       }
 
       const {
@@ -57,7 +73,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
 
       const stream = await (llmStream)({
-        max_tokens: config.max_tokens || 4000,
+        max_tokens: transformedConfig.max_tokens || 4000,
         messages: [
           {
             role: 'system',
@@ -220,84 +236,108 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   function promptClosed(prompt, schema, mapper, fakeResponse) {
 
-    if (typeof prompt === 'string' || typeof prompt === 'function') {
-      return promptComplex({
-        schema,
-        mapper,
-        fakeResponse,
+    let transformedConfig = prompt;
+    
+    if (typeof transformedConfig == 'function') {
+      return promptComplex(prompt, {doMapSelectClosed: true});
+    }
+
+    if (typeof transformedConfig === 'string') {
+      transformedConfig = {
+        system: '',
         doMapSelectClosed: true,
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: transformedConfig
           }
         ]
-      })
+      }
     }
 
+    return promptComplex({
+      schema, mapper, fakeResponse,
+      ...transformedConfig,
+      doMapSelectClosed: true
+    })
+
     // Assuming prompt is a config object
-    return promptComplex({...prompt, doMapSelectClosed: true});
+    // return promptComplex({...prompt, doMapSelectClosed: true});
 
   }
 
   function prompt(prompt, schema, mapper, fakeResponse) {
 
-    if (typeof prompt === 'string' || typeof prompt === 'function') {
+    if (typeof prompt == 'string' || typeof prompt == 'function') {
       return promptComplex({
         schema,
         mapper,
         fakeResponse,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-    }
-
-    // Assuming prompt is a config object
-    return promptComplex(prompt);
-
-  }
-
-  function promptComplex({
-    messages,
-    schema,
-    mapper,
-    system,
-    max_tokens,
-    fakeResponse,
-    doMapSelectClosed = false,
-    model
-  }) {
-
-    logger.dev('promptComplex()', {
-      messages,
-      schema,
-      mapper,
-      system,
-      model,
-      fakeResponse,
-      max_tokens
-    });
-
-    if (
-      mapper && !schema 
-    ) {
-      throw new Error('You cannot have a schema without a mapper; it makes no sense.');
-    }
-
-    if (!schema) {
-      return xmlReq({
-        system: system,
-        messages,
-        max_tokens,
-        model
+        system: '',
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
       });
     }
 
+    return promptComplex(prompt);
+  }
+
+  function promptComplex(config, additionalOverrides = {}) {
+
     return async function*(input) {
+
+      if (typeof config === 'function') {
+        config = config(input);
+        config = {...config, ...additionalOverrides};
+      }
+
+      if (typeof config === 'string') {
+        config = {
+          messages: [{
+            role: 'user',
+            content: config
+          }]
+        }
+      }
+
+      const {
+        messages,
+        schema,
+        mapper,
+        system,
+        max_tokens,
+        fakeResponse,
+        doMapSelectClosed = false,
+        model
+      } = config;
+
+      logger.dev('promptComplex()', {
+        messages,
+        schema,
+        mapper,
+        system,
+        model,
+        fakeResponse,
+        max_tokens
+      });
+
+      if (
+        mapper && !schema 
+      ) {
+        throw new Error('You cannot have a schema without a mapper; it makes no sense.');
+      }
+
+      if (!schema) {
+        return xmlReq({
+          system: system,
+          messages,
+          max_tokens,
+          model
+        });
+      }
+
       const reqPipeline = [
         function*() {
           if (input == null) {
@@ -418,6 +458,7 @@ function xmllm(pipelineFn, options = {}) {
     }
     return results;
   };
+
   return g;
 }
 

@@ -51,7 +51,6 @@ async function set(key, value) {
 }
 
 function purgeOldEntries() {
-  logger.dev('Purging old entries');
   const OLD_TIME_PERIOD = 1000 * 60 * 60 * 24 * 5; // 5 days
   try {
     for (const [key, value] of cache.entries()) {
