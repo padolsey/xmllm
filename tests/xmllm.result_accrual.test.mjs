@@ -12,6 +12,10 @@ describe('xmllm - Gathering results from multiple prompts', () => {
           null,
           '<thinking><baby_names><name>Luna</name><name>Zion</name><name>Nova</name></baby_names></thinking>'
         ),
+        function*(thing) {
+          console.log('>>999 thing', thing);
+          yield thing;
+        },
         prompt(
           'Give me some fun baby activities and exercises',
           {
@@ -24,7 +28,7 @@ describe('xmllm - Gathering results from multiple prompts', () => {
       ],
 
       function*(thing99) {
-        console.log('thing99', thing99);
+        console.log('>> thing99', thing99);
         yield thing99;
       },
 
@@ -36,24 +40,8 @@ describe('xmllm - Gathering results from multiple prompts', () => {
       filter(r => r.activities && r.exercises && r.baby_names),
 
       function*(thing77) {
-        console.log('thing77', thing77);
         yield thing77;
-      },
-
-      // function*(results) {
-      //   const [namesResult, activitiesExercisesResult] = results.flat();
-      //   console.log('Names result:', JSON.stringify(namesResult, null, 2));
-      //   console.log('Activities and exercises result:', JSON.stringify(activitiesExercisesResult, null, 2));
-        
-      //   const combinedResult = {
-      //     baby_names: namesResult.baby_names,
-      //     activities: activitiesExercisesResult.activities,
-      //     exercises: activitiesExercisesResult.exercises
-      //   };
-        
-      //   console.log('Combined result:', JSON.stringify(combinedResult, null, 2));
-      //   yield combinedResult;
-      // }
+      }
     ]);
 
     const results = [];
