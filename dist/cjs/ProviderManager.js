@@ -13,9 +13,9 @@ function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyri
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -29,6 +29,9 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var logger = new _Logger["default"]('ProviderManager');
 var DEFAULT_MODEL_TYPE = 'fast';
+
+// Default preferred providers list (only used if payload.model is not provided)
+var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 var ProviderManager = /*#__PURE__*/function () {
   function ProviderManager() {
     _classCallCheck(this, ProviderManager);
@@ -61,98 +64,99 @@ var ProviderManager = /*#__PURE__*/function () {
       };
     }
   }, {
-    key: "pickProvider",
-    value: function pickProvider() {
-      var excludeProviders = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
-      var payload = arguments.length > 1 ? arguments[1] : undefined;
-      var preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
-      if (preferredProviders.length > 0) {
-        var _iterator = _createForOfIteratorHelper(preferredProviders),
-          _step;
-        try {
-          for (_iterator.s(); !(_step = _iterator.n()).done;) {
-            var preference = _step.value;
-            try {
-              var _this$getProviderByPr = this.getProviderByPreference(preference),
-                provider = _this$getProviderByPr.provider,
-                modelType = _this$getProviderByPr.modelType;
-              if (provider.getAvailable() && !excludeProviders.includes(provider)) {
-                console.log('PICKING provider', provider.name, 'with model', modelType);
-                return {
-                  provider: provider,
-                  modelType: modelType
-                };
-              }
-            } catch (error) {
-              logger.error("Error picking preferred provider: ".concat(error.message));
-            }
-          }
-        } catch (err) {
-          _iterator.e(err);
-        } finally {
-          _iterator.f();
-        }
-      }
-      return {
-        provider: undefined,
-        modelType: undefined
-      };
-    }
-  }, {
-    key: "request",
+    key: "pickProviderWithFallback",
     value: function () {
-      var _request = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(payload) {
-        var lastError, providersTried, preferredProviders, totalProviders, _this$pickProvider, provider, modelType;
+      var _pickProviderWithFallback = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(payload, action) {
+        var preferredProviders, lastError, _iterator, _step, preference, _this$getProviderByPr, provider, modelType;
         return _regeneratorRuntime().wrap(function _callee$(_context) {
           while (1) switch (_context.prev = _context.next) {
             case 0:
+              preferredProviders = payload.model ? Array.isArray(payload.model) ? payload.model : [payload.model] : DEFAULT_PREFERRED_PROVIDERS;
               lastError = null;
-              providersTried = [];
-              preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
-              totalProviders = preferredProviders.length;
-            case 4:
-              if (!(providersTried.length < totalProviders)) {
-                _context.next = 24;
+              _iterator = _createForOfIteratorHelper(preferredProviders);
+              _context.prev = 3;
+              _iterator.s();
+            case 5:
+              if ((_step = _iterator.n()).done) {
+                _context.next = 30;
                 break;
               }
-              _this$pickProvider = this.pickProvider(providersTried, payload), provider = _this$pickProvider.provider, modelType = _this$pickProvider.modelType;
-              if (provider) {
-                _context.next = 8;
+              preference = _step.value;
+              _context.prev = 7;
+              _this$getProviderByPr = this.getProviderByPreference(preference), provider = _this$getProviderByPr.provider, modelType = _this$getProviderByPr.modelType;
+              if (!provider.getAvailable()) {
+                _context.next = 23;
                 break;
               }
-              throw new Error(lastError || 'No available providers');
-            case 8:
-              logger.log('Trying provider', provider.name);
-              providersTried.push(provider);
-              _context.prev = 10;
-              _context.next = 13;
-              return provider.makeRequest(_objectSpread(_objectSpread({}, payload), {}, {
+              logger.log('Trying provider', provider.name, 'with model', modelType);
+              _context.prev = 11;
+              _context.next = 14;
+              return action(provider, _objectSpread(_objectSpread({}, payload), {}, {
                 model: modelType
               }));
-            case 13:
+            case 14:
               return _context.abrupt("return", _context.sent);
-            case 16:
-              _context.prev = 16;
-              _context.t0 = _context["catch"](10);
+            case 17:
+              _context.prev = 17;
+              _context.t0 = _context["catch"](11);
               logger.error("Error from provider ".concat(provider.name, ": ").concat(_context.t0.message));
               lastError = "".concat(provider.name, " failed: ").concat(_context.t0.message);
               if (!(preferredProviders.length === 1)) {
-                _context.next = 22;
+                _context.next = 23;
                 break;
               }
               throw _context.t0;
-            case 22:
-              _context.next = 4;
+            case 23:
+              _context.next = 28;
               break;
-            case 24:
-              throw new Error('All providers failed to fulfill the request.');
             case 25:
+              _context.prev = 25;
+              _context.t1 = _context["catch"](7);
+              logger.error("Error picking preferred provider: ".concat(_context.t1.message));
+            case 28:
+              _context.next = 5;
+              break;
+            case 30:
+              _context.next = 35;
+              break;
+            case 32:
+              _context.prev = 32;
+              _context.t2 = _context["catch"](3);
+              _iterator.e(_context.t2);
+            case 35:
+              _context.prev = 35;
+              _iterator.f();
+              return _context.finish(35);
+            case 38:
+              throw new Error(lastError || 'All providers failed to fulfill the request.');
+            case 39:
             case "end":
               return _context.stop();
           }
-        }, _callee, this, [[10, 16]]);
+        }, _callee, this, [[3, 32, 35, 38], [7, 25], [11, 17]]);
       }));
-      function request(_x) {
+      function pickProviderWithFallback(_x, _x2) {
+        return _pickProviderWithFallback.apply(this, arguments);
+      }
+      return pickProviderWithFallback;
+    }()
+  }, {
+    key: "request",
+    value: function () {
+      var _request = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
+        return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+          while (1) switch (_context2.prev = _context2.next) {
+            case 0:
+              return _context2.abrupt("return", this.pickProviderWithFallback(payload, function (provider, updatedPayload) {
+                return provider.makeRequest(updatedPayload);
+              }));
+            case 1:
+            case "end":
+              return _context2.stop();
+          }
+        }, _callee2, this);
+      }));
+      function request(_x3) {
         return _request.apply(this, arguments);
       }
       return request;
@@ -160,58 +164,20 @@ var ProviderManager = /*#__PURE__*/function () {
   }, {
     key: "streamRequest",
     value: function () {
-      var _streamRequest = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
-        var lastError, providersTried, preferredProviders, totalProviders, _this$pickProvider2, provider, modelType;
-        return _regeneratorRuntime().wrap(function _callee2$(_context2) {
-          while (1) switch (_context2.prev = _context2.next) {
+      var _streamRequest = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(payload) {
+        return _regeneratorRuntime().wrap(function _callee3$(_context3) {
+          while (1) switch (_context3.prev = _context3.next) {
             case 0:
-              lastError = null;
-              providersTried = [];
-              preferredProviders = Array.isArray(payload.model) ? payload.model : [payload.model];
-              totalProviders = preferredProviders.length;
-            case 4:
-              if (!(providersTried.length < totalProviders)) {
-                _context2.next = 24;
-                break;
-              }
-              _this$pickProvider2 = this.pickProvider(providersTried, payload), provider = _this$pickProvider2.provider, modelType = _this$pickProvider2.modelType;
-              if (provider) {
-                _context2.next = 8;
-                break;
-              }
-              throw new Error(lastError || 'No available provider for streaming');
-            case 8:
-              logger.log('Trying provider', provider.name, 'with model', modelType);
-              providersTried.push(provider);
-              _context2.prev = 10;
-              _context2.next = 13;
-              return provider.createStream(_objectSpread(_objectSpread({}, payload), {}, {
-                model: modelType
+              return _context3.abrupt("return", this.pickProviderWithFallback(payload, function (provider, updatedPayload) {
+                return provider.createStream(updatedPayload);
               }));
-            case 13:
-              return _context2.abrupt("return", _context2.sent);
-            case 16:
-              _context2.prev = 16;
-              _context2.t0 = _context2["catch"](10);
-              logger.error("Streaming error from provider ".concat(provider.name, ": ").concat(_context2.t0.message));
-              lastError = "".concat(provider.name, " failed: ").concat(_context2.t0.message);
-              if (!(preferredProviders.length === 1)) {
-                _context2.next = 22;
-                break;
-              }
-              throw _context2.t0;
-            case 22:
-              _context2.next = 4;
-              break;
-            case 24:
-              throw new Error('All providers failed to fulfill the stream request.');
-            case 25:
+            case 1:
             case "end":
-              return _context2.stop();
+              return _context3.stop();
           }
-        }, _callee2, this, [[10, 16]]);
+        }, _callee3, this);
       }));
-      function streamRequest(_x2) {
+      function streamRequest(_x4) {
         return _streamRequest.apply(this, arguments);
       }
       return streamRequest;

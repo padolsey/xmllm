@@ -17,9 +17,6 @@ var logger = new Logger('APIStream');
 var queue;
 var providerManager = new ProviderManager();
 var ongoingRequests = new Map();
-
-// Default preferred providers list (only used if payload.model is not provided)
-var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 var DEFAULT_CONCURRENCY = 2;
 
 /**
@@ -37,10 +34,9 @@ function _APIStream() {
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
-          console.log('APIStream()', payload);
-          _context2.next = 3;
+          _context2.next = 2;
           return _PQueue;
-        case 3:
+        case 2:
           PQueue = _context2.sent["default"];
           queue = queue || new PQueue({
             concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY
@@ -106,7 +102,7 @@ function _APIStream() {
               }
             }, _callee);
           }))));
-        case 6:
+        case 5:
         case "end":
           return _context2.stop();
       }

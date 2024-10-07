@@ -121,7 +121,6 @@ function _set() {
   return _set.apply(this, arguments);
 }
 function purgeOldEntries() {
-  logger.dev('Purging old entries');
   var OLD_TIME_PERIOD = 1000 * 60 * 60 * 24 * 5; // 5 days
   try {
     var _iterator = _createForOfIteratorHelper(cache.entries()),

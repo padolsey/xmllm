@@ -246,60 +246,58 @@ var Provider = /*#__PURE__*/function () {
                                     logger.timeEnd('makeSingleStream:init');
                                     logger.log('Starting readable stream');
                                     parser = createParser(onParse);
-                                    console.log('response.body', response.body);
                                     _iteratorAbruptCompletion = false;
                                     _didIteratorError = false;
-                                    _context3.prev = 8;
+                                    _context3.prev = 7;
                                     _iterator = _asyncIterator(response.body);
-                                  case 10:
-                                    _context3.next = 12;
+                                  case 9:
+                                    _context3.next = 11;
                                     return _iterator.next();
-                                  case 12:
+                                  case 11:
                                     if (!(_iteratorAbruptCompletion = !(_step = _context3.sent).done)) {
-                                      _context3.next = 19;
+                                      _context3.next = 18;
                                       break;
                                     }
                                     chunk = _step.value;
-                                    // console.log('Chunk', chunk);
-                                    decoded = new TextDecoder().decode(chunk); // console.log('decoded', decoded);
+                                    decoded = new TextDecoder().decode(chunk);
                                     parser.feed(decoded);
-                                  case 16:
+                                  case 15:
                                     _iteratorAbruptCompletion = false;
-                                    _context3.next = 10;
+                                    _context3.next = 9;
                                     break;
-                                  case 19:
-                                    _context3.next = 25;
+                                  case 18:
+                                    _context3.next = 24;
                                     break;
-                                  case 21:
-                                    _context3.prev = 21;
-                                    _context3.t0 = _context3["catch"](8);
+                                  case 20:
+                                    _context3.prev = 20;
+                                    _context3.t0 = _context3["catch"](7);
                                     _didIteratorError = true;
                                     _iteratorError = _context3.t0;
-                                  case 25:
+                                  case 24:
+                                    _context3.prev = 24;
                                     _context3.prev = 25;
-                                    _context3.prev = 26;
                                     if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
-                                      _context3.next = 30;
+                                      _context3.next = 29;
                                       break;
                                     }
-                                    _context3.next = 30;
+                                    _context3.next = 29;
                                     return _iterator["return"]();
-                                  case 30:
-                                    _context3.prev = 30;
+                                  case 29:
+                                    _context3.prev = 29;
                                     if (!_didIteratorError) {
-                                      _context3.next = 33;
+                                      _context3.next = 32;
                                       break;
                                     }
                                     throw _iteratorError;
+                                  case 32:
+                                    return _context3.finish(29);
                                   case 33:
-                                    return _context3.finish(30);
+                                    return _context3.finish(24);
                                   case 34:
-                                    return _context3.finish(25);
-                                  case 35:
                                   case "end":
                                     return _context3.stop();
                                 }
-                              }, _callee3, null, [[8, 21, 25, 35], [26,, 30, 34]]);
+                              }, _callee3, null, [[7, 20, 24, 34], [25,, 29, 33]]);
                             }))();
                           }
                         }));
@@ -399,13 +397,11 @@ var Provider = /*#__PURE__*/function () {
       var maxAvailableContextSize = 0 | (model.maxContextSize || DEFAULT_ASSUMED_MAX_CONTEXT_SIZE) - estimateTokenCount(systemMessage.content) - DEFAULT_RESPONSE_TOKEN_LENGTH;
       logger.dev('maxAvailableContextSize remaining', maxAvailableContextSize);
       var historyTokenCount = 0;
-      logger.dev('m12');
       messages = messages.reverse().map(function (item) {
         // We are processing in reverse in order to prioritize
         // later parts of the chat over earlier parts
         // (i.e. short term memory)
 
-        console.log('999 message item', item);
         var truncated = innerTruncate(item.content, '[...]', 10, MAX_TOKEN_HISTORICAL_MESSAGE);
         historyTokenCount += estimateTokenCount(truncated);
         if (historyTokenCount > maxAvailableContextSize) {

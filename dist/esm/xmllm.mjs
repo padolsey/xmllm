@@ -103,42 +103,53 @@ function _xmllmGen() {
                 }, _callee9);
               });
             };
-            promptComplex = function _promptComplex(_ref7) {
-              var messages = _ref7.messages,
-                schema = _ref7.schema,
-                mapper = _ref7.mapper,
-                system = _ref7.system,
-                max_tokens = _ref7.max_tokens,
-                fakeResponse = _ref7.fakeResponse,
-                _ref7$doMapSelectClos = _ref7.doMapSelectClosed,
-                doMapSelectClosed = _ref7$doMapSelectClos === void 0 ? false : _ref7$doMapSelectClos,
-                model = _ref7.model;
-              logger.dev('promptComplex()', {
-                messages: messages,
-                schema: schema,
-                mapper: mapper,
-                system: system,
-                model: model,
-                fakeResponse: fakeResponse,
-                max_tokens: max_tokens
-              });
-              if (mapper && !schema) {
-                throw new Error('You cannot have a schema without a mapper; it makes no sense.');
-              }
-              if (!schema) {
-                return xmlReq({
-                  system: system,
-                  messages: messages,
-                  max_tokens: max_tokens,
-                  model: model
-                });
-              }
+            promptComplex = function _promptComplex(config) {
+              var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(input) {
-                  var reqPipeline, pipeline, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
+                  var _config, messages, schema, mapper, system, max_tokens, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, model, reqPipeline, pipeline, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
                   return _regeneratorRuntime().wrap(function _callee8$(_context8) {
                     while (1) switch (_context8.prev = _context8.next) {
                       case 0:
+                        if (typeof config === 'function') {
+                          config = config(input);
+                          config = _objectSpread(_objectSpread({}, config), additionalOverrides);
+                        }
+                        if (typeof config === 'string') {
+                          config = {
+                            messages: [{
+                              role: 'user',
+                              content: config
+                            }]
+                          };
+                        }
+                        _config = config, messages = _config.messages, schema = _config.schema, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, model = _config.model;
+                        logger.dev('promptComplex()', {
+                          messages: messages,
+                          schema: schema,
+                          mapper: mapper,
+                          system: system,
+                          model: model,
+                          fakeResponse: fakeResponse,
+                          max_tokens: max_tokens
+                        });
+                        if (!(mapper && !schema)) {
+                          _context8.next = 6;
+                          break;
+                        }
+                        throw new Error('You cannot have a schema without a mapper; it makes no sense.');
+                      case 6:
+                        if (schema) {
+                          _context8.next = 8;
+                          break;
+                        }
+                        return _context8.abrupt("return", xmlReq({
+                          system: system,
+                          messages: messages,
+                          max_tokens: max_tokens,
+                          model: model
+                        }));
+                      case 8:
                         reqPipeline = [/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
                           return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                             while (1) switch (_context3.prev = _context3.next) {
@@ -395,60 +406,60 @@ function _xmllmGen() {
                         }())];
                         _iteratorAbruptCompletion2 = false;
                         _didIteratorError2 = false;
-                        _context8.prev = 4;
+                        _context8.prev = 12;
                         _iterator2 = _asyncIterator(xmllmGen(function () {
                           return pipeline;
                         }, {
                           llmStream: llmStream
                         }));
-                      case 6:
-                        _context8.next = 8;
+                      case 14:
+                        _context8.next = 16;
                         return _awaitAsyncGenerator(_iterator2.next());
-                      case 8:
+                      case 16:
                         if (!(_iteratorAbruptCompletion2 = !(_step2 = _context8.sent).done)) {
-                          _context8.next = 15;
+                          _context8.next = 23;
                           break;
                         }
                         item = _step2.value;
-                        _context8.next = 12;
+                        _context8.next = 20;
                         return item;
-                      case 12:
+                      case 20:
                         _iteratorAbruptCompletion2 = false;
-                        _context8.next = 6;
+                        _context8.next = 14;
                         break;
-                      case 15:
-                        _context8.next = 21;
+                      case 23:
+                        _context8.next = 29;
                         break;
-                      case 17:
-                        _context8.prev = 17;
-                        _context8.t0 = _context8["catch"](4);
+                      case 25:
+                        _context8.prev = 25;
+                        _context8.t0 = _context8["catch"](12);
                         _didIteratorError2 = true;
                         _iteratorError2 = _context8.t0;
-                      case 21:
-                        _context8.prev = 21;
-                        _context8.prev = 22;
+                      case 29:
+                        _context8.prev = 29;
+                        _context8.prev = 30;
                         if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
-                          _context8.next = 26;
+                          _context8.next = 34;
                           break;
                         }
-                        _context8.next = 26;
+                        _context8.next = 34;
                         return _awaitAsyncGenerator(_iterator2["return"]());
-                      case 26:
-                        _context8.prev = 26;
+                      case 34:
+                        _context8.prev = 34;
                         if (!_didIteratorError2) {
-                          _context8.next = 29;
+                          _context8.next = 37;
                           break;
                         }
                         throw _iteratorError2;
-                      case 29:
-                        return _context8.finish(26);
-                      case 30:
-                        return _context8.finish(21);
-                      case 31:
+                      case 37:
+                        return _context8.finish(34);
+                      case 38:
+                        return _context8.finish(29);
+                      case 39:
                       case "end":
                         return _context8.stop();
                     }
-                  }, _callee8, null, [[4, 17, 21, 31], [22,, 26, 30]]);
+                  }, _callee8, null, [[12, 25, 29, 39], [30,, 34, 38]]);
                 }));
                 return function (_x4) {
                   return _ref3.apply(this, arguments);
@@ -456,39 +467,47 @@ function _xmllmGen() {
               }();
             };
             prompt = function _prompt(prompt, schema, mapper, fakeResponse) {
-              if (typeof prompt === 'string' || typeof prompt === 'function') {
+              if (typeof prompt == 'string' || typeof prompt == 'function') {
                 return promptComplex({
                   schema: schema,
                   mapper: mapper,
                   fakeResponse: fakeResponse,
+                  system: '',
                   messages: [{
                     role: 'user',
                     content: prompt
                   }]
                 });
               }
-
-              // Assuming prompt is a config object
               return promptComplex(prompt);
             };
             promptClosed = function _promptClosed(prompt, schema, mapper, fakeResponse) {
-              if (typeof prompt === 'string' || typeof prompt === 'function') {
-                return promptComplex({
-                  schema: schema,
-                  mapper: mapper,
-                  fakeResponse: fakeResponse,
+              var transformedConfig = prompt;
+              if (typeof transformedConfig == 'function') {
+                return promptComplex(prompt, {
+                  doMapSelectClosed: true
+                });
+              }
+              if (typeof transformedConfig === 'string') {
+                transformedConfig = {
+                  system: '',
                   doMapSelectClosed: true,
                   messages: [{
                     role: 'user',
-                    content: prompt
+                    content: transformedConfig
                   }]
-                });
+                };
               }
-
-              // Assuming prompt is a config object
-              return promptComplex(_objectSpread(_objectSpread({}, prompt), {}, {
+              return promptComplex(_objectSpread(_objectSpread({
+                schema: schema,
+                mapper: mapper,
+                fakeResponse: fakeResponse
+              }, transformedConfig), {}, {
                 doMapSelectClosed: true
               }));
+
+              // Assuming prompt is a config object
+              // return promptComplex({...prompt, doMapSelectClosed: true});
             };
             xmlReq = function _xmlReq(_ref6) {
               var _messages;
@@ -616,71 +635,80 @@ function _xmllmGen() {
                         if (typeof transformedConfig == 'function') {
                           transformedConfig = transformedConfig(thing);
                         }
+                        if (typeof transformedConfig === 'string') {
+                          transformedConfig = {
+                            system: '',
+                            messages: [{
+                              role: 'user',
+                              content: transformedConfig
+                            }]
+                          };
+                        }
                         _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, messages = _transformedConfig.messages;
                         if (messages.length) {
-                          _context.next = 5;
+                          _context.next = 6;
                           break;
                         }
                         throw new Error('Must be at least one message');
-                      case 5:
-                        _context.next = 7;
+                      case 6:
+                        _context.next = 8;
                         return _awaitAsyncGenerator(llmStream({
-                          max_tokens: config.max_tokens || 4000,
+                          max_tokens: transformedConfig.max_tokens || 4000,
                           messages: [{
                             role: 'system',
                             content: system || ''
                           }].concat(_toConsumableArray(messages || [])),
                           model: model
                         }));
-                      case 7:
+                      case 8:
                         stream = _context.sent;
                         reader = stream.getReader();
                         accrued = config.accrued || '';
                         cancelled = false;
-                        _context.next = 13;
+                        _context.next = 14;
                         return accrued;
-                      case 13:
-                        _context.prev = 13;
                       case 14:
+                        _context.prev = 14;
+                      case 15:
                         if (!true) {
-                          _context.next = 28;
+                          _context.next = 29;
                           break;
                         }
-                        _context.next = 17;
+                        _context.next = 18;
                         return _awaitAsyncGenerator(reader.read());
-                      case 17:
+                      case 18:
                         _yield$_awaitAsyncGen = _context.sent;
                         done = _yield$_awaitAsyncGen.done;
                         value = _yield$_awaitAsyncGen.value;
                         if (!(cancelled || done)) {
-                          _context.next = 22;
+                          _context.next = 23;
                           break;
                         }
-                        return _context.abrupt("break", 28);
-                      case 22:
+                        return _context.abrupt("break", 29);
+                      case 23:
                         text = new TextDecoder().decode(value);
                         accrued += text;
-                        _context.next = 26;
+                        _context.next = 27;
                         return text;
-                      case 26:
-                        _context.next = 14;
+                      case 27:
+                        _context.next = 15;
                         break;
-                      case 28:
-                        _context.next = 33;
+                      case 29:
+                        _context.next = 34;
                         break;
-                      case 30:
-                        _context.prev = 30;
-                        _context.t0 = _context["catch"](13);
+                      case 31:
+                        _context.prev = 31;
+                        _context.t0 = _context["catch"](14);
                         logger.error("Error reading stream:", _context.t0);
-                      case 33:
-                        _context.prev = 33;
+                      case 34:
+                        _context.prev = 34;
                         reader.releaseLock();
-                        return _context.finish(33);
-                      case 36:
+                        return _context.finish(34);
+                      case 37:
                       case "end":
                         return _context.stop();
                     }
-                  }, _callee, null, [[13, 30, 33, 36]]);
+                  }, _callee, null, [[14, 31, 34, 37]]);
                 }));
                 return function (_x2) {
                   return _ref.apply(this, arguments);
@@ -700,11 +728,14 @@ function _xmllmGen() {
             pipeline = pipelineFn({
               xmlReq: xmlReq,
               req: req,
+              rawStream: req,
               prompt: prompt,
               promptClosed: promptClosed,
               mapSelect: mapSelect,
               mapSelectClosed: mapSelectClosed,
               select: select,
+              take: streamops.take,
+              accrue: streamops.accrue,
               reduce: streamops.reduce,
               filter: streamops.filter,
               waitUntil: streamops.waitUntil,
