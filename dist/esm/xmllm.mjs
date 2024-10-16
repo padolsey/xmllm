@@ -107,7 +107,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(input) {
-                  var _config, messages, schema, mapper, system, max_tokens, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, model, reqPipeline, pipeline, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
+                  var _config, messages, schema, mapper, system, max_tokens, maxTokens, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier, reqPipeline, pipeline, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
                   return _regeneratorRuntime().wrap(function _callee8$(_context8) {
                     while (1) switch (_context8.prev = _context8.next) {
                       case 0:
@@ -123,7 +123,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, model = _config.model;
+                        _config = config, messages = _config.messages, schema = _config.schema, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier;
                         logger.dev('promptComplex()', {
                           messages: messages,
                           schema: schema,
@@ -203,9 +203,15 @@ function _xmllmGen() {
                         }) : xmlReq({
                           system: system,
                           messages: messages,
-                          max_tokens: max_tokens,
+                          max_tokens: max_tokens || maxTokens,
                           schema: schema,
-                          model: model
+                          model: model,
+                          fakeDelay: fakeDelay,
+                          waitMessageString: waitMessageString,
+                          waitMessageDelay: waitMessageDelay,
+                          retryMax: retryMax,
+                          retryStartDelay: retryStartDelay,
+                          retryBackoffMultiplier: retryBackoffMultiplier
                         }), /*#__PURE__*/_regeneratorRuntime().mark(function _callee6(x) {
                           return _regeneratorRuntime().wrap(function _callee6$(_context6) {
                             while (1) switch (_context6.prev = _context6.next) {
@@ -515,7 +521,15 @@ function _xmllmGen() {
                 system = _ref6.system,
                 messages = _ref6.messages,
                 max_tokens = _ref6.max_tokens,
-                model = _ref6.model;
+                maxTokens = _ref6.maxTokens,
+                model = _ref6.model,
+                temperature = _ref6.temperature,
+                fakeDelay = _ref6.fakeDelay,
+                waitMessageString = _ref6.waitMessageString,
+                waitMessageDelay = _ref6.waitMessageDelay,
+                retryMax = _ref6.retryMax,
+                retryStartDelay = _ref6.retryStartDelay,
+                retryBackoffMultiplier = _ref6.retryBackoffMultiplier;
               messages = (messages || []).slice();
               var prompt = '';
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
@@ -559,7 +573,8 @@ function _xmllmGen() {
                         console.log('transformedPrompt\n\n\n', transformedPrompt, '\n\n\n');
                         _context2.next = 12;
                         return _awaitAsyncGenerator(llmStream({
-                          max_tokens: max_tokens || 4000,
+                          max_tokens: max_tokens || maxTokens || 4000,
+                          temperature: temperature == null ? 0.5 : temperature,
                           messages: [{
                             role: 'system',
                             content: systemPrompt
@@ -567,7 +582,13 @@ function _xmllmGen() {
                             role: 'user',
                             content: transformedPrompt
                           }]),
-                          model: model
+                          model: model,
+                          fakeDelay: fakeDelay,
+                          waitMessageString: waitMessageString,
+                          waitMessageDelay: waitMessageDelay,
+                          retryMax: retryMax,
+                          retryStartDelay: retryStartDelay,
+                          retryBackoffMultiplier: retryBackoffMultiplier
                         }));
                       case 12:
                         stream = _context2.sent;
@@ -654,6 +675,8 @@ function _xmllmGen() {
                         _context.next = 8;
                         return _awaitAsyncGenerator(llmStream({
                           max_tokens: transformedConfig.max_tokens || 4000,
+                          temperature: transformedConfig.temperature == null ? 0.51 : transformedConfig.temperature,
+                          fakeDelay: transformedConfig.fakeDelay,
                           messages: [{
                             role: 'system',
                             content: system || ''

@@ -8,7 +8,7 @@ const standardPayloader = ({
   messages = [],
   max_tokens = 300,
   stop = null,
-  temperature = 0.5,
+  temperature = 0.52,
   top_p = 1,
   presence_penalty = 0,
   system = ''
@@ -28,7 +28,7 @@ const taiStylePayloader = ({
   messages = [],
   max_tokens = 300,
   stop = ['</s>','[/INST]'],
-  temperature = 0.5,
+  temperature = 0.52,
   top_p = 1,
   frequency_penalty = 0.01,
   presence_penalty = 0,
@@ -76,7 +76,7 @@ export default {
       system,
       max_tokens = 300,
       stop = null,
-      temperature = 0.5,
+      temperature = 0.52,
       top_p = 1,
       presence_penalty = 0
     }) {

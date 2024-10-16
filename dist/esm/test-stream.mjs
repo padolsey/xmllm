@@ -3,96 +3,172 @@ function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyri
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 import APIStream from './Stream.mjs';
-function testStream() {
-  return _testStream.apply(this, arguments);
+var delay = function delay(ms) {
+  return new Promise(function (resolve) {
+    return setTimeout(resolve, ms);
+  });
+};
+function runTestCase(_x, _x2) {
+  return _runTestCase.apply(this, arguments);
 }
-function _testStream() {
-  _testStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-    var payload1, payload2, payload3, testCases, i, stream, reader, decoder, _yield$reader$read, done, value;
+function _runTestCase() {
+  _runTestCase = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(testCase, index) {
+    var stream, reader, decoder, startTime, firstChunkTime, totalChunks, content, _yield$reader$read, done, value, decodedValue, endTime;
     return _regeneratorRuntime().wrap(function _callee$(_context) {
       while (1) switch (_context.prev = _context.next) {
         case 0:
-          // Test case 1: Using a single model
-          payload1 = {
-            messages: [{
-              role: 'system',
-              content: 'You are a helpful assistant.'
-            }, {
-              role: 'user',
-              content: 'Hello, how are you?'
-            }],
-            model: 'togetherai:superfast'
-          }; // Test case 2: Using multiple models in order of preference
-          payload2 = {
-            messages: [{
-              role: 'system',
-              content: 'You are a helpful assistant.'
-            }, {
-              role: 'user',
-              content: 'What is the capital of France?'
-            }],
-            model: ['openai', 'claude:good', 'openai:good', 'togetherai:fast']
-          }; // Test case 3: Without specifying a model (will use DEFAULT_PREFERRED_PROVIDERS)
-          payload3 = {
-            messages: [{
-              role: 'system',
-              content: 'You are a helpful assistant.'
-            }, {
-              role: 'user',
-              content: 'Explain quantum computing in simple terms.'
-            }]
-          };
-          testCases = [payload1, payload2, payload3];
-          i = 0;
+          console.log("\n========== Running test case ".concat(index + 1, " =========="));
+          console.log('Payload:', JSON.stringify(testCase, null, 2));
+          _context.prev = 2;
+          _context.next = 5;
+          return APIStream(testCase);
         case 5:
-          if (!(i < testCases.length)) {
-            _context.next = 32;
-            break;
-          }
-          console.log("\nRunning test case ".concat(i + 1, ":"));
-          _context.prev = 7;
-          _context.next = 10;
-          return APIStream(testCases[i]);
-        case 10:
           stream = _context.sent;
           reader = stream.getReader();
           decoder = new TextDecoder();
-        case 13:
+          startTime = Date.now();
+          firstChunkTime = null;
+          totalChunks = 0;
+          content = '';
+        case 12:
           if (!true) {
-            _context.next = 24;
+            _context.next = 27;
             break;
           }
-          _context.next = 16;
+          _context.next = 15;
           return reader.read();
-        case 16:
+        case 15:
           _yield$reader$read = _context.sent;
           done = _yield$reader$read.done;
           value = _yield$reader$read.value;
           if (!done) {
-            _context.next = 21;
+            _context.next = 20;
             break;
           }
-          return _context.abrupt("break", 24);
-        case 21:
-          console.log(decoder.decode(value));
-          _context.next = 13;
+          return _context.abrupt("break", 27);
+        case 20:
+          decodedValue = decoder.decode(value);
+          content += decodedValue;
+          totalChunks++;
+          if (totalChunks === 1) {
+            firstChunkTime = Date.now();
+            console.log("Time to first chunk: ".concat(firstChunkTime - startTime, "ms"));
+          }
+          console.log("Chunk ".concat(totalChunks, ":"), decodedValue);
+          _context.next = 12;
           break;
-        case 24:
-          _context.next = 29;
-          break;
-        case 26:
-          _context.prev = 26;
-          _context.t0 = _context["catch"](7);
-          console.error("Error in test case ".concat(i + 1, ":"), _context.t0.message);
-        case 29:
-          i++;
-          _context.next = 5;
-          break;
-        case 32:
+        case 27:
+          endTime = Date.now();
+          console.log('\nTest case summary:');
+          console.log("Total time: ".concat(endTime - startTime, "ms"));
+          console.log("Total chunks: ".concat(totalChunks));
+          console.log("Full content:\n".concat(content));
+          return _context.abrupt("return", {
+            success: true,
+            content: content,
+            totalChunks: totalChunks,
+            totalTime: endTime - startTime
+          });
+        case 35:
+          _context.prev = 35;
+          _context.t0 = _context["catch"](2);
+          console.error("Error in test case ".concat(index + 1, ":"), _context.t0.message);
+          return _context.abrupt("return", {
+            success: false,
+            error: _context.t0.message
+          });
+        case 39:
         case "end":
           return _context.stop();
       }
-    }, _callee, null, [[7, 26]]);
+    }, _callee, null, [[2, 35]]);
+  }));
+  return _runTestCase.apply(this, arguments);
+}
+function testStream() {
+  return _testStream.apply(this, arguments);
+}
+function _testStream() {
+  _testStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+    var testCases, results, i, result;
+    return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+      while (1) switch (_context2.prev = _context2.next) {
+        case 0:
+          testCases = [
+          // {
+          //   messages: [
+          //     { role: 'system', content: 'You are a helpful assistant.' },
+          //     { role: 'user', content: 'Hello, how are you?' }
+          //   ],
+          //   model: 'claude'
+          // },
+          // {
+          //   messages: [
+          //     { role: 'system', content: 'You are a helpful assistant.' },
+          //     { role: 'user', content: 'What is the capital of France?' }
+          //   ],
+          //   model: ['openai:good', 'claude:good', 'togetherai:fast']
+          // },
+          // {
+          //   messages: [
+          //     { role: 'system', content: 'You are a helpful assistant.' },
+          //     { role: 'user', content: 'Explain quantum computing in simple terms.' }
+          //   ]
+          // },
+          {
+            messages: [{
+              role: 'system',
+              content: 'You are a helpful assistant.'
+            }, {
+              role: 'user',
+              content: 'This request should trigger the wait message.'
+            }],
+            model: 'claude:superfast',
+            waitMessageString: 'Wait...',
+            waitMessageDelay: 5000,
+            fakeDelay: 15000 // 15 seconds fake delay
+          }];
+          results = [];
+          i = 0;
+        case 3:
+          if (!(i < testCases.length)) {
+            _context2.next = 15;
+            break;
+          }
+          _context2.next = 6;
+          return runTestCase(testCases[i], i);
+        case 6:
+          result = _context2.sent;
+          results.push(result);
+
+          // Add a delay between test cases to avoid rate limiting
+          if (!(i < testCases.length - 1)) {
+            _context2.next = 12;
+            break;
+          }
+          console.log('\nWaiting 5 seconds before next test case...');
+          _context2.next = 12;
+          return delay(5000);
+        case 12:
+          i++;
+          _context2.next = 3;
+          break;
+        case 15:
+          console.log('\n========== Test Summary ==========');
+          results.forEach(function (result, index) {
+            console.log("Test case ".concat(index + 1, ": ").concat(result.success ? 'SUCCESS' : 'FAILURE'));
+            if (result.success) {
+              console.log("  Chunks: ".concat(result.totalChunks));
+              console.log("  Total time: ".concat(result.totalTime, "ms"));
+            } else {
+              console.log("  Error: ".concat(result.error));
+            }
+          });
+        case 17:
+        case "end":
+          return _context2.stop();
+      }
+    }, _callee2);
   }));
   return _testStream.apply(this, arguments);
 }

@@ -16,10 +16,10 @@ class Provider {
     this.name = name;
     this.endpoint = details.endpoint;
     this.key = details.key;
-    this.models = details.models;
-    this.payloader = details.payloader;
-    this.headerGen = details.headerGen;
-    this.rpmLimit = details.constraints.rpmLimit;
+    this.models = details.models || {};
+    this.payloader = details.payloader || this.defaultPayloader;
+    this.headerGen = details.headerGen || this.defaultHeaderGen;
+    this.rpmLimit = details.constraints?.rpmLimit || Infinity; // Default to Infinity if not provided
     this.currentRPM = 0;
 
     // Configurable properties with more sensible defaults or overrides
@@ -29,25 +29,26 @@ class Provider {
     this.RPM_RESET_TIME = configOverrides.RPM_RESET_TIME || 60_000;
   }
 
+  defaultPayloader(payload) {
+    return payload;
+  }
+
+  defaultHeaderGen() {
+    return this.getHeaders();
+  }
+
   async makeRequest(payload) {
     let retries = 0;
     const makeSingleRequest = async () => {
-
       const preparedPayload = this.preparePayload(payload);
-      logger.log(
-        'Making request with payload',
-        this.name,
-        preparedPayload
-      );
+      logger.log('Making request with payload', this.name, preparedPayload);
 
       let response;
       try {
         response = await Promise.race([
           this.fetch(this.endpoint, {
             method: 'POST',
-            headers: this.headerGen
-              ? this.headerGen.call(this)
-              : this.getHeaders(),
+            headers: this.headerGen ? this.headerGen.call(this) : this.getHeaders(),
             body: JSON.stringify(preparedPayload)
           }),
           this.timeout(this.REQUEST_TIMEOUT_MS)
@@ -55,18 +56,29 @@ class Provider {
 
         if (!response.ok) {
           const errorText = await response.text();
+          logger.error(`HTTP Error ${response.status} for ${this.name}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            errorText: errorText
+          });
           throw new Error(`HTTP Error ${response.status}: ${errorText}`);
         }
 
         const data = await response.json();
-
-        // Different output types (oai vs anthropic styles)
         return data?.content?.[0]?.text
           ? {content: data?.content?.[0]?.text}
           : data?.choices?.[0]?.message;
         
       } catch (error) {
-        logger.error(`Provider ${this.name} encountered an error: ${error}`);
+        logger.error(`Provider ${this.name} encountered an error:`, {
+          error: error.message,
+          stack: error.stack,
+          responseStatus: response?.status,
+          responseStatusText: response?.statusText,
+          responseHeaders: response ? Object.fromEntries(response.headers.entries()) : null,
+          responseBody: await response?.text().catch(() => 'Unable to read response body')
+        });
         logger.log('Errored payload, FYI: ', preparedPayload);
         if (retries < this.MAX_RETRIES && this.shouldRetry(error, response?.status)) {
           retries++;
@@ -91,53 +103,57 @@ class Provider {
 
     this.currentRPM++;
     payload.stream = true;
-    // Use clearTimeout to manage the decrement operation more cleanly
     const timerId = setTimeout(() => this.currentRPM--, this.RPM_RESET_TIME);
     const makeSingleStream = async () => {
+      logger.log('Initiating stream request');
 
       const preparedPayload = this.preparePayload(payload);
 
-      logger.log(
-        'Making stream request with model',
-        preparedPayload.messages?.length
-      );
+      logger.log('Prepared payload for stream request', preparedPayload);
       try {
-        logger.time('makeSingleStream:init');
+        const endpoint = `${this.endpoint}${preparedPayload.stream?'?stream=true':''}`;
+        const headers = this.headerGen ? this.headerGen.call(this) : this.getHeaders();
 
-        console.log('>preparedPayload', preparedPayload);
+        logger.log('Sending fetch request to', this.endpoint, headers, JSON.stringify(preparedPayload));
 
         response = await Promise.race([
-          this.fetch(`${this.endpoint}?stream=true`, {
+          this.fetch(endpoint, {
             method: 'POST',
-            headers: this.headerGen
-              ? this.headerGen.call(this)
-              : this.getHeaders(),
+            headers,
             body: JSON.stringify(preparedPayload)
           }),
           this.timeout(this.REQUEST_TIMEOUT_MS)
         ]);
 
+        logger.log('Received response', response.status, response.statusText);
+
         if (!response.ok) {
           const errorText = await response.text();
+          logger.error(`HTTP Error ${response.status} for ${this.name} (stream):`, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            errorText: errorText
+          });
           throw new Error(`HTTP Error ${response.status}: ${errorText}`);
+        }
+
+        if (!response.body) {
+          logger.error('Response body is null', response);
+          throw new Error(`No response body from ${inst.name}`);
         }
 
         let data = '';
         let counter = 0;
         let closed = false;
 
-        logger.time('makeSingleStream:streamStart');
-
         return new ReadableStream({
           async start(controller) {
-
-            logger.timeEnd('makeSingleStream:streamStart');
-            logger.timeEnd('makeSingleStream:init');
-
             logger.log('Starting readable stream');
 
             function onParse(event) {
               if (closed) return;
+
               if (event.type === 'event') {
                 const eventData = event.data;
                 if (eventData === '[DONE]') {
@@ -192,22 +208,43 @@ class Provider {
 
             const parser = createParser(onParse);
 
+            logger.log('Starting to read response body', response.body);
             for await (const chunk of response.body) {
               const decoded = new TextDecoder().decode(chunk);
+
+              if (decoded?.[0] === '{') {
+                // It may not be an event stream but a singular response.
+                try {
+                  const json = JSON.parse(decoded);
+
+                  if (json.choices?.[0]?.message?.content) {
+                    controller.enqueue(json.choices?.[0]?.message?.content);
+                    controller.close();
+                    return;
+                  }
+                } catch(e) {}
+              }
+
               parser.feed(decoded);
             }
+            logger.log('Finished reading response body');
           },
         });
       } catch (error) {
-        logger.error(`Error in streaming from ${this.name}: ${error}`);
-        clearTimeout(timerId); // Ensure timer is cleared on catch
-
-        // console.log({retries}, this.MAX_RETRIES, error, response);
+        logger.error(`Error in streaming from ${this.name}:`, {
+          error: error.message,
+          stack: error.stack,
+          responseStatus: response?.status,
+          responseStatusText: response?.statusText,
+          responseHeaders: response ? Object.fromEntries(response.headers.entries()) : null,
+          responseBody: await response?.text().catch(() => 'Unable to read response body')
+        });
+        clearTimeout(timerId);
 
         if (retries < this.MAX_RETRIES && this.shouldRetry(error, response?.status)) {
           retries++;
           logger.log(`Retrying request for ${this.name}, attempt ${retries}`);
-          await this.delay(this.RETRY_DELAY_WHEN_OVERLOADED);
+          await this.delay(this.RETRY_DELAY_WHEN_OVERLOADED * Math.pow(2, retries - 1)); // Exponential backoff
           return this.createStream(payload, retries);
         }
 
@@ -233,12 +270,15 @@ class Provider {
 
   getHeaders() {
     if (!this.key) {
-      throw new Error('No key is defined');
+      throw new Error('Note: No key is defined');
     }
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.key}`,
+    const headers = {
+      'Content-Type': 'application/json'
     };
+    if (this.key !== 'NO_KEY') {
+      headers.Authorization = `Bearer ${this.key}`;
+    }
+    return headers;
   }
 
   preparePayload(customPayload) {
@@ -250,7 +290,7 @@ class Provider {
     const model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
 
     if (!model) {
-      throw new Error('No valid model found for: ' + this.name);
+      throw new Error(`No valid model found for provider: ${this.name}`);
     }
 
     let messages = [...customPayload.messages];
@@ -302,7 +342,7 @@ class Provider {
 
     const modelSpecificPayload = this.payloader({
       system: systemMessage.content,
-      max_tokens: DEFAULT_RESPONSE_TOKEN_LENGTH,
+      max_tokens: customPayload.max_tokens || customPayload.maxTokens || DEFAULT_RESPONSE_TOKEN_LENGTH,
       ...customPayload,
       messages,
     });

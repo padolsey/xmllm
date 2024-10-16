@@ -1,6 +1,5 @@
 "use strict";
 
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
@@ -16,6 +15,7 @@ function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -46,6 +46,10 @@ var ProviderManager = /*#__PURE__*/function () {
   return _createClass(ProviderManager, [{
     key: "getProviderByPreference",
     value: function getProviderByPreference(preference) {
+      console.log('getProviderByPreference', preference);
+      if (_typeof(preference) === 'object' && preference.inherit) {
+        return this.createCustomProvider(preference);
+      }
       var _preference$split = preference.split(':'),
         _preference$split2 = _slicedToArray(_preference$split, 2),
         providerName = _preference$split2[0],
@@ -67,73 +71,93 @@ var ProviderManager = /*#__PURE__*/function () {
     key: "pickProviderWithFallback",
     value: function () {
       var _pickProviderWithFallback = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(payload, action) {
-        var preferredProviders, lastError, _iterator, _step, preference, _this$getProviderByPr, provider, modelType;
+        var preferredProviders, lastError, MAX_RETRIES_PER_PROVIDER, retryDelay, backoffMultiplier, _iterator, _step, preference, _this$getProviderByPr, provider, modelType, retry;
         return _regeneratorRuntime().wrap(function _callee$(_context) {
           while (1) switch (_context.prev = _context.next) {
             case 0:
               preferredProviders = payload.model ? Array.isArray(payload.model) ? payload.model : [payload.model] : DEFAULT_PREFERRED_PROVIDERS;
               lastError = null;
+              MAX_RETRIES_PER_PROVIDER = payload.retryMax || 3;
+              retryDelay = payload.retryStartDelay || 1000;
+              backoffMultiplier = payload.retryBackoffMultiplier || 2;
               _iterator = _createForOfIteratorHelper(preferredProviders);
-              _context.prev = 3;
+              _context.prev = 6;
               _iterator.s();
-            case 5:
+            case 8:
               if ((_step = _iterator.n()).done) {
-                _context.next = 30;
+                _context.next = 41;
                 break;
               }
               preference = _step.value;
-              _context.prev = 7;
+              _context.prev = 10;
               _this$getProviderByPr = this.getProviderByPreference(preference), provider = _this$getProviderByPr.provider, modelType = _this$getProviderByPr.modelType;
               if (!provider.getAvailable()) {
-                _context.next = 23;
+                _context.next = 34;
                 break;
               }
               logger.log('Trying provider', provider.name, 'with model', modelType);
-              _context.prev = 11;
-              _context.next = 14;
+              retry = 0;
+            case 15:
+              if (!(retry < MAX_RETRIES_PER_PROVIDER)) {
+                _context.next = 33;
+                break;
+              }
+              _context.prev = 16;
+              _context.next = 19;
               return action(provider, _objectSpread(_objectSpread({}, payload), {}, {
                 model: modelType
               }));
-            case 14:
+            case 19:
               return _context.abrupt("return", _context.sent);
-            case 17:
-              _context.prev = 17;
-              _context.t0 = _context["catch"](11);
-              logger.error("Error from provider ".concat(provider.name, ": ").concat(_context.t0.message));
+            case 22:
+              _context.prev = 22;
+              _context.t0 = _context["catch"](16);
+              logger.error("Error from provider ".concat(provider.name, " (attempt ").concat(retry + 1, "): ").concat(_context.t0.message));
               lastError = "".concat(provider.name, " failed: ").concat(_context.t0.message);
-              if (!(preferredProviders.length === 1)) {
-                _context.next = 23;
+              if (!(retry < MAX_RETRIES_PER_PROVIDER - 1)) {
+                _context.next = 30;
                 break;
               }
-              throw _context.t0;
-            case 23:
-              _context.next = 28;
-              break;
-            case 25:
-              _context.prev = 25;
-              _context.t1 = _context["catch"](7);
-              logger.error("Error picking preferred provider: ".concat(_context.t1.message));
-            case 28:
-              _context.next = 5;
-              break;
+              _context.next = 29;
+              return new Promise(function (resolve) {
+                return setTimeout(resolve, retryDelay);
+              });
+            case 29:
+              retryDelay *= backoffMultiplier;
             case 30:
-              _context.next = 35;
+              retry++;
+              _context.next = 15;
               break;
-            case 32:
-              _context.prev = 32;
-              _context.t2 = _context["catch"](3);
-              _iterator.e(_context.t2);
-            case 35:
-              _context.prev = 35;
-              _iterator.f();
-              return _context.finish(35);
-            case 38:
-              throw new Error(lastError || 'All providers failed to fulfill the request.');
+            case 33:
+              logger.warn("All retries failed for provider ".concat(provider.name, ", moving to next provider"));
+            case 34:
+              _context.next = 39;
+              break;
+            case 36:
+              _context.prev = 36;
+              _context.t1 = _context["catch"](10);
+              logger.error("Error picking preferred provider: ".concat(_context.t1.message));
             case 39:
+              _context.next = 8;
+              break;
+            case 41:
+              _context.next = 46;
+              break;
+            case 43:
+              _context.prev = 43;
+              _context.t2 = _context["catch"](6);
+              _iterator.e(_context.t2);
+            case 46:
+              _context.prev = 46;
+              _iterator.f();
+              return _context.finish(46);
+            case 49:
+              throw new Error(lastError || 'All providers failed to fulfill the request.');
+            case 50:
             case "end":
               return _context.stop();
           }
-        }, _callee, this, [[3, 32, 35, 38], [7, 25], [11, 17]]);
+        }, _callee, this, [[6, 43, 46, 49], [10, 36], [16, 22]]);
       }));
       function pickProviderWithFallback(_x, _x2) {
         return _pickProviderWithFallback.apply(this, arguments);
@@ -182,6 +206,37 @@ var ProviderManager = /*#__PURE__*/function () {
       }
       return streamRequest;
     }()
+  }, {
+    key: "createCustomProvider",
+    value: function createCustomProvider(customConfig) {
+      // Useful when wishing to 'inherit' from a traditional provider
+      // E.g. using the OpenAI protocol
+
+      var inherit = customConfig.inherit,
+        name = customConfig.name,
+        endpoint = customConfig.endpoint,
+        key = customConfig.key;
+      var baseProvider = this.providers[inherit];
+      if (!baseProvider) {
+        throw new Error("Base provider ".concat(inherit, " not found for custom configuration"));
+      }
+
+      // Create a new provider instance with custom settings
+      var customProvider = new _Provider["default"]("".concat(inherit, "_custom"), _objectSpread(_objectSpread({}, baseProvider), {}, {
+        endpoint: endpoint || baseProvider.endpoint,
+        key: key || baseProvider.key,
+        models: {
+          custom: {
+            name: name
+          }
+        },
+        constraints: baseProvider.constraints
+      }));
+      return {
+        provider: customProvider,
+        modelType: 'custom'
+      };
+    }
   }]);
 }();
 var _default = exports["default"] = ProviderManager;

@@ -23,34 +23,54 @@ function createServer(config = {}) {
 
   app.post('/api/stream', async (req, res) => {
     try {
-      const { messages, model = ['claude:good', 'openai:good', 'togetherai:good'], max_tokens } = req.body;
+      const {
+        messages,
+        model = ['claude:good', 'openai:good', 'togetherai:good'],
+        max_tokens,
+        temperature,
+        fakeDelay,
+        stream
+      } = req.body;
+
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });
       }
+
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive'
       });
-      const stream = await Stream({
+
+      const theStream = await Stream({
         messages,
         max_tokens,
+        temperature,
+        fakeDelay,
         model,
-        stream: true
+        stream: stream == null ? true : stream
       });
-      for await (const chunk of stream) {
-        if (chunk instanceof Uint8Array) {
-          const content = new TextDecoder().decode(chunk);
+
+      const reader = theStream.getReader();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        if (value instanceof Uint8Array) {
+          const content = new TextDecoder().decode(value);
           res.write(`data: ${JSON.stringify({ content })}\n\n`);
-        } else if (typeof chunk === 'string') {
-          res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        } else if (typeof value === 'string') {
+          res.write(`data: ${JSON.stringify({ content: value })}\n\n`);
         }
       }
+
       res.write('event: close\ndata: Stream ended\n\n');
       res.end();
+
     } catch (error) {
       console.error('Error in stream request:', error);
-      res.write(`event: error\ndata: ${JSON.stringify({ error: 'Internal server error' })}\n\n`);
+      res.write(`event: error\ndata: ${JSON.stringify({ error: 'Internal server error', message: error.message })}\n\n`);
       res.end();
     }
   });

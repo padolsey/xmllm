@@ -7,9 +7,9 @@ const DEFAULT_MODEL_TYPE = 'fast';
 
 // Default preferred providers list (only used if payload.model is not provided)
 const DEFAULT_PREFERRED_PROVIDERS = [
-  'claude:good', 
-  'openai:good', 
-  'claude:fast', 
+  'claude:good',
+  'openai:good',
+  'claude:fast',
   'openai:fast'
 ];
 
@@ -22,6 +22,11 @@ class ProviderManager {
   }
 
   getProviderByPreference(preference) {
+    logger.log('getProviderByPreference', preference);
+    if (typeof preference === 'object' && preference.inherit) {
+      return this.createCustomProvider(preference);
+    }
+
     let [providerName, modelType] = preference.split(':');
     modelType = modelType || DEFAULT_MODEL_TYPE;
     
@@ -43,21 +48,31 @@ class ProviderManager {
       : DEFAULT_PREFERRED_PROVIDERS;
 
     let lastError = null;
+    const MAX_RETRIES_PER_PROVIDER = payload.retryMax || 3;
+    let retryDelay = payload.retryStartDelay || 1000;
+    const backoffMultiplier = payload.retryBackoffMultiplier || 2;
 
     for (const preference of preferredProviders) {
       try {
         const { provider, modelType } = this.getProviderByPreference(preference);
         if (provider.getAvailable()) {
           logger.log('Trying provider', provider.name, 'with model', modelType);
-          try {
-            return await action(provider, { ...payload, model: modelType });
-          } catch (error) {
-            logger.error(`Error from provider ${provider.name}: ${error.message}`);
-            lastError = `${provider.name} failed: ${error.message}`;
-            if (preferredProviders.length === 1) {
-              throw error;
+          
+          for (let retry = 0; retry < MAX_RETRIES_PER_PROVIDER; retry++) {
+            try {
+              return await action(provider, { ...payload, model: modelType });
+            } catch (error) {
+              logger.error(`Error from provider ${provider.name} (attempt ${retry + 1}): ${error.message}`);
+              lastError = `${provider.name} failed: ${error.message}`;
+              
+              if (retry < MAX_RETRIES_PER_PROVIDER - 1) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                retryDelay *= backoffMultiplier;
+              }
             }
           }
+          
+          logger.warn(`All retries failed for provider ${provider.name}, moving to next provider`);
         }
       } catch (error) {
         logger.error(`Error picking preferred provider: ${error.message}`);
@@ -76,6 +91,38 @@ class ProviderManager {
     return this.pickProviderWithFallback(payload, (provider, updatedPayload) => 
       provider.createStream(updatedPayload)
     );
+  }
+
+  createCustomProvider(customConfig) {
+
+    // Useful when wishing to 'inherit' from a traditional provider
+    // E.g. using the OpenAI protocol
+
+    const { inherit, name, endpoint, key } = customConfig;
+    const baseProvider = this.providers[inherit];
+
+    if (!baseProvider) {
+      throw new Error(`Base provider ${inherit} not found for custom configuration`);
+    }
+
+    // Create a new provider instance with custom settings
+    const customProvider = new Provider(
+      `${inherit}_custom`,
+      {
+        ...baseProvider,
+        endpoint: endpoint || baseProvider.endpoint,
+        key: key || baseProvider.key,
+        models: {
+          custom: { name: name }
+        },
+        constraints: baseProvider.constraints
+      }
+    );
+
+    return {
+      provider: customProvider,
+      modelType: 'custom'
+    };
   }
 }
 

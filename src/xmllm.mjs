@@ -74,6 +74,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
       const stream = await (llmStream)({
         max_tokens: transformedConfig.max_tokens || 4000,
+        temperature: transformedConfig.temperature == null ? 0.51 : transformedConfig.temperature,
+        fakeDelay: transformedConfig.fakeDelay,
         messages: [
           {
             role: 'system',
@@ -110,7 +112,21 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function xmlReq({schema, system, messages, max_tokens, model}) {
+  function xmlReq({
+    schema, 
+    system, 
+    messages, 
+    max_tokens, 
+    maxTokens, 
+    model, 
+    temperature, 
+    fakeDelay,
+    waitMessageString,
+    waitMessageDelay,
+    retryMax,
+    retryStartDelay,
+    retryBackoffMultiplier
+  }) {
 
     messages = (messages || []).slice();
 
@@ -189,7 +205,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       console.log('transformedPrompt\n\n\n', transformedPrompt, '\n\n\n');
 
       const stream = await (llmStream)({
-        max_tokens: max_tokens || 4000,
+        max_tokens: max_tokens || maxTokens || 4000,
+        temperature: temperature == null ? 0.5 : temperature,
         messages: [
           {
             role: 'system',
@@ -205,7 +222,13 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             content: transformedPrompt
           }
         ],
-        model
+        model,
+        fakeDelay,
+        waitMessageString,
+        waitMessageDelay,
+        retryMax,
+        retryStartDelay,
+        retryBackoffMultiplier
       });
 
       const reader = stream.getReader();
@@ -308,9 +331,16 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         mapper,
         system,
         max_tokens,
+        maxTokens,
         fakeResponse,
         doMapSelectClosed = false,
-        model
+        model,
+        fakeDelay,
+        waitMessageString,
+        waitMessageDelay,
+        retryMax,
+        retryStartDelay,
+        retryBackoffMultiplier
       } = config;
 
       logger.dev('promptComplex()', {
@@ -362,9 +392,15 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           : xmlReq({
             system: system,
             messages: messages,
-            max_tokens,
+            max_tokens: max_tokens || maxTokens,
             schema: schema,
-            model
+            model,
+            fakeDelay,
+            waitMessageString,
+            waitMessageDelay,
+            retryMax,
+            retryStartDelay,
+            retryBackoffMultiplier
           }),
 
         function*(x) {

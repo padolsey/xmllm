@@ -1,50 +1,107 @@
 import APIStream from './Stream.mjs';
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function runTestCase(testCase, index) {
+  console.log(`\n========== Running test case ${index + 1} ==========`);
+  console.log('Payload:', JSON.stringify(testCase, null, 2));
+
+  try {
+    const stream = await APIStream(testCase);
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+
+    let startTime = Date.now();
+    let firstChunkTime = null;
+    let totalChunks = 0;
+    let content = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const decodedValue = decoder.decode(value);
+      content += decodedValue;
+      totalChunks++;
+
+      if (totalChunks === 1) {
+        firstChunkTime = Date.now();
+        console.log(`Time to first chunk: ${firstChunkTime - startTime}ms`);
+      }
+
+      console.log(`Chunk ${totalChunks}:`, decodedValue);
+    }
+
+    const endTime = Date.now();
+    console.log('\nTest case summary:');
+    console.log(`Total time: ${endTime - startTime}ms`);
+    console.log(`Total chunks: ${totalChunks}`);
+    console.log(`Full content:\n${content}`);
+
+    return { success: true, content, totalChunks, totalTime: endTime - startTime };
+  } catch (error) {
+    console.error(`Error in test case ${index + 1}:`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 async function testStream() {
-  // Test case 1: Using a single model
-  const payload1 = {
-    messages: [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Hello, how are you?' }
-    ],
-    model: 'togetherai:superfast'
-  };
+  const testCases = [
+    // {
+    //   messages: [
+    //     { role: 'system', content: 'You are a helpful assistant.' },
+    //     { role: 'user', content: 'Hello, how are you?' }
+    //   ],
+    //   model: 'claude'
+    // },
+    // {
+    //   messages: [
+    //     { role: 'system', content: 'You are a helpful assistant.' },
+    //     { role: 'user', content: 'What is the capital of France?' }
+    //   ],
+    //   model: ['openai:good', 'claude:good', 'togetherai:fast']
+    // },
+    // {
+    //   messages: [
+    //     { role: 'system', content: 'You are a helpful assistant.' },
+    //     { role: 'user', content: 'Explain quantum computing in simple terms.' }
+    //   ]
+    // },
+    {
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'This request should trigger the wait message.' }
+      ],
+      model: 'claude:superfast',
+      waitMessageString: 'Wait...',
+      waitMessageDelay: 5000,
+      fakeDelay: 15000  // 15 seconds fake delay
+    }
+  ];
 
-  // Test case 2: Using multiple models in order of preference
-  const payload2 = {
-    messages: [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'What is the capital of France?' }
-    ],
-    model: ['openai', 'claude:good', 'openai:good', 'togetherai:fast']
-  };
-
-  // Test case 3: Without specifying a model (will use DEFAULT_PREFERRED_PROVIDERS)
-  const payload3 = {
-    messages: [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Explain quantum computing in simple terms.' }
-    ]
-  };
-
-  const testCases = [payload1, payload2, payload3];
+  const results = [];
 
   for (let i = 0; i < testCases.length; i++) {
-    console.log(`\nRunning test case ${i + 1}:`);
-    try {
-      const stream = await APIStream(testCases[i]);
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        console.log(decoder.decode(value));
-      }
-    } catch (error) {
-      console.error(`Error in test case ${i + 1}:`, error.message);
+    const result = await runTestCase(testCases[i], i);
+    results.push(result);
+    
+    // Add a delay between test cases to avoid rate limiting
+    if (i < testCases.length - 1) {
+      console.log('\nWaiting 5 seconds before next test case...');
+      await delay(5000);
     }
   }
+
+  console.log('\n========== Test Summary ==========');
+  results.forEach((result, index) => {
+    console.log(`Test case ${index + 1}: ${result.success ? 'SUCCESS' : 'FAILURE'}`);
+    if (result.success) {
+      console.log(`  Chunks: ${result.totalChunks}`);
+      console.log(`  Total time: ${result.totalTime}ms`);
+    } else {
+      console.log(`  Error: ${result.error}`);
+    }
+  });
 }
 
 testStream();

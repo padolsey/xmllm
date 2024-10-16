@@ -23,6 +23,7 @@ class ClientProvider {
 
         while (true) {
           const { done, value } = await reader.read();
+
           if (done) break;
 
           const chunk = decoder.decode(value);

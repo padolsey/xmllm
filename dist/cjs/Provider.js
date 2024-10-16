@@ -37,6 +37,7 @@ var DEFAULT_RESPONSE_TOKEN_LENGTH = 300;
 var MAX_TOKEN_HISTORICAL_MESSAGE = 600;
 var Provider = /*#__PURE__*/function () {
   function Provider(name, details) {
+    var _details$constraints;
     var fetchFn = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : fetch;
     var configOverrides = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
     _classCallCheck(this, Provider);
@@ -44,10 +45,10 @@ var Provider = /*#__PURE__*/function () {
     this.name = name;
     this.endpoint = details.endpoint;
     this.key = details.key;
-    this.models = details.models;
-    this.payloader = details.payloader;
-    this.headerGen = details.headerGen;
-    this.rpmLimit = details.constraints.rpmLimit;
+    this.models = details.models || {};
+    this.payloader = details.payloader || this.defaultPayloader;
+    this.headerGen = details.headerGen || this.defaultHeaderGen;
+    this.rpmLimit = ((_details$constraints = details.constraints) === null || _details$constraints === void 0 ? void 0 : _details$constraints.rpmLimit) || Infinity; // Default to Infinity if not provided
     this.currentRPM = 0;
 
     // Configurable properties with more sensible defaults or overrides
@@ -57,6 +58,16 @@ var Provider = /*#__PURE__*/function () {
     this.RPM_RESET_TIME = configOverrides.RPM_RESET_TIME || 60000;
   }
   return _createClass(Provider, [{
+    key: "defaultPayloader",
+    value: function defaultPayloader(payload) {
+      return payload;
+    }
+  }, {
+    key: "defaultHeaderGen",
+    value: function defaultHeaderGen() {
+      return this.getHeaders();
+    }
+  }, {
     key: "makeRequest",
     value: function () {
       var _makeRequest = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
@@ -68,7 +79,7 @@ var Provider = /*#__PURE__*/function () {
               retries = 0;
               _makeSingleRequest = /*#__PURE__*/function () {
                 var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-                  var preparedPayload, response, _data$content, _data$content2, _data$choices, errorText, data, _response;
+                  var preparedPayload, response, _data$content, _data$content2, _data$choices, errorText, data, _response, _response2, _response3, _response4;
                   return _regeneratorRuntime().wrap(function _callee$(_context) {
                     while (1) switch (_context.prev = _context.next) {
                       case 0:
@@ -84,44 +95,71 @@ var Provider = /*#__PURE__*/function () {
                       case 5:
                         response = _context.sent;
                         if (response.ok) {
-                          _context.next = 11;
+                          _context.next = 12;
                           break;
                         }
                         _context.next = 9;
                         return response.text();
                       case 9:
                         errorText = _context.sent;
+                        logger.error("HTTP Error ".concat(response.status, " for ").concat(_this.name, ":"), {
+                          status: response.status,
+                          statusText: response.statusText,
+                          headers: Object.fromEntries(response.headers.entries()),
+                          errorText: errorText
+                        });
                         throw new Error("HTTP Error ".concat(response.status, ": ").concat(errorText));
-                      case 11:
-                        _context.next = 13;
+                      case 12:
+                        _context.next = 14;
                         return response.json();
-                      case 13:
+                      case 14:
                         data = _context.sent;
                         return _context.abrupt("return", data !== null && data !== void 0 && (_data$content = data.content) !== null && _data$content !== void 0 && (_data$content = _data$content[0]) !== null && _data$content !== void 0 && _data$content.text ? {
                           content: data === null || data === void 0 || (_data$content2 = data.content) === null || _data$content2 === void 0 || (_data$content2 = _data$content2[0]) === null || _data$content2 === void 0 ? void 0 : _data$content2.text
                         } : data === null || data === void 0 || (_data$choices = data.choices) === null || _data$choices === void 0 || (_data$choices = _data$choices[0]) === null || _data$choices === void 0 ? void 0 : _data$choices.message);
-                      case 17:
-                        _context.prev = 17;
+                      case 18:
+                        _context.prev = 18;
                         _context.t0 = _context["catch"](2);
-                        logger.error("Provider ".concat(_this.name, " encountered an error: ").concat(_context.t0));
+                        _context.t1 = logger;
+                        _context.t2 = "Provider ".concat(_this.name, " encountered an error:");
+                        _context.t3 = _context.t0.message;
+                        _context.t4 = _context.t0.stack;
+                        _context.t5 = (_response = response) === null || _response === void 0 ? void 0 : _response.status;
+                        _context.t6 = (_response2 = response) === null || _response2 === void 0 ? void 0 : _response2.statusText;
+                        _context.t7 = response ? Object.fromEntries(response.headers.entries()) : null;
+                        _context.next = 29;
+                        return (_response3 = response) === null || _response3 === void 0 ? void 0 : _response3.text()["catch"](function () {
+                          return 'Unable to read response body';
+                        });
+                      case 29:
+                        _context.t8 = _context.sent;
+                        _context.t9 = {
+                          error: _context.t3,
+                          stack: _context.t4,
+                          responseStatus: _context.t5,
+                          responseStatusText: _context.t6,
+                          responseHeaders: _context.t7,
+                          responseBody: _context.t8
+                        };
+                        _context.t1.error.call(_context.t1, _context.t2, _context.t9);
                         logger.log('Errored payload, FYI: ', preparedPayload);
-                        if (!(retries < _this.MAX_RETRIES && _this.shouldRetry(_context.t0, (_response = response) === null || _response === void 0 ? void 0 : _response.status))) {
-                          _context.next = 27;
+                        if (!(retries < _this.MAX_RETRIES && _this.shouldRetry(_context.t0, (_response4 = response) === null || _response4 === void 0 ? void 0 : _response4.status))) {
+                          _context.next = 39;
                           break;
                         }
                         retries++;
                         logger.log("Retrying request for ".concat(_this.name, ", attempt ").concat(retries));
-                        _context.next = 26;
+                        _context.next = 38;
                         return _this.delay(_this.RETRY_DELAY_WHEN_OVERLOADED);
-                      case 26:
+                      case 38:
                         return _context.abrupt("return", _makeSingleRequest());
-                      case 27:
+                      case 39:
                         throw _context.t0;
-                      case 28:
+                      case 40:
                       case "end":
                         return _context.stop();
                     }
-                  }, _callee, null, [[2, 17]]);
+                  }, _callee, null, [[2, 18]]);
                 }));
                 return function makeSingleRequest() {
                   return _ref.apply(this, arguments);
@@ -160,48 +198,61 @@ var Provider = /*#__PURE__*/function () {
               inst = this;
               this.currentRPM++;
               payload.stream = true;
-              // Use clearTimeout to manage the decrement operation more cleanly
               timerId = setTimeout(function () {
                 return _this2.currentRPM--;
               }, this.RPM_RESET_TIME);
               makeSingleStream = /*#__PURE__*/function () {
                 var _ref2 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
-                  var _preparedPayload$mess;
-                  var preparedPayload, errorText, data, counter, closed, _response2;
+                  var preparedPayload, endpoint, headers, errorText, data, counter, closed, _response5, _response6, _response7, _response8;
                   return _regeneratorRuntime().wrap(function _callee4$(_context4) {
                     while (1) switch (_context4.prev = _context4.next) {
                       case 0:
+                        logger.log('Initiating stream request');
                         preparedPayload = _this2.preparePayload(payload);
-                        logger.log('Making stream request with model', (_preparedPayload$mess = preparedPayload.messages) === null || _preparedPayload$mess === void 0 ? void 0 : _preparedPayload$mess.length);
-                        _context4.prev = 2;
-                        logger.time('makeSingleStream:init');
-                        console.log('>preparedPayload', preparedPayload);
-                        _context4.next = 7;
-                        return Promise.race([_this2.fetch("".concat(_this2.endpoint, "?stream=true"), {
+                        logger.log('Prepared payload for stream request', preparedPayload);
+                        _context4.prev = 3;
+                        endpoint = "".concat(_this2.endpoint).concat(preparedPayload.stream ? '?stream=true' : '');
+                        headers = _this2.headerGen ? _this2.headerGen.call(_this2) : _this2.getHeaders();
+                        logger.log('Sending fetch request to', _this2.endpoint, headers, JSON.stringify(preparedPayload));
+                        _context4.next = 9;
+                        return Promise.race([_this2.fetch(endpoint, {
                           method: 'POST',
-                          headers: _this2.headerGen ? _this2.headerGen.call(_this2) : _this2.getHeaders(),
+                          headers: headers,
                           body: JSON.stringify(preparedPayload)
                         }), _this2.timeout(_this2.REQUEST_TIMEOUT_MS)]);
-                      case 7:
+                      case 9:
                         response = _context4.sent;
+                        logger.log('Received response', response.status, response.statusText);
                         if (response.ok) {
-                          _context4.next = 13;
+                          _context4.next = 17;
                           break;
                         }
-                        _context4.next = 11;
+                        _context4.next = 14;
                         return response.text();
-                      case 11:
+                      case 14:
                         errorText = _context4.sent;
+                        logger.error("HTTP Error ".concat(response.status, " for ").concat(_this2.name, " (stream):"), {
+                          status: response.status,
+                          statusText: response.statusText,
+                          headers: Object.fromEntries(response.headers.entries()),
+                          errorText: errorText
+                        });
                         throw new Error("HTTP Error ".concat(response.status, ": ").concat(errorText));
-                      case 13:
+                      case 17:
+                        if (response.body) {
+                          _context4.next = 20;
+                          break;
+                        }
+                        logger.error('Response body is null', response);
+                        throw new Error("No response body from ".concat(inst.name));
+                      case 20:
                         data = '';
                         counter = 0;
                         closed = false;
-                        logger.time('makeSingleStream:streamStart');
                         return _context4.abrupt("return", new ReadableStream({
                           start: function start(controller) {
                             return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
-                              var onParse, parser, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, chunk, decoded;
+                              var onParse, parser, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, chunk, decoded, _json$choices2, json, _json$choices3;
                               return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                                 while (1) switch (_context3.prev = _context3.next) {
                                   case 0:
@@ -249,89 +300,129 @@ var Provider = /*#__PURE__*/function () {
                                         }
                                       }
                                     };
-                                    logger.timeEnd('makeSingleStream:streamStart');
-                                    logger.timeEnd('makeSingleStream:init');
                                     logger.log('Starting readable stream');
                                     parser = (0, _eventsourceParser.createParser)(onParse);
+                                    logger.log('Starting to read response body', response.body);
                                     _iteratorAbruptCompletion = false;
                                     _didIteratorError = false;
-                                    _context3.prev = 7;
+                                    _context3.prev = 6;
                                     _iterator = _asyncIterator(response.body);
-                                  case 9:
-                                    _context3.next = 11;
+                                  case 8:
+                                    _context3.next = 10;
                                     return _iterator.next();
-                                  case 11:
+                                  case 10:
                                     if (!(_iteratorAbruptCompletion = !(_step = _context3.sent).done)) {
-                                      _context3.next = 18;
+                                      _context3.next = 28;
                                       break;
                                     }
                                     chunk = _step.value;
                                     decoded = new TextDecoder().decode(chunk);
-                                    parser.feed(decoded);
-                                  case 15:
-                                    _iteratorAbruptCompletion = false;
-                                    _context3.next = 9;
-                                    break;
-                                  case 18:
-                                    _context3.next = 24;
-                                    break;
-                                  case 20:
-                                    _context3.prev = 20;
-                                    _context3.t0 = _context3["catch"](7);
-                                    _didIteratorError = true;
-                                    _iteratorError = _context3.t0;
-                                  case 24:
-                                    _context3.prev = 24;
-                                    _context3.prev = 25;
-                                    if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
-                                      _context3.next = 29;
+                                    if (!((decoded === null || decoded === void 0 ? void 0 : decoded[0]) === '{')) {
+                                      _context3.next = 24;
                                       break;
                                     }
-                                    _context3.next = 29;
+                                    _context3.prev = 14;
+                                    json = JSON.parse(decoded);
+                                    if (!((_json$choices2 = json.choices) !== null && _json$choices2 !== void 0 && (_json$choices2 = _json$choices2[0]) !== null && _json$choices2 !== void 0 && (_json$choices2 = _json$choices2.message) !== null && _json$choices2 !== void 0 && _json$choices2.content)) {
+                                      _context3.next = 20;
+                                      break;
+                                    }
+                                    controller.enqueue((_json$choices3 = json.choices) === null || _json$choices3 === void 0 || (_json$choices3 = _json$choices3[0]) === null || _json$choices3 === void 0 || (_json$choices3 = _json$choices3.message) === null || _json$choices3 === void 0 ? void 0 : _json$choices3.content);
+                                    controller.close();
+                                    return _context3.abrupt("return");
+                                  case 20:
+                                    _context3.next = 24;
+                                    break;
+                                  case 22:
+                                    _context3.prev = 22;
+                                    _context3.t0 = _context3["catch"](14);
+                                  case 24:
+                                    parser.feed(decoded);
+                                  case 25:
+                                    _iteratorAbruptCompletion = false;
+                                    _context3.next = 8;
+                                    break;
+                                  case 28:
+                                    _context3.next = 34;
+                                    break;
+                                  case 30:
+                                    _context3.prev = 30;
+                                    _context3.t1 = _context3["catch"](6);
+                                    _didIteratorError = true;
+                                    _iteratorError = _context3.t1;
+                                  case 34:
+                                    _context3.prev = 34;
+                                    _context3.prev = 35;
+                                    if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
+                                      _context3.next = 39;
+                                      break;
+                                    }
+                                    _context3.next = 39;
                                     return _iterator["return"]();
-                                  case 29:
-                                    _context3.prev = 29;
+                                  case 39:
+                                    _context3.prev = 39;
                                     if (!_didIteratorError) {
-                                      _context3.next = 32;
+                                      _context3.next = 42;
                                       break;
                                     }
                                     throw _iteratorError;
-                                  case 32:
-                                    return _context3.finish(29);
-                                  case 33:
-                                    return _context3.finish(24);
-                                  case 34:
+                                  case 42:
+                                    return _context3.finish(39);
+                                  case 43:
+                                    return _context3.finish(34);
+                                  case 44:
+                                    logger.log('Finished reading response body');
+                                  case 45:
                                   case "end":
                                     return _context3.stop();
                                 }
-                              }, _callee3, null, [[7, 20, 24, 34], [25,, 29, 33]]);
+                              }, _callee3, null, [[6, 30, 34, 44], [14, 22], [35,, 39, 43]]);
                             }))();
                           }
                         }));
-                      case 20:
-                        _context4.prev = 20;
-                        _context4.t0 = _context4["catch"](2);
-                        logger.error("Error in streaming from ".concat(_this2.name, ": ").concat(_context4.t0));
-                        clearTimeout(timerId); // Ensure timer is cleared on catch
-
-                        // console.log({retries}, this.MAX_RETRIES, error, response);
-                        if (!(retries < _this2.MAX_RETRIES && _this2.shouldRetry(_context4.t0, (_response2 = response) === null || _response2 === void 0 ? void 0 : _response2.status))) {
-                          _context4.next = 30;
+                      case 26:
+                        _context4.prev = 26;
+                        _context4.t0 = _context4["catch"](3);
+                        _context4.t1 = logger;
+                        _context4.t2 = "Error in streaming from ".concat(_this2.name, ":");
+                        _context4.t3 = _context4.t0.message;
+                        _context4.t4 = _context4.t0.stack;
+                        _context4.t5 = (_response5 = response) === null || _response5 === void 0 ? void 0 : _response5.status;
+                        _context4.t6 = (_response6 = response) === null || _response6 === void 0 ? void 0 : _response6.statusText;
+                        _context4.t7 = response ? Object.fromEntries(response.headers.entries()) : null;
+                        _context4.next = 37;
+                        return (_response7 = response) === null || _response7 === void 0 ? void 0 : _response7.text()["catch"](function () {
+                          return 'Unable to read response body';
+                        });
+                      case 37:
+                        _context4.t8 = _context4.sent;
+                        _context4.t9 = {
+                          error: _context4.t3,
+                          stack: _context4.t4,
+                          responseStatus: _context4.t5,
+                          responseStatusText: _context4.t6,
+                          responseHeaders: _context4.t7,
+                          responseBody: _context4.t8
+                        };
+                        _context4.t1.error.call(_context4.t1, _context4.t2, _context4.t9);
+                        clearTimeout(timerId);
+                        if (!(retries < _this2.MAX_RETRIES && _this2.shouldRetry(_context4.t0, (_response8 = response) === null || _response8 === void 0 ? void 0 : _response8.status))) {
+                          _context4.next = 47;
                           break;
                         }
                         retries++;
                         logger.log("Retrying request for ".concat(_this2.name, ", attempt ").concat(retries));
-                        _context4.next = 29;
-                        return _this2.delay(_this2.RETRY_DELAY_WHEN_OVERLOADED);
-                      case 29:
+                        _context4.next = 46;
+                        return _this2.delay(_this2.RETRY_DELAY_WHEN_OVERLOADED * Math.pow(2, retries - 1));
+                      case 46:
                         return _context4.abrupt("return", _this2.createStream(payload, retries));
-                      case 30:
+                      case 47:
                         throw _context4.t0;
-                      case 31:
+                      case 48:
                       case "end":
                         return _context4.stop();
                     }
-                  }, _callee4, null, [[2, 20]]);
+                  }, _callee4, null, [[3, 26]]);
                 }));
                 return function makeSingleStream() {
                   return _ref2.apply(this, arguments);
@@ -375,12 +466,15 @@ var Provider = /*#__PURE__*/function () {
     key: "getHeaders",
     value: function getHeaders() {
       if (!this.key) {
-        throw new Error('No key is defined');
+        throw new Error('Note: No key is defined');
       }
-      return {
-        'Content-Type': 'application/json',
-        Authorization: "Bearer ".concat(this.key)
+      var headers = {
+        'Content-Type': 'application/json'
       };
+      if (this.key !== 'NO_KEY') {
+        headers.Authorization = "Bearer ".concat(this.key);
+      }
+      return headers;
     }
   }, {
     key: "preparePayload",
@@ -392,7 +486,7 @@ var Provider = /*#__PURE__*/function () {
       var modelType = customPayload.model || 'fast';
       var model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
       if (!model) {
-        throw new Error('No valid model found for: ' + this.name);
+        throw new Error("No valid model found for provider: ".concat(this.name));
       }
       var messages = _toConsumableArray(customPayload.messages);
       var systemMessage = messages.shift();
@@ -423,7 +517,7 @@ var Provider = /*#__PURE__*/function () {
       logger.dev('deriving model specific payload');
       var modelSpecificPayload = this.payloader(_objectSpread(_objectSpread({
         system: systemMessage.content,
-        max_tokens: DEFAULT_RESPONSE_TOKEN_LENGTH
+        max_tokens: customPayload.max_tokens || customPayload.maxTokens || DEFAULT_RESPONSE_TOKEN_LENGTH
       }, customPayload), {}, {
         messages: messages
       }));
