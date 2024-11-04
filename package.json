@@ -1,6 +1,6 @@
 {
   "name": "xmllm",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "main": "./dist/cjs/xmllm-main.js",
   "module": "./dist/esm/xmllm-main.mjs",
   "types": "./index.d.ts",
