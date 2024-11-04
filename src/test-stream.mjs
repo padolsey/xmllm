@@ -2,106 +2,214 @@ import APIStream from './Stream.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function runTestCase(testCase, index) {
-  console.log(`\n========== Running test case ${index + 1} ==========`);
-  console.log('Payload:', JSON.stringify(testCase, null, 2));
+async function runTest(payload) {
+    console.log('Running test with payload:', JSON.stringify(payload, null, 2));
 
-  try {
-    const stream = await APIStream(testCase);
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
+    try {
+        const stream = await APIStream(payload);
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
 
-    let startTime = Date.now();
-    let firstChunkTime = null;
-    let totalChunks = 0;
-    let content = '';
+        let startTime = Date.now();
+        let firstChunkTime = null;
+        let totalChunks = 0;
+        let content = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-      const decodedValue = decoder.decode(value);
-      content += decodedValue;
-      totalChunks++;
+            const decodedValue = decoder.decode(value);
+            content += decodedValue;
+            totalChunks++;
 
-      if (totalChunks === 1) {
-        firstChunkTime = Date.now();
-        console.log(`Time to first chunk: ${firstChunkTime - startTime}ms`);
-      }
+            if (totalChunks === 1) {
+                firstChunkTime = Date.now();
+                console.log(`Time to first chunk: ${firstChunkTime - startTime}ms`);
+            }
 
-      console.log(`Chunk ${totalChunks}:`, decodedValue);
+            console.log(`Chunk ${totalChunks}:`, decodedValue);
+        }
+
+        const endTime = Date.now();
+        console.log('\nTest Summary:');
+        console.log(`Total time: ${endTime - startTime}ms`);
+        console.log(`Total chunks: ${totalChunks}`);
+        console.log(`Full content:\n${content}`);
+
+        return { success: true, content, totalChunks, totalTime: endTime - startTime };
+    } catch (error) {
+        console.error('Test Error:', error.message);
+        return { success: false, error: error.message };
     }
-
-    const endTime = Date.now();
-    console.log('\nTest case summary:');
-    console.log(`Total time: ${endTime - startTime}ms`);
-    console.log(`Total chunks: ${totalChunks}`);
-    console.log(`Full content:\n${content}`);
-
-    return { success: true, content, totalChunks, totalTime: endTime - startTime };
-  } catch (error) {
-    console.error(`Error in test case ${index + 1}:`, error.message);
-    return { success: false, error: error.message };
-  }
 }
 
-async function testStream() {
-  const testCases = [
-    // {
-    //   messages: [
-    //     { role: 'system', content: 'You are a helpful assistant.' },
-    //     { role: 'user', content: 'Hello, how are you?' }
-    //   ],
-    //   model: 'claude'
-    // },
-    // {
-    //   messages: [
-    //     { role: 'system', content: 'You are a helpful assistant.' },
-    //     { role: 'user', content: 'What is the capital of France?' }
-    //   ],
-    //   model: ['openai:good', 'claude:good', 'togetherai:fast']
-    // },
-    // {
-    //   messages: [
-    //     { role: 'system', content: 'You are a helpful assistant.' },
-    //     { role: 'user', content: 'Explain quantum computing in simple terms.' }
-    //   ]
-    // },
-    {
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant.' },
-        { role: 'user', content: 'This request should trigger the wait message.' }
-      ],
-      model: 'claude:superfast',
-      waitMessageString: 'Wait...',
-      waitMessageDelay: 5000,
-      fakeDelay: 15000  // 15 seconds fake delay
+// Test Definitions
+const tests = {
+    waiting: async () => {
+        return runTest({
+            messages: [
+                { role: 'system', content: 'You are a helpful assistant.' },
+                { role: 'user', content: 'What is purple?' }
+            ],
+            model: 'claude:superfast',
+            waitMessageString: 'Wait...',
+            waitMessageDelay: 5000,
+            fakeDelay: 15000
+        });
+    },
+
+    defaultCaching: async () => {
+        // First request
+        console.log("Making first request...");
+        const payload = {
+            messages: [
+                { role: 'system', content: 'You are a helpful assistant.' },
+                { role: 'user', content: 'Write a short problem and then solve it.' }
+            ],
+            model: 'claude:fast'
+        };
+        
+        await runTest(payload);
+        
+        // Second request with same payload should hit cache
+        console.log("\nMaking second request (should be cached)...");
+        await delay(1000);
+        return runTest(payload);
+    },
+
+    story: async () => {
+        return runTest({
+            messages: [
+                { role: 'system', content: 'You are a creative storyteller.' },
+                { role: 'user', content: 'Write a short story about a magical library.' }
+            ],
+            model: 'claude:good'
+        });
+    },
+
+    concurrent: async () => {
+        console.log("Testing concurrent requests...");
+        const payload = {
+            messages: [
+                { role: 'system', content: 'You are a helpful assistant.' },
+                { role: 'user', content: 'Count from 1 to 5 slowly.' }
+            ],
+            model: 'claude:fast'
+        };
+
+        return Promise.all([
+            runTest(payload),
+            runTest(payload)
+        ]);
+    },
+
+    nonCaching: async () => {
+        console.log("Testing with caching disabled (default behavior)...");
+        const payload = {
+            messages: [
+                { role: 'system', content: 'You are a helpful assistant.' },
+                { role: 'user', content: 'What is 2+2?' }
+            ],
+            model: 'claude:fast',
+            temperature: 0.7,
+            max_tokens: 100
+        };
+        
+        console.log("First request...");
+        const result1 = await runTest(payload);
+        
+        console.log("\nSecond request (should NOT be cached)...");
+        await delay(1000);
+        return runTest(payload);
+    },
+
+    trueCaching: async () => {
+        console.log("Testing with caching explicitly enabled...");
+        const payload = {
+            messages: [
+                { role: 'system', content: 'You are a helpful assistant.' },
+                { role: 'user', content: 'What is 2+2? explain the epistemology of the answer.' }
+            ],
+            model: 'claude:fast',
+            temperature: 0.7,
+            max_tokens: 100,
+            cache: true  // Explicitly enable caching
+        };
+        
+        console.log("First request...");
+        const result1 = await runTest(payload);
+        
+        console.log("\nSecond request (should be cached)...");
+        await delay(1000);
+        const result2 = await runTest(payload);
+
+        // Return both results for comparison
+        return {
+            firstRequest: result1,
+            secondRequest: result2
+        };
     }
-  ];
+};
 
-  const results = [];
-
-  for (let i = 0; i < testCases.length; i++) {
-    const result = await runTestCase(testCases[i], i);
-    results.push(result);
+// Main execution
+async function main() {
+    const args = process.argv.slice(2);
+    const testFlag = args.find(arg => arg.startsWith('--test='));
     
-    // Add a delay between test cases to avoid rate limiting
-    if (i < testCases.length - 1) {
-      console.log('\nWaiting 5 seconds before next test case...');
-      await delay(5000);
+    if (!testFlag) {
+        console.log('Available tests:');
+        Object.keys(tests).forEach(test => console.log(`  --test=${test}`));
+        process.exit(1);
     }
-  }
 
-  console.log('\n========== Test Summary ==========');
-  results.forEach((result, index) => {
-    console.log(`Test case ${index + 1}: ${result.success ? 'SUCCESS' : 'FAILURE'}`);
-    if (result.success) {
-      console.log(`  Chunks: ${result.totalChunks}`);
-      console.log(`  Total time: ${result.totalTime}ms`);
-    } else {
-      console.log(`  Error: ${result.error}`);
+    const testName = testFlag.split('=')[1];
+    const testFn = tests[testName];
+
+    if (!testFn) {
+        console.error(`Unknown test: ${testName}`);
+        console.log('Available tests:');
+        Object.keys(tests).forEach(test => console.log(`  --test=${test}`));
+        process.exit(1);
     }
-  });
+
+    console.log(`\n========== Running ${testName} test ==========\n`);
+    const result = await testFn();
+    
+    console.log('\n========== Test Complete ==========');
+    if (result.firstRequest && result.secondRequest) {
+        console.log('\nFirst Request:');
+        console.log(`Result: ${result.firstRequest.success ? 'SUCCESS' : 'FAILURE'}`);
+        if (result.firstRequest.success) {
+            console.log(`Chunks: ${result.firstRequest.totalChunks}`);
+            console.log(`Total time: ${result.firstRequest.totalTime}ms`);
+        }
+        
+        console.log('\nSecond Request:');
+        console.log(`Result: ${result.secondRequest.success ? 'SUCCESS' : 'FAILURE'}`);
+        if (result.secondRequest.success) {
+            console.log(`Chunks: ${result.secondRequest.totalChunks}`);
+            console.log(`Total time: ${result.secondRequest.totalTime}ms`);
+        }
+    } else if (Array.isArray(result)) {
+        result.forEach((r, i) => {
+            console.log(`\nConcurrent request ${i + 1}: ${r.success ? 'SUCCESS' : 'FAILURE'}`);
+            if (r.success) {
+                console.log(`  Chunks: ${r.totalChunks}`);
+                console.log(`  Total time: ${r.totalTime}ms`);
+            } else {
+                console.log(`  Error: ${r.error}`);
+            }
+        });
+    } else {
+        console.log(`Result: ${result.success ? 'SUCCESS' : 'FAILURE'}`);
+        if (result.success) {
+            console.log(`Chunks: ${result.totalChunks}`);
+            console.log(`Total time: ${result.totalTime}ms`);
+        } else {
+            console.log(`Error: ${result.error}`);
+        }
+    }
 }
 
-testStream();
+main().catch(console.error);

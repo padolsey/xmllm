@@ -39,7 +39,7 @@ var ProviderManager = /*#__PURE__*/function () {
   return _createClass(ProviderManager, [{
     key: "getProviderByPreference",
     value: function getProviderByPreference(preference) {
-      console.log('getProviderByPreference', preference);
+      logger.log('getProviderByPreference', preference);
       if (_typeof(preference) === 'object' && preference.inherit) {
         return this.createCustomProvider(preference);
       }

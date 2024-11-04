@@ -29,8 +29,11 @@ function createServer(config = {}) {
         max_tokens,
         temperature,
         fakeDelay,
+        cache,
         stream
       } = req.body;
+
+      console.log('Stream request', req.body);
 
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });
@@ -48,6 +51,7 @@ function createServer(config = {}) {
         temperature,
         fakeDelay,
         model,
+        cache,
         stream: stream == null ? true : stream
       });
 

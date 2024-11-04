@@ -114,7 +114,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(input) {
-                  var _config, messages, schema, mapper, system, max_tokens, maxTokens, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier, reqPipeline, pipeline, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
+                  var _config, messages, schema, mapper, system, max_tokens, maxTokens, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier, cache, reqPipeline, pipeline, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
                   return _regeneratorRuntime().wrap(function _callee8$(_context8) {
                     while (1) switch (_context8.prev = _context8.next) {
                       case 0:
@@ -130,7 +130,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier;
+                        _config = config, messages = _config.messages, schema = _config.schema, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache;
                         logger.dev('promptComplex()', {
                           messages: messages,
                           schema: schema,
@@ -138,7 +138,8 @@ function _xmllmGen() {
                           system: system,
                           model: model,
                           fakeResponse: fakeResponse,
-                          max_tokens: max_tokens
+                          max_tokens: max_tokens,
+                          cache: cache
                         });
                         if (!(mapper && !schema)) {
                           _context8.next = 6;
@@ -218,7 +219,8 @@ function _xmllmGen() {
                           waitMessageDelay: waitMessageDelay,
                           retryMax: retryMax,
                           retryStartDelay: retryStartDelay,
-                          retryBackoffMultiplier: retryBackoffMultiplier
+                          retryBackoffMultiplier: retryBackoffMultiplier,
+                          cache: cache
                         }), /*#__PURE__*/_regeneratorRuntime().mark(function _callee6(x) {
                           return _regeneratorRuntime().wrap(function _callee6$(_context6) {
                             while (1) switch (_context6.prev = _context6.next) {
@@ -531,6 +533,7 @@ function _xmllmGen() {
                 maxTokens = _ref6.maxTokens,
                 model = _ref6.model,
                 temperature = _ref6.temperature,
+                cache = _ref6.cache,
                 fakeDelay = _ref6.fakeDelay,
                 waitMessageString = _ref6.waitMessageString,
                 waitMessageDelay = _ref6.waitMessageDelay,
@@ -595,7 +598,8 @@ function _xmllmGen() {
                           waitMessageDelay: waitMessageDelay,
                           retryMax: retryMax,
                           retryStartDelay: retryStartDelay,
-                          retryBackoffMultiplier: retryBackoffMultiplier
+                          retryBackoffMultiplier: retryBackoffMultiplier,
+                          cache: cache
                         }));
                       case 12:
                         stream = _context2.sent;
@@ -655,7 +659,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(thing) {
-                  var transformedConfig, _transformedConfig, system, model, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, text;
+                  var transformedConfig, _transformedConfig, system, model, cache, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, text;
                   return _regeneratorRuntime().wrap(function _callee$(_context) {
                     while (1) switch (_context.prev = _context.next) {
                       case 0:
@@ -672,7 +676,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, messages = _transformedConfig.messages;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, cache = _transformedConfig.cache, messages = _transformedConfig.messages;
                         if (messages.length) {
                           _context.next = 6;
                           break;
@@ -688,7 +692,8 @@ function _xmllmGen() {
                             role: 'system',
                             content: system || ''
                           }].concat(_toConsumableArray(messages || [])),
-                          model: model
+                          model: model,
+                          cache: cache
                         }));
                       case 8:
                         stream = _context.sent;

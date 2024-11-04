@@ -9,17 +9,17 @@ var _mainCache = require("./mainCache.js");
 var _Logger = _interopRequireDefault(require("./Logger.js"));
 var _ProviderManager = _interopRequireDefault(require("./ProviderManager.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
@@ -35,7 +35,7 @@ var queue;
 var providerManager = new _ProviderManager["default"]();
 var ongoingRequests = new Map();
 var DEFAULT_CONCURRENCY = 2;
-var DEFAULT_WAIT_MESSAGE = "[still loading]";
+var DEFAULT_WAIT_MESSAGE = "";
 var DEFAULT_WAIT_MESSAGE_DELAY = 10000; // 10 seconds
 var DEFAULT_RETRY_MAX = 3;
 var DEFAULT_RETRY_START_DELAY = 1000; // 1 second
@@ -66,6 +66,7 @@ function _waitMessageGenerator() {
   }));
   return _waitMessageGenerator.apply(this, arguments);
 }
+var CACHE_VERSION = '1.0';
 function APIStream(_x) {
   return _APIStream.apply(this, arguments);
 }
@@ -83,21 +84,38 @@ function _APIStream() {
             concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY
           });
           return _context5.abrupt("return", queue.add(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
-            var encoder, hash, cachedData, ongoingRequest, ongoingRequestStream, _ongoingRequestStream, _ongoingRequestStream2, stream1, stream2, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier;
+            var encoder, content, cacheKeyParams, hash, cachedData, ongoingRequest, ongoingRequestStream, _ongoingRequestStream, _ongoingRequestStream2, stream1, stream2, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier;
             return _regeneratorRuntime().wrap(function _callee4$(_context4) {
               while (1) switch (_context4.prev = _context4.next) {
                 case 0:
                   encoder = new TextEncoder();
+                  content = '';
                   payload.stream = true;
                   if (typeof payload.model === 'string') {
                     payload.model = [payload.model];
                   }
-                  hash = (0, _crypto.createHash)('md5').update(JSON.stringify(payload)).digest('hex');
-                  _context4.next = 6;
+
+                  // Extract relevant parameters for cache key
+                  cacheKeyParams = _objectSpread({
+                    _v: CACHE_VERSION,
+                    messages: payload.messages,
+                    model: payload.model,
+                    temperature: payload.temperature || 0,
+                    top_p: payload.top_p || 1,
+                    presence_penalty: payload.presence_penalty || 0,
+                    frequency_penalty: payload.frequency_penalty || 0
+                  }, payload.system && {
+                    system: payload.system
+                  });
+                  hash = (0, _crypto.createHash)('md5').update(JSON.stringify(cacheKeyParams)).digest('hex'); // Only check cache if caching is explicitly enabled
+                  if (!(payload.cache === true)) {
+                    _context4.next = 14;
+                    break;
+                  }
+                  _context4.next = 9;
                   return (0, _mainCache.get)(hash);
-                case 6:
+                case 9:
                   cachedData = _context4.sent;
-                  ongoingRequest = ongoingRequests.get(hash);
                   if (!cachedData) {
                     _context4.next = 14;
                     break;
@@ -111,19 +129,20 @@ function _APIStream() {
                     }
                   }));
                 case 14:
+                  ongoingRequest = ongoingRequests.get(hash);
                   if (!ongoingRequest) {
-                    _context4.next = 24;
+                    _context4.next = 23;
                     break;
                   }
                   logger.log('Request currently ongoing: we are awaiting and tee\'ing the stream', hash);
-                  _context4.next = 18;
+                  _context4.next = 19;
                   return ongoingRequest;
-                case 18:
+                case 19:
                   ongoingRequestStream = _context4.sent;
                   _ongoingRequestStream = ongoingRequestStream.tee(), _ongoingRequestStream2 = _slicedToArray(_ongoingRequestStream, 2), stream1 = _ongoingRequestStream2[0], stream2 = _ongoingRequestStream2[1];
                   ongoingRequests.set(hash, stream2);
                   return _context4.abrupt("return", stream1);
-                case 24:
+                case 23:
                   waitMessageString = payload.waitMessageString || DEFAULT_WAIT_MESSAGE;
                   waitMessageDelay = payload.waitMessageDelay || DEFAULT_WAIT_MESSAGE_DELAY;
                   retryMax = payload.retryMax || DEFAULT_RETRY_MAX;
@@ -132,7 +151,7 @@ function _APIStream() {
                   return _context4.abrupt("return", new ReadableStream({
                     start: function start(controller) {
                       return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
-                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value;
+                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize;
                         return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                           while (1) switch (_context3.prev = _context3.next) {
                             case 0:
@@ -173,7 +192,7 @@ function _APIStream() {
                               if (waitMessageTimer) clearTimeout(waitMessageTimer);
                             case 11:
                               if (!true) {
-                                _context3.next = 22;
+                                _context3.next = 24;
                                 break;
                               }
                               _context3.next = 14;
@@ -186,35 +205,54 @@ function _APIStream() {
                                 _context3.next = 19;
                                 break;
                               }
-                              return _context3.abrupt("break", 22);
+                              return _context3.abrupt("break", 24);
                             case 19:
+                              decodedValue = new TextDecoder().decode(value);
+                              content += decodedValue; // Accumulate content
                               controller.enqueue(value);
                               _context3.next = 11;
                               break;
-                            case 22:
-                              _context3.next = 29;
-                              break;
                             case 24:
-                              _context3.prev = 24;
+                              if (!(payload.cache === true)) {
+                                _context3.next = 32;
+                                break;
+                              }
+                              contentSize = content.length;
+                              if (!(contentSize <= _mainCache.DEFAULT_CONFIG.maxEntrySize)) {
+                                _context3.next = 31;
+                                break;
+                              }
+                              _context3.next = 29;
+                              return (0, _mainCache.set)(hash, content);
+                            case 29:
+                              _context3.next = 32;
+                              break;
+                            case 31:
+                              logger.warn("Content too large to cache (".concat(contentSize, " chars)"));
+                            case 32:
+                              _context3.next = 39;
+                              break;
+                            case 34:
+                              _context3.prev = 34;
                               _context3.t0 = _context3["catch"](2);
                               logger.error('Error in stream:', _context3.t0);
                               if (waitMessageTimer) clearTimeout(waitMessageTimer);
                               if (!waitMessageSent) {
                                 controller.enqueue(encoder.encode(FAILURE_MESSAGE));
                               }
-                            case 29:
-                              _context3.prev = 29;
+                            case 39:
+                              _context3.prev = 39;
                               controller.close();
-                              return _context3.finish(29);
-                            case 32:
+                              return _context3.finish(39);
+                            case 42:
                             case "end":
                               return _context3.stop();
                           }
-                        }, _callee3, null, [[2, 24, 29, 32]]);
+                        }, _callee3, null, [[2, 34, 39, 42]]);
                       }))();
                     }
                   }));
-                case 30:
+                case 29:
                 case "end":
                   return _context4.stop();
               }

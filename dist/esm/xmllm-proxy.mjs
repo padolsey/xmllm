@@ -25,54 +25,56 @@ function createServer() {
   console.log('Starting Proxy Server with config', config, 'Port:', port);
   app.post('/api/stream', /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(req, res) {
-      var _req$body, messages, _req$body$model, model, max_tokens, temperature, fakeDelay, stream, theStream, reader, _yield$reader$read, done, value, content;
+      var _req$body, messages, _req$body$model, model, max_tokens, temperature, fakeDelay, cache, stream, theStream, reader, _yield$reader$read, done, value, content;
       return _regeneratorRuntime().wrap(function _callee$(_context) {
         while (1) switch (_context.prev = _context.next) {
           case 0:
             _context.prev = 0;
-            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens, temperature = _req$body.temperature, fakeDelay = _req$body.fakeDelay, stream = _req$body.stream;
+            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens, temperature = _req$body.temperature, fakeDelay = _req$body.fakeDelay, cache = _req$body.cache, stream = _req$body.stream;
+            console.log('Stream request', req.body);
             if (!(!messages || !Array.isArray(messages))) {
-              _context.next = 4;
+              _context.next = 5;
               break;
             }
             return _context.abrupt("return", res.status(400).json({
               error: 'Invalid messages format'
             }));
-          case 4:
+          case 5:
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               'Connection': 'keep-alive'
             });
-            _context.next = 7;
+            _context.next = 8;
             return Stream({
               messages: messages,
               max_tokens: max_tokens,
               temperature: temperature,
               fakeDelay: fakeDelay,
               model: model,
+              cache: cache,
               stream: stream == null ? true : stream
             });
-          case 7:
+          case 8:
             theStream = _context.sent;
             reader = theStream.getReader();
-          case 9:
+          case 10:
             if (!true) {
-              _context.next = 20;
+              _context.next = 21;
               break;
             }
-            _context.next = 12;
+            _context.next = 13;
             return reader.read();
-          case 12:
+          case 13:
             _yield$reader$read = _context.sent;
             done = _yield$reader$read.done;
             value = _yield$reader$read.value;
             if (!done) {
-              _context.next = 17;
+              _context.next = 18;
               break;
             }
-            return _context.abrupt("break", 20);
-          case 17:
+            return _context.abrupt("break", 21);
+          case 18:
             if (value instanceof Uint8Array) {
               content = new TextDecoder().decode(value);
               res.write("data: ".concat(JSON.stringify({
@@ -83,15 +85,15 @@ function createServer() {
                 content: value
               }), "\n\n"));
             }
-            _context.next = 9;
+            _context.next = 10;
             break;
-          case 20:
+          case 21:
             res.write('event: close\ndata: Stream ended\n\n');
             res.end();
-            _context.next = 29;
+            _context.next = 30;
             break;
-          case 24:
-            _context.prev = 24;
+          case 25:
+            _context.prev = 25;
             _context.t0 = _context["catch"](0);
             console.error('Error in stream request:', _context.t0);
             res.write("event: error\ndata: ".concat(JSON.stringify({
@@ -99,11 +101,11 @@ function createServer() {
               message: _context.t0.message
             }), "\n\n"));
             res.end();
-          case 29:
+          case 30:
           case "end":
             return _context.stop();
         }
-      }, _callee, null, [[0, 24]]);
+      }, _callee, null, [[0, 25]]);
     }));
     return function (_x, _x2) {
       return _ref.apply(this, arguments);

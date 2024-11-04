@@ -3,3 +3,4 @@ node_modules/
 .DS_Store
 _caches/
 rand_demos/
+.cache

@@ -8,45 +8,44 @@ var delay = function delay(ms) {
     return setTimeout(resolve, ms);
   });
 };
-function runTestCase(_x, _x2) {
-  return _runTestCase.apply(this, arguments);
-}
-function _runTestCase() {
-  _runTestCase = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(testCase, index) {
+function runTest(_x) {
+  return _runTest.apply(this, arguments);
+} // Test Definitions
+function _runTest() {
+  _runTest = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7(payload) {
     var stream, reader, decoder, startTime, firstChunkTime, totalChunks, content, _yield$reader$read, done, value, decodedValue, endTime;
-    return _regeneratorRuntime().wrap(function _callee$(_context) {
-      while (1) switch (_context.prev = _context.next) {
+    return _regeneratorRuntime().wrap(function _callee7$(_context7) {
+      while (1) switch (_context7.prev = _context7.next) {
         case 0:
-          console.log("\n========== Running test case ".concat(index + 1, " =========="));
-          console.log('Payload:', JSON.stringify(testCase, null, 2));
-          _context.prev = 2;
-          _context.next = 5;
-          return APIStream(testCase);
-        case 5:
-          stream = _context.sent;
+          console.log('Running test with payload:', JSON.stringify(payload, null, 2));
+          _context7.prev = 1;
+          _context7.next = 4;
+          return APIStream(payload);
+        case 4:
+          stream = _context7.sent;
           reader = stream.getReader();
           decoder = new TextDecoder();
           startTime = Date.now();
           firstChunkTime = null;
           totalChunks = 0;
           content = '';
-        case 12:
+        case 11:
           if (!true) {
-            _context.next = 27;
+            _context7.next = 26;
             break;
           }
-          _context.next = 15;
+          _context7.next = 14;
           return reader.read();
-        case 15:
-          _yield$reader$read = _context.sent;
+        case 14:
+          _yield$reader$read = _context7.sent;
           done = _yield$reader$read.done;
           value = _yield$reader$read.value;
           if (!done) {
-            _context.next = 20;
+            _context7.next = 19;
             break;
           }
-          return _context.abrupt("break", 27);
-        case 20:
+          return _context7.abrupt("break", 26);
+        case 19:
           decodedValue = decoder.decode(value);
           content += decodedValue;
           totalChunks++;
@@ -55,121 +54,324 @@ function _runTestCase() {
             console.log("Time to first chunk: ".concat(firstChunkTime - startTime, "ms"));
           }
           console.log("Chunk ".concat(totalChunks, ":"), decodedValue);
-          _context.next = 12;
+          _context7.next = 11;
           break;
-        case 27:
+        case 26:
           endTime = Date.now();
-          console.log('\nTest case summary:');
+          console.log('\nTest Summary:');
           console.log("Total time: ".concat(endTime - startTime, "ms"));
           console.log("Total chunks: ".concat(totalChunks));
           console.log("Full content:\n".concat(content));
-          return _context.abrupt("return", {
+          return _context7.abrupt("return", {
             success: true,
             content: content,
             totalChunks: totalChunks,
             totalTime: endTime - startTime
           });
-        case 35:
-          _context.prev = 35;
-          _context.t0 = _context["catch"](2);
-          console.error("Error in test case ".concat(index + 1, ":"), _context.t0.message);
-          return _context.abrupt("return", {
+        case 34:
+          _context7.prev = 34;
+          _context7.t0 = _context7["catch"](1);
+          console.error('Test Error:', _context7.t0.message);
+          return _context7.abrupt("return", {
             success: false,
-            error: _context.t0.message
+            error: _context7.t0.message
           });
-        case 39:
+        case 38:
         case "end":
-          return _context.stop();
+          return _context7.stop();
       }
-    }, _callee, null, [[2, 35]]);
+    }, _callee7, null, [[1, 34]]);
   }));
-  return _runTestCase.apply(this, arguments);
+  return _runTest.apply(this, arguments);
 }
-function testStream() {
-  return _testStream.apply(this, arguments);
-}
-function _testStream() {
-  _testStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-    var testCases, results, i, result;
-    return _regeneratorRuntime().wrap(function _callee2$(_context2) {
-      while (1) switch (_context2.prev = _context2.next) {
-        case 0:
-          testCases = [
-          // {
-          //   messages: [
-          //     { role: 'system', content: 'You are a helpful assistant.' },
-          //     { role: 'user', content: 'Hello, how are you?' }
-          //   ],
-          //   model: 'claude'
-          // },
-          // {
-          //   messages: [
-          //     { role: 'system', content: 'You are a helpful assistant.' },
-          //     { role: 'user', content: 'What is the capital of France?' }
-          //   ],
-          //   model: ['openai:good', 'claude:good', 'togetherai:fast']
-          // },
-          // {
-          //   messages: [
-          //     { role: 'system', content: 'You are a helpful assistant.' },
-          //     { role: 'user', content: 'Explain quantum computing in simple terms.' }
-          //   ]
-          // },
-          {
-            messages: [{
-              role: 'system',
-              content: 'You are a helpful assistant.'
-            }, {
-              role: 'user',
-              content: 'This request should trigger the wait message.'
-            }],
-            model: 'claude:superfast',
-            waitMessageString: 'Wait...',
-            waitMessageDelay: 5000,
-            fakeDelay: 15000 // 15 seconds fake delay
-          }];
-          results = [];
-          i = 0;
-        case 3:
-          if (!(i < testCases.length)) {
-            _context2.next = 15;
-            break;
-          }
-          _context2.next = 6;
-          return runTestCase(testCases[i], i);
-        case 6:
-          result = _context2.sent;
-          results.push(result);
+var tests = {
+  waiting: function () {
+    var _waiting = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
+      return _regeneratorRuntime().wrap(function _callee$(_context) {
+        while (1) switch (_context.prev = _context.next) {
+          case 0:
+            return _context.abrupt("return", runTest({
+              messages: [{
+                role: 'system',
+                content: 'You are a helpful assistant.'
+              }, {
+                role: 'user',
+                content: 'What is purple?'
+              }],
+              model: 'claude:superfast',
+              waitMessageString: 'Wait...',
+              waitMessageDelay: 5000,
+              fakeDelay: 15000
+            }));
+          case 1:
+          case "end":
+            return _context.stop();
+        }
+      }, _callee);
+    }));
+    function waiting() {
+      return _waiting.apply(this, arguments);
+    }
+    return waiting;
+  }(),
+  defaultCaching: function () {
+    var _defaultCaching = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+      var payload;
+      return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+        while (1) switch (_context2.prev = _context2.next) {
+          case 0:
+            // First request
+            console.log("Making first request...");
+            payload = {
+              messages: [{
+                role: 'system',
+                content: 'You are a helpful assistant.'
+              }, {
+                role: 'user',
+                content: 'Write a short problem and then solve it.'
+              }],
+              model: 'claude:fast'
+            };
+            _context2.next = 4;
+            return runTest(payload);
+          case 4:
+            // Second request with same payload should hit cache
+            console.log("\nMaking second request (should be cached)...");
+            _context2.next = 7;
+            return delay(1000);
+          case 7:
+            return _context2.abrupt("return", runTest(payload));
+          case 8:
+          case "end":
+            return _context2.stop();
+        }
+      }, _callee2);
+    }));
+    function defaultCaching() {
+      return _defaultCaching.apply(this, arguments);
+    }
+    return defaultCaching;
+  }(),
+  story: function () {
+    var _story = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
+      return _regeneratorRuntime().wrap(function _callee3$(_context3) {
+        while (1) switch (_context3.prev = _context3.next) {
+          case 0:
+            return _context3.abrupt("return", runTest({
+              messages: [{
+                role: 'system',
+                content: 'You are a creative storyteller.'
+              }, {
+                role: 'user',
+                content: 'Write a short story about a magical library.'
+              }],
+              model: 'claude:good'
+            }));
+          case 1:
+          case "end":
+            return _context3.stop();
+        }
+      }, _callee3);
+    }));
+    function story() {
+      return _story.apply(this, arguments);
+    }
+    return story;
+  }(),
+  concurrent: function () {
+    var _concurrent = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
+      var payload;
+      return _regeneratorRuntime().wrap(function _callee4$(_context4) {
+        while (1) switch (_context4.prev = _context4.next) {
+          case 0:
+            console.log("Testing concurrent requests...");
+            payload = {
+              messages: [{
+                role: 'system',
+                content: 'You are a helpful assistant.'
+              }, {
+                role: 'user',
+                content: 'Count from 1 to 5 slowly.'
+              }],
+              model: 'claude:fast'
+            };
+            return _context4.abrupt("return", Promise.all([runTest(payload), runTest(payload)]));
+          case 3:
+          case "end":
+            return _context4.stop();
+        }
+      }, _callee4);
+    }));
+    function concurrent() {
+      return _concurrent.apply(this, arguments);
+    }
+    return concurrent;
+  }(),
+  nonCaching: function () {
+    var _nonCaching = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
+      var payload, result1;
+      return _regeneratorRuntime().wrap(function _callee5$(_context5) {
+        while (1) switch (_context5.prev = _context5.next) {
+          case 0:
+            console.log("Testing with caching disabled (default behavior)...");
+            payload = {
+              messages: [{
+                role: 'system',
+                content: 'You are a helpful assistant.'
+              }, {
+                role: 'user',
+                content: 'What is 2+2?'
+              }],
+              model: 'claude:fast',
+              temperature: 0.7,
+              max_tokens: 100
+            };
+            console.log("First request...");
+            _context5.next = 5;
+            return runTest(payload);
+          case 5:
+            result1 = _context5.sent;
+            console.log("\nSecond request (should NOT be cached)...");
+            _context5.next = 9;
+            return delay(1000);
+          case 9:
+            return _context5.abrupt("return", runTest(payload));
+          case 10:
+          case "end":
+            return _context5.stop();
+        }
+      }, _callee5);
+    }));
+    function nonCaching() {
+      return _nonCaching.apply(this, arguments);
+    }
+    return nonCaching;
+  }(),
+  trueCaching: function () {
+    var _trueCaching = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee6() {
+      var payload, result1, result2;
+      return _regeneratorRuntime().wrap(function _callee6$(_context6) {
+        while (1) switch (_context6.prev = _context6.next) {
+          case 0:
+            console.log("Testing with caching explicitly enabled...");
+            payload = {
+              messages: [{
+                role: 'system',
+                content: 'You are a helpful assistant.'
+              }, {
+                role: 'user',
+                content: 'What is 2+2? explain the epistemology of the answer.'
+              }],
+              model: 'claude:fast',
+              temperature: 0.7,
+              max_tokens: 100,
+              cache: true // Explicitly enable caching
+            };
+            console.log("First request...");
+            _context6.next = 5;
+            return runTest(payload);
+          case 5:
+            result1 = _context6.sent;
+            console.log("\nSecond request (should be cached)...");
+            _context6.next = 9;
+            return delay(1000);
+          case 9:
+            _context6.next = 11;
+            return runTest(payload);
+          case 11:
+            result2 = _context6.sent;
+            return _context6.abrupt("return", {
+              firstRequest: result1,
+              secondRequest: result2
+            });
+          case 13:
+          case "end":
+            return _context6.stop();
+        }
+      }, _callee6);
+    }));
+    function trueCaching() {
+      return _trueCaching.apply(this, arguments);
+    }
+    return trueCaching;
+  }()
+};
 
-          // Add a delay between test cases to avoid rate limiting
-          if (!(i < testCases.length - 1)) {
-            _context2.next = 12;
-            break;
-          }
-          console.log('\nWaiting 5 seconds before next test case...');
-          _context2.next = 12;
-          return delay(5000);
-        case 12:
-          i++;
-          _context2.next = 3;
-          break;
-        case 15:
-          console.log('\n========== Test Summary ==========');
-          results.forEach(function (result, index) {
-            console.log("Test case ".concat(index + 1, ": ").concat(result.success ? 'SUCCESS' : 'FAILURE'));
-            if (result.success) {
-              console.log("  Chunks: ".concat(result.totalChunks));
-              console.log("  Total time: ".concat(result.totalTime, "ms"));
-            } else {
-              console.log("  Error: ".concat(result.error));
-            }
-          });
-        case 17:
-        case "end":
-          return _context2.stop();
-      }
-    }, _callee2);
-  }));
-  return _testStream.apply(this, arguments);
+// Main execution
+function main() {
+  return _main.apply(this, arguments);
 }
-testStream();
+function _main() {
+  _main = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8() {
+    var args, testFlag, testName, testFn, result;
+    return _regeneratorRuntime().wrap(function _callee8$(_context8) {
+      while (1) switch (_context8.prev = _context8.next) {
+        case 0:
+          args = process.argv.slice(2);
+          testFlag = args.find(function (arg) {
+            return arg.startsWith('--test=');
+          });
+          if (!testFlag) {
+            console.log('Available tests:');
+            Object.keys(tests).forEach(function (test) {
+              return console.log("  --test=".concat(test));
+            });
+            process.exit(1);
+          }
+          testName = testFlag.split('=')[1];
+          testFn = tests[testName];
+          if (!testFn) {
+            console.error("Unknown test: ".concat(testName));
+            console.log('Available tests:');
+            Object.keys(tests).forEach(function (test) {
+              return console.log("  --test=".concat(test));
+            });
+            process.exit(1);
+          }
+          console.log("\n========== Running ".concat(testName, " test ==========\n"));
+          _context8.next = 9;
+          return testFn();
+        case 9:
+          result = _context8.sent;
+          console.log('\n========== Test Complete ==========');
+          if (result.firstRequest && result.secondRequest) {
+            console.log('\nFirst Request:');
+            console.log("Result: ".concat(result.firstRequest.success ? 'SUCCESS' : 'FAILURE'));
+            if (result.firstRequest.success) {
+              console.log("Chunks: ".concat(result.firstRequest.totalChunks));
+              console.log("Total time: ".concat(result.firstRequest.totalTime, "ms"));
+            }
+            console.log('\nSecond Request:');
+            console.log("Result: ".concat(result.secondRequest.success ? 'SUCCESS' : 'FAILURE'));
+            if (result.secondRequest.success) {
+              console.log("Chunks: ".concat(result.secondRequest.totalChunks));
+              console.log("Total time: ".concat(result.secondRequest.totalTime, "ms"));
+            }
+          } else if (Array.isArray(result)) {
+            result.forEach(function (r, i) {
+              console.log("\nConcurrent request ".concat(i + 1, ": ").concat(r.success ? 'SUCCESS' : 'FAILURE'));
+              if (r.success) {
+                console.log("  Chunks: ".concat(r.totalChunks));
+                console.log("  Total time: ".concat(r.totalTime, "ms"));
+              } else {
+                console.log("  Error: ".concat(r.error));
+              }
+            });
+          } else {
+            console.log("Result: ".concat(result.success ? 'SUCCESS' : 'FAILURE'));
+            if (result.success) {
+              console.log("Chunks: ".concat(result.totalChunks));
+              console.log("Total time: ".concat(result.totalTime, "ms"));
+            } else {
+              console.log("Error: ".concat(result.error));
+            }
+          }
+        case 12:
+        case "end":
+          return _context8.stop();
+      }
+    }, _callee8);
+  }));
+  return _main.apply(this, arguments);
+}
+main()["catch"](console.error);

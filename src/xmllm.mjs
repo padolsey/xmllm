@@ -65,6 +65,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       const {
         system,
         model,
+        cache,
         messages
       } = transformedConfig;
 
@@ -83,7 +84,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           },
           ...(messages || [])
         ],
-        model
+        model,
+        cache
       });
 
       const reader = stream.getReader();
@@ -120,6 +122,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     maxTokens, 
     model, 
     temperature, 
+    cache,
     fakeDelay,
     waitMessageString,
     waitMessageDelay,
@@ -228,7 +231,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         waitMessageDelay,
         retryMax,
         retryStartDelay,
-        retryBackoffMultiplier
+        retryBackoffMultiplier,
+        cache
       });
 
       const reader = stream.getReader();
@@ -340,7 +344,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         waitMessageDelay,
         retryMax,
         retryStartDelay,
-        retryBackoffMultiplier
+        retryBackoffMultiplier,
+        cache
       } = config;
 
       logger.dev('promptComplex()', {
@@ -350,7 +355,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         system,
         model,
         fakeResponse,
-        max_tokens
+        max_tokens,
+        cache
       });
 
       if (
@@ -400,7 +406,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             waitMessageDelay,
             retryMax,
             retryStartDelay,
-            retryBackoffMultiplier
+            retryBackoffMultiplier,
+            cache
           }),
 
         function*(x) {

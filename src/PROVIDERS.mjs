@@ -46,7 +46,7 @@ const taiStylePayloader = ({
 export default {
   claude: {
     constraints: {
-      rpmLimit: 100
+      rpmLimit: 200
     },
     endpoint: 'https://api.anthropic.com/v1/messages',
     key: process.env.ANTHROPIC_API_KEY,
@@ -92,7 +92,7 @@ export default {
   },
   openai: {
     constraints: {
-      rpmLimit: 20
+      rpmLimit: 200
     }, 
     endpoint: 'https://api.openai.com/v1/chat/completions',
     key: process.env.OPENAI_API_KEY,
@@ -139,32 +139,13 @@ export default {
     key: process.env.PERPLEXITY_API_KEY,
     models: {
       superfast: {
-        name: 'mixtral-8x7b-instruct',
+        name: 'llama-3.1-sonar-small-128k-chat',
       },
       fast: {
-        name: 'mixtral-8x7b-instruct',
+        name: 'llama-3.1-sonar-small-128k-chat',
       },
       good: {
-        name: 'llama-3-70b-instruct', 
-      }
-    },
-    payloader: standardPayloader
-  },
-  anyscaleai: {
-    constraints: {
-      rpmLimit: 30
-    }, 
-    endpoint: 'https://api.endpoints.anyscale.com/v1/chat/completions',
-    key: process.env.ANYSCALE_API_KEY,
-    models: {
-      superfast: {
-        name: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-      },
-      fast: {
-        name: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-      },
-      good: {
-        name: 'mistralai/Mixtral-8x22B-Instruct-v0.1',
+        name: 'llama-3.1-sonar-large-128k-chat', 
       }
     },
     payloader: standardPayloader
