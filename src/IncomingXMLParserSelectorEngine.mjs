@@ -2,8 +2,17 @@ import { Parser } from 'htmlparser2';
 import { selectOne, selectAll } from 'css-select';
 
 class Node {
+
   constructor(name, o) {
-    Object.assign(this, o);
+    this.__isNodeObj__ = true;
+    this.$key = o.key;
+    this.$attr = o.attr;
+    this.$text = o.text;
+    this.$closed = o.closed;
+
+    const { key, attr, text, closed, ...rest } = o;
+    
+    Object.assign(this, rest);
   }
 }
 
@@ -141,12 +150,12 @@ class IncomingXMLParserSelectorEngine {
     });
   }
 
-  formatEle3ment(element) {
+  formatElement(element) {
     const formatted = new Node(element.name, {
       key: element.key,
       attr: { ...element.attributes },
       text: element.textContent,
-      // name: element.name
+      closed: element.closed
     });
     
     element.children.forEach(child => {
@@ -162,28 +171,13 @@ class IncomingXMLParserSelectorEngine {
   }
 
   formatElement(element, includeOpenTags = false) {
-
-    // If includeOpenTags is true, we will use getTextContent as that is the 
-    // only way to get iterative text if 'closed' is false
-    // (relevant to streaming)
-    const getTextContent = (el) => {
-      return (el.children||[]).reduce((text, child) => {
-        if (child.type === 'text') {
-          return text + child.data;
-        } else if (child.type === 'tag') {
-          return text + getTextContent(child);
-        }
-        return text;
-      }, '');
-    };
-
     const formatted = new Node(element.name, {
       key: element.key,
       attr: { ...element.attributes },
-      text: 
-        includeOpenTags ? (
-          element.closed ? element.textContent : this.getTextContent(element)
-        ) : element.textContent
+      text: includeOpenTags ? (
+        element.closed ? element.textContent : this.getTextContent(element)
+      ) : element.textContent,
+      closed: element.closed
     });
     
     if (element.children?.length) {
@@ -242,7 +236,12 @@ class IncomingXMLParserSelectorEngine {
       }
 
       if (typeof map === 'function') {
-        return map(element.text);
+        // Handle built-in constructors specially
+        if (map === String || map === Number || map === Boolean) {
+          return map(element.$text);
+        }
+        // Pass full element to custom functions
+        return map(element);
       }
 
       if (typeof map !== 'object') {
@@ -255,12 +254,12 @@ class IncomingXMLParserSelectorEngine {
         if (k.startsWith('$')) {
           // Handle attributes
           const attrName = k.slice(1);
-          if (element.attr && element.attr[attrName] !== undefined) {
-            out[k] = map[k](element.attr[attrName]);
+          if (element.$attr && element.$attr[attrName] !== undefined) {
+            out[k] = map[k](element.$attr[attrName]);
           }
         } else if (k === '_') {
           // Handle text content
-          out[k] = map[k](element.text);
+          out[k] = map[k](element.$text);
         } else if (!element[k]) {
           out[k] = Array.isArray(map[k]) ? [] : undefined;
         } else if (Array.isArray(map[k])) {
@@ -314,42 +313,57 @@ class IncomingXMLParserSelectorEngine {
 
       for (let key in obj) {
         const value = obj[key];
+        const isArray = key.endsWith('[]');
+        const actualKey = isArray ? key.slice(0, -2) : key;
 
-        if (key === '_') continue;
-        if (key.startsWith('$')) continue;
+        if (actualKey === '_') continue;
+        if (actualKey.startsWith('$')) continue;
 
         const attrs = getAttributes(obj[key]);
         
         if (typeof value === 'function' || typeof value === 'string' || value === String || value === Number || value === Boolean) {
-          xml += `${indentation}<${key}${attrs}>...text content...</${key}>\n`;
+          xml += `${indentation}<${actualKey}${attrs}>...text content...</${actualKey}>\n`;
+          if (isArray) {
+            xml += `${indentation}<${actualKey}${attrs}>...text content...</${actualKey}>\n`;
+            xml += `${indentation}/*etc.*/\n`;
+          }
         } else if (Array.isArray(value)) {
           const item = value[0];
           if (typeof item === 'function' || typeof item === 'string' || item === String || item === Number || item === Boolean) {
-            xml += `${indentation}<${key}>...text content...</${key}>\n`;
-            xml += `${indentation}<${key}>...text content...</${key}>\n`;
+            xml += `${indentation}<${actualKey}>...text content...</${actualKey}>\n`;
+            xml += `${indentation}<${actualKey}>...text content...</${actualKey}>\n`;
             xml += `${indentation}/*etc.*/\n`;
           } else {
-            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
+            xml += `${indentation}<${actualKey}${getAttributes(item)}>\n`;
             xml += processObject(item, level + 1);
             if ('_' in item) {
               xml += `${indentation}  ...text content...\n`;
             }
-            xml += `${indentation}</${key}>\n`;
-            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
+            xml += `${indentation}</${actualKey}>\n`;
+            xml += `${indentation}<${actualKey}${getAttributes(item)}>\n`;
             xml += processObject(item, level + 1);
             if ('_' in item) {
               xml += `${indentation}  ...text content...\n`;
             }
-            xml += `${indentation}</${key}>\n`;
+            xml += `${indentation}</${actualKey}>\n`;
             xml += `${indentation}/*etc.*/\n`;
           }
         } else if (typeof value === 'object') {
-          xml += `${indentation}<${key}${attrs}>\n`;
+          xml += `${indentation}<${actualKey}${attrs}>\n`;
           if ('_' in value) {
             xml += `${indentation}  ...text content...\n`;
           }
           xml += processObject(value, level + 1);
-          xml += `${indentation}</${key}>\n`;
+          xml += `${indentation}</${actualKey}>\n`;
+          if (isArray) {
+            xml += `${indentation}<${actualKey}${attrs}>\n`;
+            if ('_' in value) {
+              xml += `${indentation}  ...text content...\n`;
+            }
+            xml += processObject(value, level + 1);
+            xml += `${indentation}</${actualKey}>\n`;
+            xml += `${indentation}/*etc.*/\n`;
+          }
         }
       }
 
@@ -371,4 +385,5 @@ class IncomingXMLParserSelectorEngine {
   }
 }
 
+export { Node };
 export default IncomingXMLParserSelectorEngine;

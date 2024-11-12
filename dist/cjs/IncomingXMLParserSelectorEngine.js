@@ -3,9 +3,10 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports["default"] = void 0;
+exports["default"] = exports.Node = void 0;
 var _htmlparser = require("htmlparser2");
 var _cssSelect = require("css-select");
+var _excluded = ["key", "attr", "text", "closed"];
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -16,14 +17,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
-var Node = /*#__PURE__*/_createClass(function Node(name, o) {
+var Node = exports.Node = /*#__PURE__*/_createClass(function Node(name, o) {
   _classCallCheck(this, Node);
-  Object.assign(this, o);
+  this.__isNodeObj__ = true;
+  this.$key = o.key;
+  this.$attr = o.attr;
+  this.$text = o.text;
+  this.$closed = o.closed;
+  var key = o.key,
+    attr = o.attr,
+    text = o.text,
+    closed = o.closed,
+    rest = _objectWithoutProperties(o, _excluded);
+  Object.assign(this, rest);
 });
 var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   function IncomingXMLParserSelectorEngine() {
@@ -167,48 +180,16 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       });
     }
   }, {
-    key: "formatEle3ment",
-    value: function formatEle3ment(element) {
-      var _this5 = this;
-      var formatted = new Node(element.name, {
-        key: element.key,
-        attr: _objectSpread({}, element.attributes),
-        text: element.textContent
-        // name: element.name
-      });
-      element.children.forEach(function (child) {
-        if (child.type === 'tag') {
-          if (!formatted[child.name]) {
-            formatted[child.name] = [];
-          }
-          formatted[child.name].push(_this5.formatElement(child));
-        }
-      });
-      return formatted;
-    }
-  }, {
     key: "formatElement",
     value: function formatElement(element) {
       var _element$children,
-        _this6 = this;
+        _this5 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-      // If includeOpenTags is true, we will use getTextContent as that is the 
-      // only way to get iterative text if 'closed' is false
-      // (relevant to streaming)
-      var _getTextContent = function getTextContent(el) {
-        return (el.children || []).reduce(function (text, child) {
-          if (child.type === 'text') {
-            return text + child.data;
-          } else if (child.type === 'tag') {
-            return text + _getTextContent(child);
-          }
-          return text;
-        }, '');
-      };
       var formatted = new Node(element.name, {
         key: element.key,
         attr: _objectSpread({}, element.attributes),
-        text: includeOpenTags ? element.closed ? element.textContent : this.getTextContent(element) : element.textContent
+        text: includeOpenTags ? element.closed ? element.textContent : this.getTextContent(element) : element.textContent,
+        closed: element.closed
       });
       if ((_element$children = element.children) !== null && _element$children !== void 0 && _element$children.length) {
         element.children.forEach(function (child) {
@@ -219,7 +200,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             if (!Array.isArray(formatted[child.name])) {
               formatted[child.name] = [formatted[child.name]];
             }
-            formatted[child.name].push(_this6.formatElement(child));
+            formatted[child.name].push(_this5.formatElement(child));
           }
         });
       }
@@ -233,7 +214,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "mapSelect",
     value: function mapSelect(mapping) {
-      var _this7 = this;
+      var _this6 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
       // Helper to normalize the new [] syntax to old syntax
       var _normalizeSchema = function normalizeSchema(schema) {
@@ -268,7 +249,12 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           }) : [_applyMapping(element, map[0])];
         }
         if (typeof map === 'function') {
-          return map(element.text);
+          // Handle built-in constructors specially
+          if (map === String || map === Number || map === Boolean) {
+            return map(element.$text);
+          }
+          // Pass full element to custom functions
+          return map(element);
         }
         if (_typeof(map) !== 'object') {
           throw new Error('Map must be an object, function, or array');
@@ -278,12 +264,12 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           if (k.startsWith('$')) {
             // Handle attributes
             var attrName = k.slice(1);
-            if (element.attr && element.attr[attrName] !== undefined) {
-              out[k] = map[k](element.attr[attrName]);
+            if (element.$attr && element.$attr[attrName] !== undefined) {
+              out[k] = map[k](element.$attr[attrName]);
             }
           } else if (k === '_') {
             // Handle text content
-            out[k] = map[k](element.text);
+            out[k] = map[k](element.$text);
           } else if (!element[k]) {
             out[k] = Array.isArray(map[k]) ? [] : undefined;
           } else if (Array.isArray(map[k])) {
@@ -304,7 +290,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var rootSelectors = Object.keys(normalizedMapping);
       var results = {};
       rootSelectors.forEach(function (selector) {
-        var elements = _this7.dedupeSelect(selector, includeOpenTags);
+        var elements = _this6.dedupeSelect(selector, includeOpenTags);
         if (!(elements !== null && elements !== void 0 && elements.length)) return;
         if (Array.isArray(normalizedMapping[selector])) {
           elements.forEach(function (el) {
@@ -326,39 +312,54 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         var indentation = ' '.repeat(level * indent);
         for (var key in obj) {
           var value = obj[key];
-          if (key === '_') continue;
-          if (key.startsWith('$')) continue;
+          var isArray = key.endsWith('[]');
+          var actualKey = isArray ? key.slice(0, -2) : key;
+          if (actualKey === '_') continue;
+          if (actualKey.startsWith('$')) continue;
           var attrs = getAttributes(obj[key]);
           if (typeof value === 'function' || typeof value === 'string' || value === String || value === Number || value === Boolean) {
-            xml += "".concat(indentation, "<").concat(key).concat(attrs, ">...text content...</").concat(key, ">\n");
+            xml += "".concat(indentation, "<").concat(actualKey).concat(attrs, ">...text content...</").concat(actualKey, ">\n");
+            if (isArray) {
+              xml += "".concat(indentation, "<").concat(actualKey).concat(attrs, ">...text content...</").concat(actualKey, ">\n");
+              xml += "".concat(indentation, "/*etc.*/\n");
+            }
           } else if (Array.isArray(value)) {
             var item = value[0];
             if (typeof item === 'function' || typeof item === 'string' || item === String || item === Number || item === Boolean) {
-              xml += "".concat(indentation, "<").concat(key, ">...text content...</").concat(key, ">\n");
-              xml += "".concat(indentation, "<").concat(key, ">...text content...</").concat(key, ">\n");
+              xml += "".concat(indentation, "<").concat(actualKey, ">...text content...</").concat(actualKey, ">\n");
+              xml += "".concat(indentation, "<").concat(actualKey, ">...text content...</").concat(actualKey, ">\n");
               xml += "".concat(indentation, "/*etc.*/\n");
             } else {
-              xml += "".concat(indentation, "<").concat(key).concat(getAttributes(item), ">\n");
+              xml += "".concat(indentation, "<").concat(actualKey).concat(getAttributes(item), ">\n");
               xml += processObject(item, level + 1);
               if ('_' in item) {
                 xml += "".concat(indentation, "  ...text content...\n");
               }
-              xml += "".concat(indentation, "</").concat(key, ">\n");
-              xml += "".concat(indentation, "<").concat(key).concat(getAttributes(item), ">\n");
+              xml += "".concat(indentation, "</").concat(actualKey, ">\n");
+              xml += "".concat(indentation, "<").concat(actualKey).concat(getAttributes(item), ">\n");
               xml += processObject(item, level + 1);
               if ('_' in item) {
                 xml += "".concat(indentation, "  ...text content...\n");
               }
-              xml += "".concat(indentation, "</").concat(key, ">\n");
+              xml += "".concat(indentation, "</").concat(actualKey, ">\n");
               xml += "".concat(indentation, "/*etc.*/\n");
             }
           } else if (_typeof(value) === 'object') {
-            xml += "".concat(indentation, "<").concat(key).concat(attrs, ">\n");
+            xml += "".concat(indentation, "<").concat(actualKey).concat(attrs, ">\n");
             if ('_' in value) {
               xml += "".concat(indentation, "  ...text content...\n");
             }
             xml += processObject(value, level + 1);
-            xml += "".concat(indentation, "</").concat(key, ">\n");
+            xml += "".concat(indentation, "</").concat(actualKey, ">\n");
+            if (isArray) {
+              xml += "".concat(indentation, "<").concat(actualKey).concat(attrs, ">\n");
+              if ('_' in value) {
+                xml += "".concat(indentation, "  ...text content...\n");
+              }
+              xml += processObject(value, level + 1);
+              xml += "".concat(indentation, "</").concat(actualKey, ">\n");
+              xml += "".concat(indentation, "/*etc.*/\n");
+            }
           }
         }
         return xml;

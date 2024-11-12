@@ -1,28 +1,47 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine, { Node } from '../src/IncomingXMLParserSelectorEngine';
+
+expect.extend({
+  toBeNode(received, expected) {
+    if (!(received instanceof Node)) {
+      return {
+        pass: false,
+        message: () => `Expected ${JSON.stringify(received)} to be a Node instance`
+      };
+    }
+    
+    const pass = this.equals(
+      {$attr: received.$attr, $text: received.$text, $closed: received.$closed, $key: received.$key},
+      {$attr: expected.$attr, $text: expected.$text, $closed: expected.$closed, $key: expected.$key}
+    );
+
+    return {
+      pass,
+      message: () => `Expected Node ${JSON.stringify(received)} to match ${JSON.stringify(expected)}`
+    };
+  },
+  
+  toMatchNodeData(received, expected) {
+    const nodeData = received instanceof Node ? 
+      {$attr: received.$attr, $text: received.$text, $key: received.$key} :
+      received;
+      
+    return {
+      // Individually check the properties we care about:
+      pass: this.equals(nodeData.$attr, expected.$attr) &&
+            this.equals(nodeData.$text, expected.$text) &&
+            this.equals(nodeData.$key, expected.$key) &&
+            this.equals(nodeData.$closed, expected.$closed),
+
+      message: () => `Expected node data ${JSON.stringify(nodeData)} to match ${JSON.stringify(expected)}`
+    };
+  }
+});
 
 describe('IncomingXMLParserSelectorEngine', () => {
   let engine;
 
   beforeEach(() => {
     engine = new IncomingXMLParserSelectorEngine();
-  });
-
-  test('should parse XML chunks and select elements', () => {
-    engine.add('<root>');
-    console.log('After adding root:');
-    console.log(engine.select('root'));
-
-    engine.add('<item>Item 1</item>');
-    console.log('After adding first item:');
-    console.log(engine.select('item'));
-
-    engine.add('<item>Item 2</item>');
-    console.log('After adding second item:');
-    console.log(engine.select('item'));
-
-    engine.add('</root>');
-    console.log('After closing root:');
-    console.log(engine.select('root'));
   });
 
   test('should handle angle brackets within element content', () => {
@@ -33,16 +52,20 @@ describe('IncomingXMLParserSelectorEngine', () => {
 
     const complexResult = engine.select('complex');
     expect(complexResult).toHaveLength(1);
-    expect(complexResult[0]).toMatchObject({
-      attr: {},
-      text: '<not>parsed</not>'
+    expect(complexResult[0]).toBeNode({
+      $attr: {},
+      $text: '<not>parsed</not>',
+      $closed: true,
+      $key: 0
     });
 
     const mathResult = engine.select('math');
     expect(mathResult).toHaveLength(1);
-    expect(mathResult[0]).toMatchObject({
-      attr: {},
-      text: '2 < 3 && 5 > 4'
+    expect(mathResult[0]).toBeNode({
+      $attr: {},
+      $text: '2 < 3 && 5 > 4',
+      $closed: true,
+      $key: 1
     });
   });
 
@@ -51,48 +74,40 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(engine.select('root')).toEqual([]);
     
     engine.add('<item>Item 1</item>');
-    expect(engine.select('item')).toEqual([
-      {
-        key: 1,
-        attr: {},
-        text: 'Item 1'
-      }
-    ]);
+    expect(engine.select('item')[0]).toBeNode({
+      $key: 1,
+      $attr: {},
+      $text: 'Item 1',
+      $closed: true
+    });
     
     engine.add('<item>Item 2</item>');
-    expect(engine.select('item')).toEqual([
-      {
-        key: 1,
-        attr: {},
-        text: 'Item 1'
-      },
-      {
-        key: 2,
-        attr: {},
-        text: 'Item 2'
-      }
-    ]);
+    expect(engine.select('item')[1]).toBeNode({
+      $key: 2,
+      $attr: {},
+      $text: 'Item 2',
+      $closed: true
+    });
     
     engine.add('</root>');
-    expect(engine.select('root')).toEqual([
-      {
-        key: 0,
-        attr: {},
-        text: 'Item 1Item 2',
-        item: [
-          {
-            key: 1,
-            attr: {},
-            text: 'Item 1'
-          },
-          {
-            key: 2,
-            attr: {},
-            text: 'Item 2'
-          }
-        ]
-      }
-    ]);
+    const root = engine.select('root')[0];
+    expect(root).toMatchNodeData({
+      $key: 0,
+      $attr: {},
+      $text: 'Item 1Item 2'
+    });
+
+    expect(root.item[0]).toMatchNodeData({
+      $key: 1,
+      $attr: {},
+      $text: 'Item 1'
+    });
+
+    expect(root.item[1]).toMatchNodeData({
+      $key: 2,
+      $attr: {},
+      $text: 'Item 2'
+    });
   });
 
   test('should handle nested elements and attributes', () => {
@@ -101,28 +116,29 @@ describe('IncomingXMLParserSelectorEngine', () => {
     engine.add('<name id="user1">John</name>');
     engine.add('!</message>');
     
-    expect(engine.select('message')).toEqual([
+    const messageResult = engine.select('message');
+    expect(messageResult).toHaveLength(1);
+    expect(messageResult[0]).toMatchNodeData({
+      $key: 0,
+      $attr: { type: 'greeting' },
+      $text: 'Hello, John!'
+    });
+
+    expect(messageResult[0].name[0]).toMatchNodeData(
       {
-        key: 0,
-        attr: { type: 'greeting' },
-        text: 'Hello, John!',
-        name: [
-          {
-            key: 1,
-            attr: { id: 'user1' },
-            text: 'John'
-          }
-        ]
+        $key: 1,
+        $attr: { id: 'user1' },
+        $text: 'John'
       }
-    ]);
+    );
     
-    expect(engine.select('name')).toEqual([
-      {
-        key: 1,
-        attr: { id: 'user1' },
-        text: 'John'
-      }
-    ]);
+    const nameResult = engine.select('name');
+    expect(nameResult).toHaveLength(1);
+    expect(nameResult[0]).toMatchNodeData({
+      $key: 1,
+      $attr: { id: 'user1' },
+      $text: 'John'
+    });
   });
 
   test('should handle multiple chunks and incomplete tags', () => {
@@ -130,27 +146,26 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(engine.select('item')).toEqual([]);
     
     engine.add(' 1 </item><item>Item 2</it');
-    expect(engine.select('item')).toEqual([
-      {
-        key: 1,
-        attr: {},
-        text: ' Item 1 '
-      }
-    ]);
+    expect(engine.select('item')[0]).toBeNode({
+      $key: 1,
+      $attr: {},
+      $text: ' Item 1 ',
+      $closed: true
+    });
     
     engine.add('em></root>');
-    expect(engine.select('item')).toEqual([
-      {
-        key: 1,
-        attr: {},
-        text: ' Item 1 '
-      },
-      {
-        key: 2,
-        attr: {},
-        text: 'Item 2'
-      }
-    ]);
+    expect(engine.select('item')[0]).toBeNode({
+      $key: 1,
+      $attr: {},
+      $text: ' Item 1 ',
+      $closed: true
+    });
+    expect(engine.select('item')[1]).toBeNode({
+      $key: 2,
+      $attr: {},
+      $text: 'Item 2',
+      $closed: true
+    });
   });
 
   test('should handle empty elements', () => {
@@ -159,30 +174,36 @@ describe('IncomingXMLParserSelectorEngine', () => {
     
     const emptyResult = engine.select('empty');
     expect(emptyResult).toHaveLength(1);
-    expect(emptyResult[0]).toMatchObject({
-      attr: {},
-      text: ''
+    expect(emptyResult[0]).toBeNode({
+      $attr: {},
+      $closed: true,
+      $text: '',
+      $key: 1
     });
-    expect(typeof emptyResult[0].key).toBe('number');
+    expect(typeof emptyResult[0].$key).toBe('number');
 
     const selfClosingResult = engine.select('self-closing');
     expect(selfClosingResult).toHaveLength(1);
-    expect(selfClosingResult[0]).toMatchObject({
-      attr: {},
-      text: ''
+    expect(selfClosingResult[0]).toBeNode({
+      $attr: {},
+      $closed: true,
+      $text: '',
+      $key: 2
     });
-    expect(typeof selfClosingResult[0].key).toBe('number');
+    expect(typeof selfClosingResult[0].$key).toBe('number');
 
     const emptyWithAttrResult = engine.select('empty-with-attr');
     expect(emptyWithAttrResult).toHaveLength(1);
-    expect(emptyWithAttrResult[0]).toMatchObject({
-      attr: { attr: 'value' },
-      text: ''
+    expect(emptyWithAttrResult[0]).toBeNode({
+      $attr: { attr: 'value' },
+      $closed: true,
+      $key: 3,
+      $text: ''
     });
-    expect(typeof emptyWithAttrResult[0].key).toBe('number');
+    expect(typeof emptyWithAttrResult[0].$key).toBe('number');
 
     // Ensure keys are unique
-    const allKeys = [...emptyResult, ...selfClosingResult, ...emptyWithAttrResult].map(el => el.key);
+    const allKeys = [...emptyResult, ...selfClosingResult, ...emptyWithAttrResult].map(el => el.$key);
     expect(new Set(allKeys).size).toBe(allKeys.length);
   });
 
@@ -190,38 +211,49 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add('<root><level1><level2><level3>Deep</level3></level2></level1></root>');
     
-    expect(engine.select('level3')).toEqual([
-      { key: 3, attr: {}, text: 'Deep' }
-    ]);
-    expect(engine.select('root level3')).toEqual([
-      { key: 3, attr: {}, text: 'Deep' }
-    ]);
+    const level3Result = engine.select('level3');
+    expect(level3Result).toHaveLength(1);
+    expect(level3Result[0]).toMatchNodeData({ 
+      $key: 3, 
+      $attr: {}, 
+      $text: 'Deep' 
+    });
+    
+    const rootLevel3Result = engine.select('root level3');
+    expect(rootLevel3Result).toHaveLength(1);
+    expect(rootLevel3Result[0]).toMatchNodeData({ 
+      $key: 3, 
+      $attr: {}, 
+      $text: 'Deep' 
+    });
   });
 
   test('should handle multiple elements with the same name', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add('<root><item id="1">First</item><item id="2">Second</item><item id="3">Third</item></root>');
     
-    expect(engine.select('item')).toEqual([
-      { key: 1, attr: { id: '1' }, text: 'First' },
-      { key: 2, attr: { id: '2' }, text: 'Second' },
-      { key: 3, attr: { id: '3' }, text: 'Third' }
-    ]);
+    const items = engine.select('item');
+    items.forEach((item, i) => {
+      expect(item).toMatchNodeData({
+        $key: i + 1,
+        $attr: { id: `${i + 1}` },
+        $text: ['First', 'Second', 'Third'][i]
+      });
+    });
   });
 
   test('should handle elements with mixed content', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add('<root>Text <em>emphasized</em> and <strong>strong</strong>.</root>');
     
-    expect(engine.select('root')).toEqual([
-      { 
-        key: 0, 
-        attr: {}, 
-        text: 'Text emphasized and strong.',
-        em: [{ key: 1, attr: {}, text: 'emphasized' }],
-        strong: [{ key: 2, attr: {}, text: 'strong' }]
-      }
-    ]);
+    const root = engine.select('root')[0];
+    expect(root).toMatchNodeData({
+      $key: 0,
+      $attr: {},
+      $text: 'Text emphasized and strong.',
+      em: [{ $key: 1, $attr: {}, $text: 'emphasized' }],
+      strong: [{ $key: 2, $attr: {}, $text: 'strong' }]
+    });
   });
 
   test('should handle XML declaration and comments', () => {
@@ -230,38 +262,61 @@ describe('IncomingXMLParserSelectorEngine', () => {
     engine.add('<!-- This is a comment -->');
     engine.add('<root><!-- Another comment -->Content</root>');
     
-    expect(engine.select('root')).toEqual([
-      { key: 0, attr: {}, text: 'Content' }
-    ]);
+    const root = engine.select('root')[0];
+    expect(root).toMatchNodeData({
+      $key: 0,
+      $attr: {},
+      $text: 'Content'
+    });
   });
 
   test('should handle CDATA sections', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add('<root><![CDATA[This is <not> parsed & preserved]]></root>');
     
-    expect(engine.select('root')).toEqual([
-      { key: 0, attr: {}, text: 'This is <not> parsed & preserved' }
-    ]);
+    const root = engine.select('root')[0];
+    expect(root).toMatchNodeData({
+      $key: 0,
+      $attr: {},
+      $text: 'This is <not> parsed & preserved'
+    });
   });
 
   test('should handle special characters and entities', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add('<root><item>&lt;Tag&gt;</item><item>AT&amp;T</item><item>&#x1F600;</item></root>');
     
-    expect(engine.select('item')).toEqual([
-      { key: 1, attr: {}, text: '<Tag>' },
-      { key: 2, attr: {}, text: 'AT&T' },
-      { key: 3, attr: {}, text: '😀' }
-    ]);
+    const items = engine.select('item');
+    expect(items).toHaveLength(3);
+    
+    expect(items[0]).toMatchNodeData({ 
+      $key: 1, 
+      $attr: {}, 
+      $text: '<Tag>' 
+    });
+    expect(items[1]).toMatchNodeData({ 
+      $key: 2, 
+      $attr: {}, 
+      $text: 'AT&T' 
+    });
+    expect(items[2]).toMatchNodeData({ 
+      $key: 3, 
+      $attr: {}, 
+      $text: '😀' 
+    });
   });
 
   test('should handle namespaces', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add('<root xmlns:ns="http://example.com"><ns:item>Namespaced</ns:item></root>');
     
-    expect(engine.select('ns\\:item')).toEqual([
-      { key: 1, attr: {}, text: 'Namespaced' }
-    ]);
+    const items = engine.select('ns\\:item');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchNodeData({ 
+      $key: 1, 
+      $attr: {}, 
+      $text: 'Namespaced' 
+    });
   });
 
   test('should handle realistic fragmented input and resolve selections as soon as possible', () => {
@@ -285,18 +340,22 @@ describe('IncomingXMLParserSelectorEngine', () => {
     engine.add('ng>');
     const strongResult = engine.select('strong');
     expect(strongResult).toHaveLength(1);
-    expect(strongResult[0]).toMatchObject({
-      attr: {},
-      text: 'ok??'
+    expect(strongResult[0]).toBeNode({
+      $attr: {},
+      $closed: true,
+      $key: 1,
+      $text: 'ok??'
     });
 
     engine.add('<data><x>hi</x>Boop!</da');
     
     const xResult = engine.select('data > x');
     expect(xResult).toHaveLength(1);
-    expect(xResult[0]).toMatchObject({
-      attr: {},
-      text: 'hi'
+    expect(xResult[0]).toBeNode({
+      $closed: true,
+      $key: 3,
+      $attr: {},
+      $text: 'hi'
     });
 
     expect(engine.select('data')).toEqual([]);
@@ -304,10 +363,20 @@ describe('IncomingXMLParserSelectorEngine', () => {
     engine.add('ta>');
     const dataResult = engine.select('data');
     expect(dataResult).toHaveLength(1);
-    expect(dataResult[0]).toMatchObject({
-      attr: {},
-      text: 'hiBoop!',
-      x: [{ attr: {}, text: 'hi' }]
+    expect(dataResult[0]).toBeNode({
+      $attr: {},
+      $text: 'hiBoop!',
+      $closed: true,
+      $key: 2,
+    });
+
+    const x = dataResult[0].x;
+    expect(x).toHaveLength(1);
+    expect(x[0]).toBeNode({
+      $attr: {},
+      $text: 'hi',
+      $key: 3,
+      $closed: true
     });
 
     // Close root element

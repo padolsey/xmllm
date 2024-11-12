@@ -4,6 +4,10 @@ import Logger from './Logger.mjs';
 
 const logger = new Logger('xmllm');
 
+const text = (fn) => ({ $text }) => fn($text);
+const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
+const whenClosed = (fn) => (el) => el.$closed ? fn(el) : undefined;
+
 async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   const streamops = createStreaming({
@@ -25,6 +29,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     mapSelect,
     mapSelectClosed,
     select,
+
     take: streamops.take,
     accrue: streamops.accrue,
     reduce: streamops.reduce,
@@ -33,6 +38,23 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     map: streamops.map,
     mergeAggregate: streamops.mergeAggregate,
     tap: streamops.tap,
+
+    p: prompt,
+    pc: promptClosed,
+    ms: mapSelect,
+    msc: mapSelectClosed,
+    s: select,
+    m: streamops.map,
+    f: streamops.filter,
+    r: streamops.reduce,
+    a: streamops.accrue,
+    t: streamops.tap,
+    w: streamops.waitUntil,
+    ma: streamops.mergeAggregate,
+
+    text,
+    withAttrs,
+    whenClosed
   });
 
   if (!Array.isArray(pipeline)) {

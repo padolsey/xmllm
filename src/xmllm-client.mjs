@@ -6,7 +6,6 @@ class ClientProvider {
   }
 
   async createStream(payload) {
-    console.log('createStream', payload);
 
     const response = await fetch(this.endpoint, {
       method: 'POST',

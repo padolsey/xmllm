@@ -6,7 +6,6 @@ export default {
   transformIgnorePatterns: [
     'node_modules/(?!(streamops|other-esm-modules)/)'
   ],
-  // extensionsToTreatAsEsm: ['.mjs'],
   moduleFileExtensions: ['js', 'mjs'],
   testRegex: 'tests/.*\\.mjs$',
   moduleNameMapper: {

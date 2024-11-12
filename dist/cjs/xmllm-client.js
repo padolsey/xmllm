@@ -36,8 +36,7 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
-              console.log('createStream', payload);
-              _context2.next = 3;
+              _context2.next = 2;
               return fetch(this.endpoint, {
                 method: 'POST',
                 headers: {
@@ -45,7 +44,7 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
                 },
                 body: JSON.stringify(payload)
               });
-            case 3:
+            case 2:
               response = _context2.sent;
               return _context2.abrupt("return", new ReadableStream({
                 start: function start(controller) {
@@ -106,7 +105,7 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
                   }))();
                 }
               }));
-            case 5:
+            case 4:
             case "end":
               return _context2.stop();
           }

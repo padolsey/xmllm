@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals';
 import Provider from '../src/Provider.mjs';
+import xmllm from '../src/xmllm-main.mjs';
+import { createProvidersWithKeys } from '../src/PROVIDERS.mjs';
 import {
   ProviderRateLimitError,
   ProviderAuthenticationError,
@@ -12,6 +14,7 @@ describe('Provider Error Handling', () => {
   let mockFetch;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     mockFetch = jest.fn();
     provider = new Provider('test', {
       endpoint: 'https://test.api',
@@ -23,6 +26,10 @@ describe('Provider Error Handling', () => {
       circuitBreakerResetTime: 100,
       REQUEST_TIMEOUT_MS: 100
     });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   test('handles rate limiting correctly', async () => {
@@ -79,8 +86,8 @@ describe('Provider Error Handling', () => {
       })).rejects.toThrow();
     }
 
-    // Wait for circuit breaker reset
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Advance time by circuit breaker reset time
+    jest.advanceTimersByTime(100);
 
     // Mock a successful response
     mockFetch.mockResolvedValueOnce({
@@ -226,5 +233,113 @@ describe('Provider Constraints', () => {
     expect(mockFetch).toHaveBeenCalledTimes(3);
 
     jest.useRealTimers();
+  });
+});
+
+describe('Provider API Key Configuration', () => {
+  let mockFetch;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    process.env.ANTHROPIC_API_KEY = 'env-key';
+    
+    // Mock the Stream implementation
+    global.fetch = mockFetch;
+  });
+
+  afterEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+    jest.resetAllMocks();
+  });
+
+  test('uses runtime API key over environment variable', async () => {
+    const runtimeKey = 'runtime-key';
+    const provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: runtimeKey,  // Runtime key
+      models: { fast: { name: 'test-model' } }
+    }, mockFetch);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+
+    await provider.makeRequest({
+      messages: [{ role: 'user', content: 'test' }]
+    });
+
+    // Verify the runtime key was used
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': `Bearer ${runtimeKey}`
+        })
+      })
+    );
+  });
+
+  test('createProvidersWithKeys overrides environment variables', async () => {
+    const runtimeKeys = {
+      ANTHROPIC_API_KEY: 'runtime-claude-key',
+      OPENAI_API_KEY: 'runtime-openai-key'
+    };
+
+    // Create providers with runtime keys
+    const providers = createProvidersWithKeys(runtimeKeys);
+    
+    // Create a provider instance with the runtime-configured provider
+    const provider = new Provider('claude', providers.claude, mockFetch);
+
+    // Mock successful response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+
+    // Make a request
+    await provider.makeRequest({
+      messages: [{ role: 'user', content: 'test' }]
+    });
+
+    // Verify the runtime key was used
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('api.anthropic.com'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-key': runtimeKeys.ANTHROPIC_API_KEY
+        })
+      })
+    );
+  });
+
+  test('falls back to environment variables when no runtime keys provided', async () => {
+    const envKey = 'env-key';
+    process.env.ANTHROPIC_API_KEY = envKey;
+
+    const provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: process.env.ANTHROPIC_API_KEY,
+      models: { fast: { name: 'test-model' } }
+    }, mockFetch);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+
+    await provider.makeRequest({
+      messages: [{ role: 'user', content: 'test' }]
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': `Bearer ${envKey}`
+        })
+      })
+    );
   });
 }); 

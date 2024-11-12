@@ -182,14 +182,14 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
     const result = engine.mapSelect({
       book: {
-        title: title => title.toUpperCase(),
+        title: ({ $text }) => $text.toUpperCase(),
         author: String,
         reviews: {
           review: [String]
         },
         isbn: [
           {
-            number: n => 'ISBN: ' + n
+            number: ({ $text: n }) => 'ISBN: ' + n
           }
         ]
       }
@@ -236,7 +236,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
           child: [
             {
               grandchild: [
-                text => text.toLowerCase()
+                ({$text: text}) => text.toLowerCase()
               ]
             }
           ]
@@ -648,5 +648,96 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     expect(newResult).toEqual(expected);
     expect(oldResult).toEqual(expected);
     expect(newResult).toEqual(oldResult);
+  });
+
+  test('makeMapSelectXMLScaffold should handle [] array notation', () => {
+    const schema = {
+      'person[]': {
+        name: String,
+        'alias[]': String,
+        contact: {
+          'email[]': String,
+          'phone[]': {
+            number: String,
+            type: String
+          }
+        }
+      }
+    };
+
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    console.log("Generated scaffold:\n", result);  // For debugging
+
+    const expectedXML = `
+<person>
+  <name>...text content...</name>
+  <alias>...text content...</alias>
+  <alias>...text content...</alias>
+  /*etc.*/
+  <contact>
+    <email>...text content...</email>
+    <email>...text content...</email>
+    /*etc.*/
+    <phone>
+      <number>...text content...</number>
+      <type>...text content...</type>
+    </phone>
+    <phone>
+      <number>...text content...</number>
+      <type>...text content...</type>
+    </phone>
+    /*etc.*/
+  </contact>
+</person>
+<person>
+  <name>...text content...</name>
+  <alias>...text content...</alias>
+  <alias>...text content...</alias>
+  /*etc.*/
+  <contact>
+    <email>...text content...</email>
+    <email>...text content...</email>
+    /*etc.*/
+    <phone>
+      <number>...text content...</number>
+      <type>...text content...</type>
+    </phone>
+    <phone>
+      <number>...text content...</number>
+      <type>...text content...</type>
+    </phone>
+    /*etc.*/
+  </contact>
+</person>
+/*etc.*/
+`.trim();
+
+    expect(result.replace(/\s+/g, '')).toBe(expectedXML.replace(/\s+/g, ''));
+  });
+
+  test('Currently: unclosed elements are included and then later included in FULL upon being closed', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    // Add a complete color and an incomplete one
+    engine.add('<color>red</color><color>blu');
+    
+    let result = engine.mapSelect({
+      'color[]': String
+    });
+
+    console.log('First chunk result:', result);
+
+    expect(result).toEqual({ color: [ 'red', 'blu' ] });
+    
+    // Add the rest of the incomplete color
+    engine.add('e</color>');
+    
+    result = engine.mapSelect({
+      'color[]': String
+    });
+
+    console.log('Second chunk result:', result);
+
+    expect(result).toEqual({ color: [ 'blue' ] });
   });
 });

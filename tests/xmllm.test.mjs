@@ -49,7 +49,12 @@ describe('xmllm', () => {
         select('item')
       ]);
       
-      expect((await results.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+      expect((await results.next()).value).toBeNode({ 
+        $key: 1, 
+        $attr: {}, 
+        $text: 'Test',
+        $closed: true
+      });
     });
   });
 
@@ -70,11 +75,9 @@ describe('xmllm', () => {
         }
       ]);
 
-      expect((await results.next()).value).toEqual({
-        item: {
-          name: 'Test Result',
-          value: 42 
-        }
+      expect((await results.next()).value.item).toEqual({
+        name: 'Test Result',
+        value: 42
       });
     });
   });
@@ -163,7 +166,12 @@ describe('xmllm', () => {
         select('item')
       ]);
 
-      expect((await results.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+      expect((await results.next()).value).toBeNode({ 
+        $key: 1, 
+        $closed: true,
+        $attr: {}, 
+        $text: 'Test' 
+      });
     });
   });
 });

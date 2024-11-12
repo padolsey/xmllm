@@ -25,14 +25,32 @@ import createStreaming from 'streamops';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
 var logger = new Logger('xmllm');
+var text = function text(fn) {
+  return function (_ref5) {
+    var $text = _ref5.$text;
+    return fn($text);
+  };
+};
+var withAttrs = function withAttrs(fn) {
+  return function (_ref6) {
+    var $text = _ref6.$text,
+      $attr = _ref6.$attr;
+    return fn($text, $attr);
+  };
+};
+var whenClosed = function whenClosed(fn) {
+  return function (el) {
+    return el.$closed ? fn(el) : undefined;
+  };
+};
 function xmllmGen(_x) {
   return _xmllmGen.apply(this, arguments);
 }
 function _xmllmGen() {
   _xmllmGen = _wrapAsyncGenerator(function (pipelineFn) {
-    var _ref5 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
-      timeout = _ref5.timeout,
-      llmStream = _ref5.llmStream;
+    var _ref7 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+      timeout = _ref7.timeout,
+      llmStream = _ref7.llmStream;
     return /*#__PURE__*/_regeneratorRuntime().mark(function _callee12() {
       var streamops, xmlps, pipeline, stream, req, xmlReq, promptClosed, prompt, promptComplex, mapSelect, mapSelectClosed, select;
       return _regeneratorRuntime().wrap(function _callee12$(_context12) {
@@ -514,22 +532,22 @@ function _xmllmGen() {
                 doMapSelectClosed: true
               }));
             };
-            xmlReq = function _xmlReq(_ref6) {
+            xmlReq = function _xmlReq(_ref8) {
               var _messages;
-              var schema = _ref6.schema,
-                system = _ref6.system,
-                messages = _ref6.messages,
-                max_tokens = _ref6.max_tokens,
-                maxTokens = _ref6.maxTokens,
-                model = _ref6.model,
-                temperature = _ref6.temperature,
-                cache = _ref6.cache,
-                fakeDelay = _ref6.fakeDelay,
-                waitMessageString = _ref6.waitMessageString,
-                waitMessageDelay = _ref6.waitMessageDelay,
-                retryMax = _ref6.retryMax,
-                retryStartDelay = _ref6.retryStartDelay,
-                retryBackoffMultiplier = _ref6.retryBackoffMultiplier;
+              var schema = _ref8.schema,
+                system = _ref8.system,
+                messages = _ref8.messages,
+                max_tokens = _ref8.max_tokens,
+                maxTokens = _ref8.maxTokens,
+                model = _ref8.model,
+                temperature = _ref8.temperature,
+                cache = _ref8.cache,
+                fakeDelay = _ref8.fakeDelay,
+                waitMessageString = _ref8.waitMessageString,
+                waitMessageDelay = _ref8.waitMessageDelay,
+                retryMax = _ref8.retryMax,
+                retryStartDelay = _ref8.retryStartDelay,
+                retryBackoffMultiplier = _ref8.retryBackoffMultiplier;
               messages = (messages || []).slice();
               var prompt = '';
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
@@ -545,7 +563,7 @@ function _xmllmGen() {
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
                   var _messages3;
-                  var transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, text;
+                  var transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
@@ -616,10 +634,10 @@ function _xmllmGen() {
                         }
                         return _context2.abrupt("break", 32);
                       case 26:
-                        text = new TextDecoder().decode(value);
-                        accrued += text;
+                        _text2 = new TextDecoder().decode(value);
+                        accrued += _text2;
                         _context2.next = 30;
-                        return text;
+                        return _text2;
                       case 30:
                         _context2.next = 18;
                         break;
@@ -648,7 +666,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(thing) {
-                  var transformedConfig, _transformedConfig, system, model, cache, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, text;
+                  var transformedConfig, _transformedConfig, system, model, cache, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
                   return _regeneratorRuntime().wrap(function _callee$(_context) {
                     while (1) switch (_context.prev = _context.next) {
                       case 0:
@@ -710,10 +728,10 @@ function _xmllmGen() {
                         }
                         return _context.abrupt("break", 29);
                       case 23:
-                        text = new TextDecoder().decode(value);
-                        accrued += text;
+                        _text = new TextDecoder().decode(value);
+                        accrued += _text;
                         _context.next = 27;
-                        return text;
+                        return _text;
                       case 27:
                         _context.next = 15;
                         break;
@@ -765,7 +783,22 @@ function _xmllmGen() {
               waitUntil: streamops.waitUntil,
               map: streamops.map,
               mergeAggregate: streamops.mergeAggregate,
-              tap: streamops.tap
+              tap: streamops.tap,
+              p: prompt,
+              pc: promptClosed,
+              ms: mapSelect,
+              msc: mapSelectClosed,
+              s: select,
+              m: streamops.map,
+              f: streamops.filter,
+              r: streamops.reduce,
+              a: streamops.accrue,
+              t: streamops.tap,
+              w: streamops.waitUntil,
+              ma: streamops.mergeAggregate,
+              text: text,
+              withAttrs: withAttrs,
+              whenClosed: whenClosed
             });
             if (Array.isArray(pipeline)) {
               _context12.next = 15;

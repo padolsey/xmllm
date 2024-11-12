@@ -6,10 +6,18 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 import xmllmCore from './xmllm.mjs';
 import Stream from './Stream.mjs';
+import { createProvidersWithKeys } from './PROVIDERS.mjs';
+import ProviderManager from './ProviderManager.mjs';
 function xmllm(pipelineFn) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var providerManager;
+  if (options.apiKeys) {
+    var providers = createProvidersWithKeys(options.apiKeys);
+    providerManager = new ProviderManager(providers);
+  }
   return xmllmCore(pipelineFn, _objectSpread(_objectSpread({}, options), {}, {
-    llmStream: options.Stream || Stream
+    llmStream: options.Stream || Stream,
+    providerManager: providerManager
   }));
 }
 export default xmllm;

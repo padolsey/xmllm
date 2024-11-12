@@ -26,6 +26,6 @@ describe('ESM Imports', () => {
       select('item')
     ]);
     
-    expect((await result.next()).value).toEqual({ key: 1, attr: {}, text: 'Test' });
+    expect((await result.next()).value).toBeNode({ $key: 1, $attr: {}, $text: 'Test', $closed: true });
   });
 });

@@ -43,7 +43,7 @@ const taiStylePayloader = ({
   repetition_penalty: 1 + presence_penalty
 });
 
-export default {
+const providers = {
   claude: {
     constraints: {
       rpmLimit: 200
@@ -151,3 +151,24 @@ export default {
     payloader: standardPayloader
   }
 };
+
+export default providers;
+
+export function createProvidersWithKeys(keys = {}) {
+  const newProviders = { ...providers };
+  
+  if (keys.ANTHROPIC_API_KEY) {
+    newProviders.claude.key = keys.ANTHROPIC_API_KEY;
+  }
+  if (keys.OPENAI_API_KEY) {
+    newProviders.openai.key = keys.OPENAI_API_KEY;
+  }
+  if (keys.TOGETHER_API_KEY) {
+    newProviders.togetherai.key = keys.TOGETHER_API_KEY;
+  }
+  if (keys.PERPLEXITY_API_KEY) {
+    newProviders.perplexityai.key = keys.PERPLEXITY_API_KEY;
+  }
+  
+  return newProviders;
+}

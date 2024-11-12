@@ -24,8 +24,97 @@ export default function Home() {
         }
       }
     },
+
+    weather: {
+      name: 'Weather Example',
+      system: 'Provide the weather',
+      messages: [
+        {
+          role: 'user',
+          content: "What's the weather like in London and Paris?"
+        }
+      ],
+      schema: {
+        error: String,
+        cities: {
+          city: [{
+            name: String,
+            temp: (text: string) => parseInt(text),
+            conditions: String
+          }]
+        }
+      }
+    },
+
+    arrayProcessing: {
+      name: 'Array Processing',
+      messages: [
+        { role: 'user', content: 'List three colors with their hex codes' }
+      ],
+      schema: {
+        colors: {
+          color: [{
+            name: (x: any) => {
+              console.log('xxx', x);
+              return x;
+            },
+            hex: (text: string) => text.toLowerCase()
+          }]
+        }
+      }
+    },
+
+    nestedStructures: {
+      name: 'Nested Data',
+      messages: [
+        { role: 'user', content: 'Give me user profile information' }
+      ],
+      schema: {
+        profile: {
+          name: String,
+          details: {
+            email: (text: string) => text.toLowerCase(),
+            preferences: {
+              theme: String,
+              notifications: (text: string) => text === 'true'
+            }
+          }
+        }
+      }
+    },
+
+    parallelQueries: {
+      name: 'Parallel Queries',
+      messages: [
+        { role: 'user', content: 'List 3 colors and 3 shapes' }
+      ],
+      schema: {
+        results: {
+          colors: { color: [String] },
+          shapes: { shape: [String] }
+        }
+      }
+    },
+
+    providerConfig: {
+      name: 'Provider Config',
+      messages: [
+        { role: 'user', content: 'What is the meaning of life?' }
+      ],
+      schema: {
+        answer: {
+          philosophical: String,
+          scientific: String
+        }
+      },
+      model: [
+        'claude:fast',     // Try Claude first
+        'openai:fast'      // Then OpenAI as fallback
+      ]
+    },
+
     system: {
-      name: 'System Message Test',
+      name: 'System Message',
       messages: [
         { role: 'user', content: 'What is the Pythagorean theorem?' }
       ],
@@ -38,8 +127,9 @@ export default function Home() {
         }
       }
     },
+
     streaming: {
-      name: 'Streaming Test',
+      name: 'Streaming',
       messages: [
         { role: 'user', content: 'Count from 1 to 5 slowly.' }
       ],
@@ -48,21 +138,6 @@ export default function Home() {
           number: Number,
           word: String
         }
-      }
-    },
-    rpmLimited: {
-      name: 'RPM Limited Test',
-      messages: [
-        { role: 'user', content: 'What is 2+2?' }
-      ],
-      schema: {
-        answer: {
-          value: Number,
-          explanation: String
-        }
-      },
-      constraints: {
-        rpmLimit: 10 // Limit to 10 requests per minute
       }
     }
   }
@@ -88,7 +163,7 @@ export default function Home() {
             schema: test.schema
           })
           return [
-            req({
+            prompt({
               messages: test.messages,
               system: test.system,
               model: ['claude:fast', 'openai:fast'],
@@ -124,7 +199,7 @@ export default function Home() {
 
       <div className="space-y-8">
         {/* Test Selection */}
-        <div className="flex gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Object.entries(tests).map(([key, test]) => (
             <button
               key={key}
@@ -132,16 +207,29 @@ export default function Home() {
                 setSelectedTest(key)
                 setOutput('')
               }}
-              className={`px-4 py-2 rounded ${
+              className={`p-4 rounded text-left ${
                 selectedTest === key 
                   ? 'bg-blue-500 text-white' 
                   : 'bg-gray-200 hover:bg-gray-300'
               }`}
             >
-              {test.name}
+              <div className="font-bold">{test.name}</div>
+              <div className="text-sm opacity-75">
+                {test.messages[0].content.slice(0, 50)}...
+              </div>
             </button>
           ))}
         </div>
+
+        {/* Selected Test Details */}
+        {selectedTest && (
+          <div className="bg-gray-100 p-4 rounded">
+            <h2 className="font-bold mb-2">Test Configuration:</h2>
+            <pre className="text-sm overflow-x-auto">
+              {JSON.stringify(tests[selectedTest], null, 2)}
+            </pre>
+          </div>
+        )}
 
         {/* Run Button */}
         <button
