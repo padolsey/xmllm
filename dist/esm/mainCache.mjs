@@ -63,7 +63,7 @@ function _ensureCacheDir() {
 }
 function loadPersistedCache() {
   return _loadPersistedCache.apply(this, arguments);
-} // Save cache to disk
+} // Add a flag to track if cache has changed
 function _loadPersistedCache() {
   _loadPersistedCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
     var data;
@@ -92,6 +92,9 @@ function _loadPersistedCache() {
   }));
   return _loadPersistedCache.apply(this, arguments);
 }
+var cacheModified = false;
+
+// Save cache to disk
 function persistCache(_x) {
   return _persistCache.apply(this, arguments);
 } // Initialize cache with persisted data
@@ -102,12 +105,13 @@ function _persistCache() {
       while (1) switch (_context6.prev = _context6.next) {
         case 0:
           _context6.prev = 0;
-          if (cache) {
-            _context6.next = 3;
+          if (!(!cache || !cacheModified)) {
+            _context6.next = 4;
             break;
           }
+          logger.dev('Skip persisting cache - no changes');
           return _context6.abrupt("return");
-        case 3:
+        case 4:
           entries = Array.from(cache.entries()).filter(function (_ref4) {
             var _ref5 = _slicedToArray(_ref4, 2),
               _ = _ref5[0],
@@ -116,24 +120,25 @@ function _persistCache() {
           });
           serialized = JSON.stringify(Object.fromEntries(entries)); // Write to temporary file first
           tempFile = "".concat(CACHE_FILE, ".tmp");
-          _context6.next = 8;
+          _context6.next = 9;
           return fs.writeFile(tempFile, serialized);
-        case 8:
-          _context6.next = 10;
+        case 9:
+          _context6.next = 11;
           return fs.rename(tempFile, CACHE_FILE);
-        case 10:
+        case 11:
+          cacheModified = false; // Reset the modified flag
           logger.dev('Cache persisted to disk');
-          _context6.next = 16;
+          _context6.next = 18;
           break;
-        case 13:
-          _context6.prev = 13;
+        case 15:
+          _context6.prev = 15;
           _context6.t0 = _context6["catch"](0);
           logger.error('Failed to persist cache:', _context6.t0);
-        case 16:
+        case 18:
         case "end":
           return _context6.stop();
       }
-    }, _callee6, null, [[0, 13]]);
+    }, _callee6, null, [[0, 15]]);
   }));
   return _persistCache.apply(this, arguments);
 }
@@ -316,7 +321,7 @@ function _acquireLock() {
 }
 function releaseLock(_x4) {
   return _releaseLock.apply(this, arguments);
-}
+} // Update the set function to mark cache as modified
 function _releaseLock() {
   _releaseLock = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee10(key) {
     return _regeneratorRuntime().wrap(function _callee10$(_context10) {
@@ -333,7 +338,7 @@ function _releaseLock() {
 }
 function set(_x5, _x6) {
   return _set.apply(this, arguments);
-}
+} // Also update del and invalidateByPattern to mark cache as modified
 function _set() {
   _set = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee11(key, value) {
     var ttl,
@@ -385,22 +390,23 @@ function _set() {
             size: valueSize
           };
           cacheInstance.set(key, data);
+          cacheModified = true; // Mark cache as modified
           logger.dev('Successfully set cache', key);
           return _context11.abrupt("return", data);
-        case 25:
-          _context11.prev = 25;
+        case 26:
+          _context11.prev = 26;
           _context11.t0 = _context11["catch"](13);
           logger.error('Failed to set cache', key, _context11.t0);
           return _context11.abrupt("return", null);
-        case 29:
-          _context11.prev = 29;
+        case 30:
+          _context11.prev = 30;
           releaseLock(key);
-          return _context11.finish(29);
-        case 32:
+          return _context11.finish(30);
+        case 33:
         case "end":
           return _context11.stop();
       }
-    }, _callee11, null, [[3,, 29, 32], [13, 25]]);
+    }, _callee11, null, [[3,, 30, 33], [13, 26]]);
   }));
   return _set.apply(this, arguments);
 }
@@ -433,6 +439,7 @@ function _del() {
         case 9:
           try {
             cacheInstance["delete"](key);
+            cacheModified = true; // Mark cache as modified
             logger.dev('Successfully deleted cache entry', key);
           } catch (e) {
             logger.error('Failed to delete cache entry', key, e);
@@ -474,16 +481,18 @@ function invalidateByPattern(_x8) {
 }
 function _invalidateByPattern() {
   _invalidateByPattern = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee13(pattern) {
-    var _iterator2, _step2, _step2$value, key;
+    var found, _iterator2, _step2, _step2$value, key;
     return _regeneratorRuntime().wrap(function _callee13$(_context13) {
       while (1) switch (_context13.prev = _context13.next) {
         case 0:
+          found = false;
           _iterator2 = _createForOfIteratorHelper(cache.entries());
           try {
             for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
               _step2$value = _slicedToArray(_step2.value, 1), key = _step2$value[0];
               if (key.includes(pattern)) {
                 cache["delete"](key);
+                found = true;
               }
             }
           } catch (err) {
@@ -491,7 +500,10 @@ function _invalidateByPattern() {
           } finally {
             _iterator2.f();
           }
-        case 2:
+          if (found) {
+            cacheModified = true; // Mark cache as modified only if entries were deleted
+          }
+        case 4:
         case "end":
           return _context13.stop();
       }

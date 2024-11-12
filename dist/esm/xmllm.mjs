@@ -513,9 +513,6 @@ function _xmllmGen() {
               }, transformedConfig), {}, {
                 doMapSelectClosed: true
               }));
-
-              // Assuming prompt is a config object
-              // return promptComplex({...prompt, doMapSelectClosed: true});
             };
             xmlReq = function _xmlReq(_ref6) {
               var _messages;
@@ -558,7 +555,7 @@ function _xmllmGen() {
                           transformedPrompt = transformedPrompt(thing);
                         }
                         if (mapSelectionSchemaScaffold) {
-                          transformedPrompt = "\n    FYI: The data you return should be approximately like this:\n    ```\n    ".concat(mapSelectionSchemaScaffold, "\n    ```\n\n    Prompt:\n    ==== BEGIN PROMPT ====\n    ").concat(transformedPrompt, "\n    ==== END PROMPT ====\n\n    Finally, remember: The data you return should be approximately like this:\n    ```\n    ").concat(mapSelectionSchemaScaffold, "\n    ```\n        ");
+                          transformedPrompt = "\n    FYI: The data you return should be approximately like this:\n    ```\n    ".concat(mapSelectionSchemaScaffold, "\n    ```\n\n    Prompt:\n    ==== BEGIN PROMPT ====\n    ").concat(transformedPrompt, "\n    ==== END PROMPT ====\n\n    (if there is no meaningful prompt, respond to the user with a message like \"I'm sorry, I didn't catch that; what can I help you with?\")\n\n    Finally, remember: The data you return should be approximately like this:\n    ```\n    ").concat(mapSelectionSchemaScaffold, "\n    ```\n        ");
                         }
                         systemPrompt = "\n    META & OUTPUT STRUCTURE RULES:\n    ===\n\n    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it.\n\n    You can output multiple results if you like.\n\n    E.g. if asked for several names, you could just return:\n    <name>sarah</name> <name>james</name>\n    etc.\n\n    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>\n\n    All outputs should begin with the XML structure you have been given. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.\n      \n    HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:\n    (you must follow these religiously)\n    ===\n    ".concat(system || 'you are an ai assistant and respond to the request.');
                         if (!(typeof transformedPrompt !== 'string')) {
@@ -573,8 +570,7 @@ function _xmllmGen() {
                         }
                         throw new Error('we need a prompt');
                       case 9:
-                        console.log('transformedPrompt\n\n\n', transformedPrompt, '\n\n\n');
-                        _context2.next = 12;
+                        _context2.next = 11;
                         return _awaitAsyncGenerator(llmStream({
                           max_tokens: max_tokens || maxTokens || 4000,
                           temperature: temperature == null ? 0.5 : temperature,
@@ -594,55 +590,55 @@ function _xmllmGen() {
                           retryBackoffMultiplier: retryBackoffMultiplier,
                           cache: cache
                         }));
-                      case 12:
+                      case 11:
                         stream = _context2.sent;
                         reader = stream.getReader();
                         accrued = '';
                         cancelled = false;
-                        _context2.next = 18;
+                        _context2.next = 17;
                         return accrued;
+                      case 17:
+                        _context2.prev = 17;
                       case 18:
-                        _context2.prev = 18;
-                      case 19:
                         if (!true) {
-                          _context2.next = 33;
+                          _context2.next = 32;
                           break;
                         }
-                        _context2.next = 22;
+                        _context2.next = 21;
                         return _awaitAsyncGenerator(reader.read());
-                      case 22:
+                      case 21:
                         _yield$_awaitAsyncGen2 = _context2.sent;
                         done = _yield$_awaitAsyncGen2.done;
                         value = _yield$_awaitAsyncGen2.value;
                         if (!(cancelled || done)) {
-                          _context2.next = 27;
+                          _context2.next = 26;
                           break;
                         }
-                        return _context2.abrupt("break", 33);
-                      case 27:
+                        return _context2.abrupt("break", 32);
+                      case 26:
                         text = new TextDecoder().decode(value);
                         accrued += text;
-                        _context2.next = 31;
+                        _context2.next = 30;
                         return text;
-                      case 31:
-                        _context2.next = 19;
+                      case 30:
+                        _context2.next = 18;
                         break;
-                      case 33:
-                        _context2.next = 38;
+                      case 32:
+                        _context2.next = 37;
                         break;
-                      case 35:
-                        _context2.prev = 35;
-                        _context2.t0 = _context2["catch"](18);
+                      case 34:
+                        _context2.prev = 34;
+                        _context2.t0 = _context2["catch"](17);
                         logger.error("Error reading stream:", _context2.t0);
-                      case 38:
-                        _context2.prev = 38;
+                      case 37:
+                        _context2.prev = 37;
                         reader.releaseLock();
-                        return _context2.finish(38);
-                      case 41:
+                        return _context2.finish(37);
+                      case 40:
                       case "end":
                         return _context2.stop();
                     }
-                  }, _callee2, null, [[18, 35, 38, 41]]);
+                  }, _callee2, null, [[17, 34, 37, 40]]);
                 }));
                 return function (_x3) {
                   return _ref2.apply(this, arguments);

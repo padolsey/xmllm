@@ -141,26 +141,26 @@ var _default = exports["default"] = {
   },
   togetherai: {
     constraints: {
-      rpmLimit: 10
+      rpmLimit: 100
     },
     endpoint: 'https://api.together.xyz/v1/chat/completions',
     key: process.env.TOGETHER_API_KEY,
     models: {
       superfast: {
-        name: 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
       },
       fast: {
-        name: 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
       },
       good: {
-        name: 'Qwen/Qwen1.5-72B-Chat'
+        name: 'Qwen/Qwen2.5-72B-Instruct-Turbo'
       }
     },
     payloader: taiStylePayloader
   },
   perplexityai: {
     constraints: {
-      rpmLimit: 10
+      rpmLimit: 100
     },
     endpoint: 'https://api.perplexity.ai/chat/completions',
     key: process.env.PERPLEXITY_API_KEY,

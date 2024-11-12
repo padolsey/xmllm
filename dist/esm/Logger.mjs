@@ -4,66 +4,55 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-var _default = /*#__PURE__*/function () {
-  function _default(name) {
-    _classCallCheck(this, _default);
+var Logger = /*#__PURE__*/function () {
+  function Logger(name) {
+    _classCallCheck(this, Logger);
     this.name = name;
   }
-  return _createClass(_default, [{
+  return _createClass(Logger, [{
     key: "log",
     value: function log() {
-      var _console;
-      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-        args[_key] = arguments[_key];
+      if (process.env.NODE_ENV !== 'test' || process.env.ENABLE_TEST_LOGS) {
+        var _console;
+        for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+          args[_key] = arguments[_key];
+        }
+        (_console = console).log.apply(_console, [this.name, '==>'].concat(args));
       }
-      return (_console = console).log.apply(_console, [this.name, '==>'].concat(args));
     }
   }, {
     key: "error",
     value: function error() {
-      var _console2;
-      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-        args[_key2] = arguments[_key2];
+      if (process.env.NODE_ENV !== 'test' || process.env.ENABLE_TEST_LOGS) {
+        var _console2;
+        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+          args[_key2] = arguments[_key2];
+        }
+        (_console2 = console).error.apply(_console2, [this.name, '==>'].concat(args));
       }
-      return (_console2 = console).error.apply(_console2, [this.name, '==>'].concat(args));
     }
   }, {
     key: "warn",
     value: function warn() {
-      var _console3;
-      for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-        args[_key3] = arguments[_key3];
+      if (process.env.NODE_ENV !== 'test' || process.env.ENABLE_TEST_LOGS) {
+        var _console3;
+        for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+          args[_key3] = arguments[_key3];
+        }
+        (_console3 = console).warn.apply(_console3, [this.name, '==>'].concat(args));
       }
-      return (_console3 = console).warn.apply(_console3, [this.name, '==>'].concat(args));
     }
   }, {
     key: "dev",
     value: function dev() {
-      var _console4;
-      if (process.env.NODE_ENV === 'production') return;
-      for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-        args[_key4] = arguments[_key4];
+      if (process.env.NODE_ENV === 'development' || process.env.ENABLE_TEST_LOGS) {
+        var _console4;
+        for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+          args[_key4] = arguments[_key4];
+        }
+        (_console4 = console).log.apply(_console4, ['DEV! ', this.name, '==>'].concat(args));
       }
-      return (_console4 = console).log.apply(_console4, ['DEV! ', this.name, '==>'].concat(args));
-    }
-  }, {
-    key: "time",
-    value: function time() {
-      var _console5;
-      for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-        args[_key5] = arguments[_key5];
-      }
-      return (_console5 = console).time.apply(_console5, [this.name, '==>'].concat(args));
-    }
-  }, {
-    key: "timeEnd",
-    value: function timeEnd() {
-      var _console6;
-      for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-        args[_key6] = arguments[_key6];
-      }
-      return (_console6 = console).timeEnd.apply(_console6, [this.name, '==>'].concat(args));
     }
   }]);
 }();
-export { _default as default };
+export default Logger;

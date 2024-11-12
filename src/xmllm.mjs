@@ -15,6 +15,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   }
 
   const xmlps = new IncomingXMLParserSelectorEngine();
+
   const pipeline = pipelineFn({
     xmlReq,
     req,
@@ -169,6 +170,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     ${transformedPrompt}
     ==== END PROMPT ====
 
+    (if there is no meaningful prompt, respond to the user with a message like "I'm sorry, I didn't catch that; what can I help you with?")
+
     Finally, remember: The data you return should be approximately like this:
     \`\`\`
     ${mapSelectionSchemaScaffold}
@@ -204,8 +207,6 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       if (!transformedPrompt.trim()) {
         throw new Error('we need a prompt');
       }
-
-      console.log('transformedPrompt\n\n\n', transformedPrompt, '\n\n\n');
 
       const stream = await (llmStream)({
         max_tokens: max_tokens || maxTokens || 4000,
@@ -286,10 +287,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       schema, mapper, fakeResponse,
       ...transformedConfig,
       doMapSelectClosed: true
-    })
-
-    // Assuming prompt is a config object
-    // return promptComplex({...prompt, doMapSelectClosed: true});
+    });
 
   }
 
@@ -494,6 +492,7 @@ function isComplexIterable(obj) {
 
 function xmllm(pipelineFn, options = {}) {
   const g = xmllmGen(pipelineFn, options);
+
   g.all = async function() {
     const results = [];
     for await (const item of this) {

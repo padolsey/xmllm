@@ -218,4 +218,66 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
       child: ['Same Content', 'Same Content']
     });
   });
+
+  test('mapSelectClosed should only yield when all schema-defined tags are closed', () => {
+    engine.add(`
+      <root>
+        <required>Complete</required>
+        <alsoRequired>`);
+  
+    let result = engine.mapSelectClosed({
+      root: {
+        required: String,
+        alsoRequired: String
+      }
+    });
+  
+    // Should be empty because not all required tags are closed
+    expect(result).toEqual({});
+  
+    engine.add(`Also Complete</alsoRequired></root>`);
+  
+    result = engine.mapSelectClosed({
+      root: {
+        required: String,
+        alsoRequired: String
+      }
+    });
+  
+    // Now should have the complete structure
+    expect(result).toEqual({
+      root: {
+        required: 'Complete',
+        alsoRequired: 'Also Complete'
+      }
+    });
+  });
+
+  test('mapSelectClosed should handle multiple top-level elements', () => {
+    engine.add('<book><title>The Great Gatsby</title></book>');
+    
+    let result = engine.mapSelectClosed({
+      book: {
+        title: String
+      },
+      author: {
+        name: String
+      }
+    });
+  
+    // Does it yield just the book?
+    // Or wait for both book AND author?
+    // The test would clarify this behavior
+  
+    engine.add('<author><name>F. Scott Fitzgerald</name></author>');
+    
+    result = engine.mapSelectClosed({
+      book: {
+        title: String
+      },
+      author: {
+        name: String
+      }
+    });
+  });
 });

@@ -78,79 +78,74 @@ var ProviderManager = /*#__PURE__*/function () {
               _iterator.s();
             case 8:
               if ((_step = _iterator.n()).done) {
-                _context.next = 41;
+                _context.next = 40;
                 break;
               }
               preference = _step.value;
               _context.prev = 10;
               _this$getProviderByPr = this.getProviderByPreference(preference), provider = _this$getProviderByPr.provider, modelType = _this$getProviderByPr.modelType;
-              if (!provider.getAvailable()) {
-                _context.next = 34;
-                break;
-              }
               logger.log('Trying provider', provider.name, 'with model', modelType);
               retry = 0;
-            case 15:
+            case 14:
               if (!(retry < MAX_RETRIES_PER_PROVIDER)) {
-                _context.next = 33;
+                _context.next = 32;
                 break;
               }
-              _context.prev = 16;
-              _context.next = 19;
+              _context.prev = 15;
+              _context.next = 18;
               return action(provider, _objectSpread(_objectSpread({}, payload), {}, {
                 model: modelType
               }));
-            case 19:
+            case 18:
               return _context.abrupt("return", _context.sent);
-            case 22:
-              _context.prev = 22;
-              _context.t0 = _context["catch"](16);
+            case 21:
+              _context.prev = 21;
+              _context.t0 = _context["catch"](15);
               logger.error("Error from provider ".concat(provider.name, " (attempt ").concat(retry + 1, "): ").concat(_context.t0.message));
               lastError = "".concat(provider.name, " failed: ").concat(_context.t0.message);
               if (!(retry < MAX_RETRIES_PER_PROVIDER - 1)) {
-                _context.next = 30;
+                _context.next = 29;
                 break;
               }
-              _context.next = 29;
+              _context.next = 28;
               return new Promise(function (resolve) {
                 return setTimeout(resolve, retryDelay);
               });
-            case 29:
+            case 28:
               retryDelay *= backoffMultiplier;
-            case 30:
+            case 29:
               retry++;
-              _context.next = 15;
+              _context.next = 14;
               break;
-            case 33:
+            case 32:
               logger.warn("All retries failed for provider ".concat(provider.name, ", moving to next provider"));
-            case 34:
-              _context.next = 39;
+              _context.next = 38;
               break;
-            case 36:
-              _context.prev = 36;
+            case 35:
+              _context.prev = 35;
               _context.t1 = _context["catch"](10);
               logger.error("Error picking preferred provider: ".concat(_context.t1.message));
-            case 39:
+            case 38:
               _context.next = 8;
               break;
-            case 41:
-              _context.next = 46;
+            case 40:
+              _context.next = 45;
               break;
-            case 43:
-              _context.prev = 43;
+            case 42:
+              _context.prev = 42;
               _context.t2 = _context["catch"](6);
               _iterator.e(_context.t2);
-            case 46:
-              _context.prev = 46;
+            case 45:
+              _context.prev = 45;
               _iterator.f();
-              return _context.finish(46);
-            case 49:
+              return _context.finish(45);
+            case 48:
               throw new Error(lastError || 'All providers failed to fulfill the request.');
-            case 50:
+            case 49:
             case "end":
               return _context.stop();
           }
-        }, _callee, this, [[6, 43, 46, 49], [10, 36], [16, 22]]);
+        }, _callee, this, [[6, 42, 45, 48], [10, 35], [15, 21]]);
       }));
       function pickProviderWithFallback(_x, _x2) {
         return _pickProviderWithFallback.apply(this, arguments);

@@ -6,6 +6,12 @@ Object.defineProperty(exports, "__esModule", {
 exports["default"] = void 0;
 var _htmlparser = require("htmlparser2");
 var _cssSelect = require("css-select");
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -229,6 +235,29 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
     value: function mapSelect(mapping) {
       var _this7 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+      // Helper to normalize the new [] syntax to old syntax
+      var _normalizeSchema = function normalizeSchema(schema) {
+        // Handle primitives and functions
+        if (_typeof(schema) !== 'object' || schema === null) return schema;
+        if (typeof schema === 'function') return schema;
+        if (Array.isArray(schema)) return schema.map(_normalizeSchema);
+        var result = {};
+        for (var _i = 0, _Object$entries = Object.entries(schema); _i < _Object$entries.length; _i++) {
+          var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
+            key = _Object$entries$_i[0],
+            value = _Object$entries$_i[1];
+          if (key.endsWith('[]')) {
+            var actualKey = key.slice(0, -2);
+            result[actualKey] = [_normalizeSchema(value)];
+          } else {
+            result[key] = _normalizeSchema(value);
+          }
+        }
+        return result;
+      };
+      var normalizedMapping = Array.isArray(mapping) ? mapping.map(function (m) {
+        return _normalizeSchema(m);
+      }) : _normalizeSchema(mapping);
       var _applyMapping = function applyMapping(element, map) {
         if (Array.isArray(map)) {
           if (map.length !== 1) {
@@ -265,26 +294,24 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         }
         return out;
       };
-      var isArrayMapping = Array.isArray(mapping);
+      var isArrayMapping = Array.isArray(normalizedMapping);
       if (isArrayMapping) {
-        var rootSelector = Object.keys(mapping[0])[0];
+        var rootSelector = Object.keys(normalizedMapping[0])[0];
         return this.dedupeSelect(rootSelector, includeOpenTags).map(function (element) {
-          return _defineProperty({}, rootSelector, _applyMapping(element, mapping[0][rootSelector]));
+          return _defineProperty({}, rootSelector, _applyMapping(element, normalizedMapping[0][rootSelector]));
         });
       }
-      var rootSelectors = Object.keys(mapping);
+      var rootSelectors = Object.keys(normalizedMapping);
       var results = {};
       rootSelectors.forEach(function (selector) {
         var elements = _this7.dedupeSelect(selector, includeOpenTags);
-        if (!(elements !== null && elements !== void 0 && elements.length)) {
-          return;
-        }
-        if (Array.isArray(mapping[selector])) {
+        if (!(elements !== null && elements !== void 0 && elements.length)) return;
+        if (Array.isArray(normalizedMapping[selector])) {
           elements.forEach(function (el) {
-            results[selector] = (results[selector] || []).concat(_applyMapping(el, mapping[selector]));
+            results[selector] = (results[selector] || []).concat(_applyMapping(el, normalizedMapping[selector]));
           });
         } else {
-          results[selector] = _applyMapping(elements[0], mapping[selector]);
+          results[selector] = _applyMapping(elements[0], normalizedMapping[selector]);
         }
       });
       return results;

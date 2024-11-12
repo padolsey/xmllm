@@ -55,25 +55,23 @@ class ProviderManager {
     for (const preference of preferredProviders) {
       try {
         const { provider, modelType } = this.getProviderByPreference(preference);
-        if (provider.getAvailable()) {
-          logger.log('Trying provider', provider.name, 'with model', modelType);
-          
-          for (let retry = 0; retry < MAX_RETRIES_PER_PROVIDER; retry++) {
-            try {
-              return await action(provider, { ...payload, model: modelType });
-            } catch (error) {
-              logger.error(`Error from provider ${provider.name} (attempt ${retry + 1}): ${error.message}`);
-              lastError = `${provider.name} failed: ${error.message}`;
-              
-              if (retry < MAX_RETRIES_PER_PROVIDER - 1) {
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-                retryDelay *= backoffMultiplier;
-              }
+        logger.log('Trying provider', provider.name, 'with model', modelType);
+        
+        for (let retry = 0; retry < MAX_RETRIES_PER_PROVIDER; retry++) {
+          try {
+            return await action(provider, { ...payload, model: modelType });
+          } catch (error) {
+            logger.error(`Error from provider ${provider.name} (attempt ${retry + 1}): ${error.message}`);
+            lastError = `${provider.name} failed: ${error.message}`;
+            
+            if (retry < MAX_RETRIES_PER_PROVIDER - 1) {
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              retryDelay *= backoffMultiplier;
             }
           }
-          
-          logger.warn(`All retries failed for provider ${provider.name}, moving to next provider`);
         }
+        
+        logger.warn(`All retries failed for provider ${provider.name}, moving to next provider`);
       } catch (error) {
         logger.error(`Error picking preferred provider: ${error.message}`);
       }

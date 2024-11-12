@@ -5,11 +5,15 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 import express from 'express';
 import cors from 'cors';
 import ProviderManager from './ProviderManager.mjs';
+import StreamManager from './StreamManager.mjs';
+import ValidationService from './ValidationService.mjs';
 import Stream from './Stream.mjs';
+import PROVIDERS from './PROVIDERS.mjs';
 function createServer() {
   var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
   var app = express();
   var port = config.port || process.env.PORT || 3124;
+  var streamManager = new StreamManager(config);
   var corsOptions = {
     origin: config.corsOrigins || '*',
     // all by default
@@ -25,27 +29,39 @@ function createServer() {
   console.log('Starting Proxy Server with config', config, 'Port:', port);
   app.post('/api/stream', /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(req, res) {
-      var _req$body, messages, _req$body$model, model, max_tokens, temperature, fakeDelay, cache, stream, theStream, reader, _yield$reader$read, done, value, content;
+      var _req$body, messages, _req$body$model, model, max_tokens, temperature, fakeDelay, cache, stream, theStream;
       return _regeneratorRuntime().wrap(function _callee$(_context) {
         while (1) switch (_context.prev = _context.next) {
           case 0:
             _context.prev = 0;
             _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens, temperature = _req$body.temperature, fakeDelay = _req$body.fakeDelay, cache = _req$body.cache, stream = _req$body.stream;
-            console.log('Stream request', req.body);
-            if (!(!messages || !Array.isArray(messages))) {
-              _context.next = 5;
-              break;
-            }
+            _context.prev = 2;
+            // Validate all inputs
+            ValidationService.validateMessages(messages);
+            ValidationService.validateModel(model, PROVIDERS);
+            ValidationService.validateParameters({
+              temperature: temperature,
+              max_tokens: max_tokens,
+              stream: stream,
+              cache: cache
+            });
+            _context.next = 11;
+            break;
+          case 8:
+            _context.prev = 8;
+            _context.t0 = _context["catch"](2);
             return _context.abrupt("return", res.status(400).json({
-              error: 'Invalid messages format'
+              error: _context.t0.message,
+              code: _context.t0.code,
+              details: _context.t0.details
             }));
-          case 5:
+          case 11:
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               'Connection': 'keep-alive'
             });
-            _context.next = 8;
+            _context.next = 14;
             return Stream({
               messages: messages,
               max_tokens: max_tokens,
@@ -55,62 +71,49 @@ function createServer() {
               cache: cache,
               stream: stream == null ? true : stream
             });
-          case 8:
+          case 14:
             theStream = _context.sent;
-            reader = theStream.getReader();
-          case 10:
-            if (!true) {
-              _context.next = 21;
-              break;
-            }
-            _context.next = 13;
-            return reader.read();
-          case 13:
-            _yield$reader$read = _context.sent;
-            done = _yield$reader$read.done;
-            value = _yield$reader$read.value;
-            if (!done) {
-              _context.next = 18;
-              break;
-            }
-            return _context.abrupt("break", 21);
-          case 18:
-            if (value instanceof Uint8Array) {
-              content = new TextDecoder().decode(value);
-              res.write("data: ".concat(JSON.stringify({
-                content: content
-              }), "\n\n"));
-            } else if (typeof value === 'string') {
-              res.write("data: ".concat(JSON.stringify({
-                content: value
-              }), "\n\n"));
-            }
-            _context.next = 10;
+            _context.next = 17;
+            return streamManager.createStream(theStream, res);
+          case 17:
+            _context.next = 24;
             break;
-          case 21:
-            res.write('event: close\ndata: Stream ended\n\n');
-            res.end();
-            _context.next = 30;
-            break;
-          case 25:
-            _context.prev = 25;
-            _context.t0 = _context["catch"](0);
-            console.error('Error in stream request:', _context.t0);
+          case 19:
+            _context.prev = 19;
+            _context.t1 = _context["catch"](0);
+            console.error('Error in stream request:', _context.t1);
             res.write("event: error\ndata: ".concat(JSON.stringify({
               error: 'Internal server error',
-              message: _context.t0.message
+              code: _context.t1.code || 'INTERNAL_ERROR',
+              message: _context.t1.message,
+              details: _context.t1.details
             }), "\n\n"));
             res.end();
-          case 30:
+          case 24:
           case "end":
             return _context.stop();
         }
-      }, _callee, null, [[0, 25]]);
+      }, _callee, null, [[0, 19], [2, 8]]);
     }));
     return function (_x, _x2) {
       return _ref.apply(this, arguments);
     };
   }());
+  process.on('SIGTERM', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+    return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+      while (1) switch (_context2.prev = _context2.next) {
+        case 0:
+          console.log('SIGTERM received. Closing all streams...');
+          _context2.next = 3;
+          return streamManager.closeAll();
+        case 3:
+          process.exit(0);
+        case 4:
+        case "end":
+          return _context2.stop();
+      }
+    }, _callee2);
+  })));
   app.listen(port, function () {
     console.log("xmllm proxy server running on port ".concat(port));
   });

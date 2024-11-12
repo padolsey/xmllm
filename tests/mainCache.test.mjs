@@ -20,15 +20,20 @@ const mainCache = await import('../src/mainCache.mjs');
 const { DEFAULT_CONFIG } = await import('../src/mainCache.mjs');
 
 describe('mainCache', () => {
+    beforeAll(async () => {
+        // Any setup
+    });
+
+    afterAll(async () => {
+        // Any cleanup
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to allow logs to complete
+    });
+
     beforeEach(() => {
         // Clear mocks before each test
         jest.clearAllMocks();
         mainCache.stats.hits = 0;
         mainCache.stats.misses = 0;
-    });
-
-    afterAll(async () => {
-        await mainCache.cleanup();
     });
 
     describe('Basic Operations', () => {

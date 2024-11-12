@@ -43,10 +43,16 @@ async function loadPersistedCache() {
     }
 }
 
+// Add a flag to track if cache has changed
+let cacheModified = false;
+
 // Save cache to disk
 async function persistCache(cache) {
     try {
-        if (!cache) return;
+        if (!cache || !cacheModified) {
+            logger.dev('Skip persisting cache - no changes');
+            return;
+        }
         
         const entries = Array.from(cache.entries())
             .filter(([_, value]) => value && (!value.expires || value.expires > Date.now()));
@@ -60,6 +66,7 @@ async function persistCache(cache) {
         // Atomically rename temp file to actual cache file
         await fs.rename(tempFile, CACHE_FILE);
         
+        cacheModified = false;  // Reset the modified flag
         logger.dev('Cache persisted to disk');
     } catch (err) {
         logger.error('Failed to persist cache:', err);
@@ -154,6 +161,7 @@ async function releaseLock(key) {
     locks.delete(key);
 }
 
+// Update the set function to mark cache as modified
 async function set(key, value, ttl = DEFAULT_CONFIG.ttl) {
     await acquireLock(key);
     try {
@@ -183,6 +191,7 @@ async function set(key, value, ttl = DEFAULT_CONFIG.ttl) {
                 size: valueSize
             };
             cacheInstance.set(key, data);
+            cacheModified = true;  // Mark cache as modified
             logger.dev('Successfully set cache', key);
             return data;
         } catch (e) {
@@ -194,6 +203,7 @@ async function set(key, value, ttl = DEFAULT_CONFIG.ttl) {
     }
 }
 
+// Also update del and invalidateByPattern to mark cache as modified
 async function del(key) {
     const cacheInstance = await cachePromise;
     if (!cacheInstance) {
@@ -206,6 +216,7 @@ async function del(key) {
     }
     try {
         cacheInstance.delete(key);
+        cacheModified = true;  // Mark cache as modified
         logger.dev('Successfully deleted cache entry', key);
     } catch (e) {
         logger.error('Failed to delete cache entry', key, e);
@@ -227,10 +238,15 @@ function purgeOldEntries() {
 }
 
 async function invalidateByPattern(pattern) {
+    let found = false;
     for (const [key] of cache.entries()) {
         if (key.includes(pattern)) {
             cache.delete(key);
+            found = true;
         }
+    }
+    if (found) {
+        cacheModified = true;  // Mark cache as modified only if entries were deleted
     }
 }
 

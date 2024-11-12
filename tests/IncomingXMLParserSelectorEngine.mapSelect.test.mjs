@@ -584,4 +584,69 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       ]
     });
   });
+
+  test('mapSelect should support [] array notation', () => {
+
+    const xmlString = `
+      <result>
+        <person>
+          <alias>Johnny</alias>
+          <alias>John</alias>
+          <address>123 Main St</address>
+        </person>
+        <person>
+          <alias>Bobby</alias>
+          <address>456 Oak Rd</address>
+        </person>
+      </result>
+    `;
+    // Test the new style
+    const engine1 = new IncomingXMLParserSelectorEngine();
+    engine1.add(xmlString);
+
+    const engine2 = new IncomingXMLParserSelectorEngine();
+    engine2.add(xmlString);
+  
+    // Fix schema structure
+    const newStyleSchema = {
+      result: {
+        'person[]': {
+          'alias[]': String,
+          address: String
+        }
+      }
+    };
+  
+    const oldStyleSchema = {
+      result: {
+        person: [{
+          alias: [String],
+          address: String
+        }]
+      }
+    };
+  
+    // Test both styles
+    let newResult = engine1.mapSelect(newStyleSchema);
+    let oldResult = engine2.mapSelect(oldStyleSchema);
+  
+    const expected = {
+      result: {
+        person: [
+          {
+            alias: ["Johnny", "John"],
+            address: "123 Main St"
+          },
+          {
+            alias: ["Bobby"],
+            address: "456 Oak Rd"
+          }
+        ]
+      }
+    };
+  
+    expect(newResult).toEqual(expected);
+    expect(oldResult).toEqual(expected);
+    expect(newResult).toEqual(oldResult);
+  });
 });

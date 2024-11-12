@@ -208,12 +208,35 @@ class IncomingXMLParserSelectorEngine {
   }
 
   mapSelect(mapping, includeOpenTags = true) {
+    // Helper to normalize the new [] syntax to old syntax
+    const normalizeSchema = (schema) => {
+      // Handle primitives and functions
+      if (typeof schema !== 'object' || schema === null) return schema;
+      if (typeof schema === 'function') return schema;
+      if (Array.isArray(schema)) return schema.map(normalizeSchema);
+
+      const result = {};
+      for (const [key, value] of Object.entries(schema)) {
+        if (key.endsWith('[]')) {
+          const actualKey = key.slice(0, -2);
+          result[actualKey] = [normalizeSchema(value)];
+        } else {
+          result[key] = normalizeSchema(value);
+        }
+      }
+      return result;
+    };
+
+    const normalizedMapping = Array.isArray(mapping)
+      ? mapping.map(m => normalizeSchema(m))
+      : normalizeSchema(mapping);
+
     const applyMapping = (element, map) => {
       if (Array.isArray(map)) {
         if (map.length !== 1) {
           throw new Error('A map array must only have one element');
         }
-        return Array.isArray(element) 
+        return Array.isArray(element)
           ? element.map(e => applyMapping(e, map[0]))
           : [applyMapping(element, map[0])];
       }
@@ -243,40 +266,41 @@ class IncomingXMLParserSelectorEngine {
         } else if (Array.isArray(map[k])) {
           out[k] = applyMapping(element[k], map[k]);
         } else {
-          out[k] = applyMapping(Array.isArray(element[k]) ? element[k][0] : element[k], map[k]);
+          out[k] = applyMapping(
+            Array.isArray(element[k]) ? element[k][0] : element[k],
+            map[k]
+          );
         }
       }
-
       return out;
     };
 
-    const isArrayMapping = Array.isArray(mapping);
+    const isArrayMapping = Array.isArray(normalizedMapping);
 
     if (isArrayMapping) {
-      const rootSelector = Object.keys(mapping[0])[0];
-      return this.dedupeSelect(rootSelector, includeOpenTags).map(element => ({
-        [rootSelector]: applyMapping(element, mapping[0][rootSelector])
-      }));
+      const rootSelector = Object.keys(normalizedMapping[0])[0];
+      return this.dedupeSelect(rootSelector, includeOpenTags)
+        .map(element => ({
+          [rootSelector]: applyMapping(element, normalizedMapping[0][rootSelector])
+        }));
     }
 
-    const rootSelectors = Object.keys(mapping);
+    const rootSelectors = Object.keys(normalizedMapping);
     const results = {};
-    
+
     rootSelectors.forEach(selector => {
       const elements = this.dedupeSelect(selector, includeOpenTags);
 
-      if (!elements?.length) {
-        return;
-      }
+      if (!elements?.length) return;
 
-      if (Array.isArray(mapping[selector])) {
+      if (Array.isArray(normalizedMapping[selector])) {
         elements.forEach((el) => {
           results[selector] = (
             results[selector] || []
-          ).concat(applyMapping(el, mapping[selector]));
+          ).concat(applyMapping(el, normalizedMapping[selector]));
         });
       } else {
-        results[selector] = applyMapping(elements[0], mapping[selector]);
+        results[selector] = applyMapping(elements[0], normalizedMapping[selector]);
       }
     });
 

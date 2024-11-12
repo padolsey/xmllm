@@ -1,11 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import ProviderManager from './ProviderManager.mjs';
+import StreamManager from './StreamManager.mjs';
+import ValidationService from './ValidationService.mjs';
 import Stream from './Stream.mjs';
+import PROVIDERS from './PROVIDERS.mjs';
 
 function createServer(config = {}) {
   const app = express();
   const port = config.port || process.env.PORT || 3124;
+  const streamManager = new StreamManager(config);
 
   const corsOptions = {
     origin: config.corsOrigins || '*', // all by default
@@ -33,10 +37,22 @@ function createServer(config = {}) {
         stream
       } = req.body;
 
-      console.log('Stream request', req.body);
-
-      if (!messages || !Array.isArray(messages)) {
-        return res.status(400).json({ error: 'Invalid messages format' });
+      try {
+        // Validate all inputs
+        ValidationService.validateMessages(messages);
+        ValidationService.validateModel(model, PROVIDERS);
+        ValidationService.validateParameters({
+          temperature,
+          max_tokens,
+          stream,
+          cache
+        });
+      } catch (error) {
+        return res.status(400).json({
+          error: error.message,
+          code: error.code,
+          details: error.details
+        });
       }
 
       res.writeHead(200, {
@@ -55,36 +71,31 @@ function createServer(config = {}) {
         stream: stream == null ? true : stream
       });
 
-      const reader = theStream.getReader();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        if (value instanceof Uint8Array) {
-          const content = new TextDecoder().decode(value);
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
-        } else if (typeof value === 'string') {
-          res.write(`data: ${JSON.stringify({ content: value })}\n\n`);
-        }
-      }
-
-      res.write('event: close\ndata: Stream ended\n\n');
-      res.end();
+      await streamManager.createStream(theStream, res);
 
     } catch (error) {
       console.error('Error in stream request:', error);
-      res.write(`event: error\ndata: ${JSON.stringify({ error: 'Internal server error', message: error.message })}\n\n`);
+      res.write(`event: error\ndata: ${JSON.stringify({ 
+        error: 'Internal server error', 
+        code: error.code || 'INTERNAL_ERROR',
+        message: error.message,
+        details: error.details
+      })}\n\n`);
       res.end();
     }
   });
-  
+
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM received. Closing all streams...');
+    await streamManager.closeAll();
+    process.exit(0);
+  });
+
   app.listen(port, () => {
     console.log(`xmllm proxy server running on port ${port}`);
   });
 
   return app;
-
 }
 
 export default createServer;
