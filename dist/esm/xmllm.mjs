@@ -28,7 +28,7 @@ var logger = new Logger('xmllm');
 var text = function text(fn) {
   return function (_ref5) {
     var $text = _ref5.$text;
-    return fn($text);
+    return fn ? fn($text) : $text;
   };
 };
 var withAttrs = function withAttrs(fn) {
@@ -768,35 +768,26 @@ function _xmllmGen() {
           case 11:
             xmlps = new IncomingXMLParserSelectorEngine();
             pipeline = pipelineFn({
-              xmlReq: xmlReq,
-              req: req,
-              rawStream: req,
-              prompt: prompt,
-              promptClosed: promptClosed,
-              mapSelect: mapSelect,
-              mapSelectClosed: mapSelectClosed,
-              select: select,
-              take: streamops.take,
-              accrue: streamops.accrue,
-              reduce: streamops.reduce,
-              filter: streamops.filter,
-              waitUntil: streamops.waitUntil,
-              map: streamops.map,
-              mergeAggregate: streamops.mergeAggregate,
-              tap: streamops.tap,
               p: prompt,
               pc: promptClosed,
-              ms: mapSelect,
-              msc: mapSelectClosed,
-              s: select,
-              m: streamops.map,
-              f: streamops.filter,
-              r: streamops.reduce,
-              a: streamops.accrue,
-              t: streamops.tap,
-              w: streamops.waitUntil,
-              ma: streamops.mergeAggregate,
+              r: req,
+              prompt: prompt,
+              promptClosed: promptClosed,
+              select: select,
+              mapSelect: mapSelect,
+              mapSelectClosed: mapSelectClosed,
+              req: req,
+              map: streamops.map,
+              filter: streamops.filter,
+              reduce: streamops.reduce,
+              accrue: streamops.accrue,
+              tap: streamops.tap,
+              waitUntil: streamops.waitUntil,
+              mergeAggregate: streamops.mergeAggregate,
               text: text,
+              val: text,
+              value: text,
+              v: text,
               withAttrs: withAttrs,
               whenClosed: whenClosed
             });

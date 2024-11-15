@@ -4,7 +4,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.ProviderTimeoutError = exports.ProviderRateLimitError = exports.ProviderNetworkError = exports.ProviderError = exports.ProviderAuthenticationError = void 0;
+exports.ProviderTimeoutError = exports.ProviderRateLimitError = exports.ProviderNetworkError = exports.ProviderError = exports.ProviderAuthenticationError = exports.ModelValidationError = void 0;
 function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
@@ -82,4 +82,16 @@ var ProviderTimeoutError = exports.ProviderTimeoutError = /*#__PURE__*/function 
   }
   _inherits(ProviderTimeoutError, _ProviderError4);
   return _createClass(ProviderTimeoutError);
+}(ProviderError);
+var ModelValidationError = exports.ModelValidationError = /*#__PURE__*/function (_ProviderError5) {
+  function ModelValidationError(message, details) {
+    var _this6;
+    _classCallCheck(this, ModelValidationError);
+    _this6 = _callSuper(this, ModelValidationError, [message, 'MODEL_VALIDATION_ERROR', details === null || details === void 0 ? void 0 : details.provider]);
+    _this6.name = 'ModelValidationError';
+    _this6.details = details;
+    return _this6;
+  }
+  _inherits(ModelValidationError, _ProviderError5);
+  return _createClass(ModelValidationError);
 }(ProviderError);

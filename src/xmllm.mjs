@@ -4,7 +4,7 @@ import Logger from './Logger.mjs';
 
 const logger = new Logger('xmllm');
 
-const text = (fn) => ({ $text }) => fn($text);
+const text = (fn) => ({ $text }) => fn ? fn($text) : $text;
 const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
 const whenClosed = (fn) => (el) => el.$closed ? fn(el) : undefined;
 
@@ -21,38 +21,28 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   const xmlps = new IncomingXMLParserSelectorEngine();
 
   const pipeline = pipelineFn({
-    xmlReq,
-    req,
-    rawStream: req,
-    prompt,
-    promptClosed,
-    mapSelect,
-    mapSelectClosed,
-    select,
-
-    take: streamops.take,
-    accrue: streamops.accrue,
-    reduce: streamops.reduce,
-    filter: streamops.filter,
-    waitUntil: streamops.waitUntil,
-    map: streamops.map,
-    mergeAggregate: streamops.mergeAggregate,
-    tap: streamops.tap,
-
     p: prompt,
     pc: promptClosed,
-    ms: mapSelect,
-    msc: mapSelectClosed,
-    s: select,
-    m: streamops.map,
-    f: streamops.filter,
-    r: streamops.reduce,
-    a: streamops.accrue,
-    t: streamops.tap,
-    w: streamops.waitUntil,
-    ma: streamops.mergeAggregate,
+    r: req,
+    prompt,
+    promptClosed,
+    select,
+    mapSelect,
+    mapSelectClosed,
+    req,
+
+    map: streamops.map,
+    filter: streamops.filter,
+    reduce: streamops.reduce,
+    accrue: streamops.accrue,
+    tap: streamops.tap,
+    waitUntil: streamops.waitUntil,
+    mergeAggregate: streamops.mergeAggregate,
 
     text,
+    val: text,
+    value: text,
+    v: text,
     withAttrs,
     whenClosed
   });

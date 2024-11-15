@@ -3,9 +3,11 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.createCustomModel = createCustomModel;
 exports.createProvidersWithKeys = createProvidersWithKeys;
 exports["default"] = void 0;
 var _dotenv = require("dotenv");
+var _ProviderErrors = require("./errors/ProviderErrors.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -48,7 +50,7 @@ var taiStylePayloader = function taiStylePayloader(_ref2) {
     _ref2$max_tokens = _ref2.max_tokens,
     max_tokens = _ref2$max_tokens === void 0 ? 300 : _ref2$max_tokens,
     _ref2$stop = _ref2.stop,
-    stop = _ref2$stop === void 0 ? ['</s>', '[/INST]'] : _ref2$stop,
+    stop = _ref2$stop === void 0 ? ['', ''] : _ref2$stop,
     _ref2$temperature = _ref2.temperature,
     temperature = _ref2$temperature === void 0 ? 0.52 : _ref2$temperature,
     _ref2$top_p = _ref2.top_p,
@@ -202,4 +204,77 @@ function createProvidersWithKeys() {
     newProviders.perplexityai.key = keys.PERPLEXITY_API_KEY;
   }
   return newProviders;
+}
+function createCustomModel(baseProvider, config) {
+  var _baseProvider$models;
+  // Required fields
+  if (!config.name) {
+    throw new _ProviderErrors.ModelValidationError('Model name is required', {
+      provider: baseProvider.name
+    });
+  }
+
+  // Validate maxContextSize
+  if (config.maxContextSize !== undefined) {
+    if (typeof config.maxContextSize !== 'number' || config.maxContextSize <= 0) {
+      throw new _ProviderErrors.ModelValidationError('maxContextSize must be a positive number', {
+        provider: baseProvider.name,
+        value: config.maxContextSize
+      });
+    }
+  }
+
+  // Validate constraints
+  if (config.constraints) {
+    if (_typeof(config.constraints) !== 'object') {
+      throw new _ProviderErrors.ModelValidationError('constraints must be an object', {
+        provider: baseProvider.name
+      });
+    }
+    if (config.constraints.rpmLimit !== undefined) {
+      if (typeof config.constraints.rpmLimit !== 'number' || config.constraints.rpmLimit <= 0) {
+        throw new _ProviderErrors.ModelValidationError('rpmLimit must be a positive number', {
+          provider: baseProvider.name,
+          value: config.constraints.rpmLimit
+        });
+      }
+    }
+  }
+
+  // Validate endpoint if provided
+  if (config.endpoint !== undefined) {
+    try {
+      new URL(config.endpoint);
+    } catch (e) {
+      throw new _ProviderErrors.ModelValidationError('Invalid endpoint URL', {
+        provider: baseProvider.name,
+        value: config.endpoint
+      });
+    }
+  }
+
+  // Validate functions
+  if (config.headerGen && typeof config.headerGen !== 'function') {
+    throw new _ProviderErrors.ModelValidationError('headerGen must be a function', {
+      provider: baseProvider.name
+    });
+  }
+  if (config.payloader && typeof config.payloader !== 'function') {
+    throw new _ProviderErrors.ModelValidationError('payloader must be a function', {
+      provider: baseProvider.name
+    });
+  }
+  return _objectSpread(_objectSpread({}, baseProvider), {}, {
+    endpoint: config.endpoint || baseProvider.endpoint,
+    key: config.key || baseProvider.key,
+    headerGen: config.headerGen || baseProvider.headerGen,
+    payloader: config.payloader || baseProvider.payloader,
+    constraints: _objectSpread(_objectSpread({}, baseProvider.constraints), config.constraints || {}),
+    models: {
+      custom: {
+        name: config.name,
+        maxContextSize: config.maxContextSize || ((_baseProvider$models = baseProvider.models) === null || _baseProvider$models === void 0 || (_baseProvider$models = _baseProvider$models.fast) === null || _baseProvider$models === void 0 ? void 0 : _baseProvider$models.maxContextSize)
+      }
+    }
+  });
 }

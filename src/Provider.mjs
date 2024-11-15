@@ -4,7 +4,8 @@ import {
   ProviderRateLimitError,
   ProviderAuthenticationError,
   ProviderNetworkError,
-  ProviderTimeoutError
+  ProviderTimeoutError,
+  ModelValidationError
 } from './errors/ProviderErrors.mjs';
 import { createParser } from 'eventsource-parser';
 import innerTruncate from './innerTruncate.mjs';
@@ -38,6 +39,8 @@ class Provider {
     this.payloader = details.payloader || this.defaultPayloader;
     this.headerGen = details.headerGen || this.defaultHeaderGen;
     this.rpmLimit = details.constraints?.rpmLimit || 1e6;
+
+    this.constraints = details.constraints || { rpmLimit: this.rpmLimit };
 
     // Configurable properties with more sensible defaults or overrides
     this.REQUEST_TIMEOUT_MS = configOverrides.REQUEST_TIMEOUT_MS || 50_000; 

@@ -28,6 +28,38 @@ const TestStream = (() => {
           .mockResolvedValueOnce({ done: true }),
         releaseLock: jest.fn()
       })
+    }))
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<user><name>Test Result</name><email>TEST RESULT</email></user>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }))
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<product><price>42.99</price><quantity>5</quantity></product>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }))
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<scores><score>10</score><score>20</score><score>30</score></scores>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }))
+    .mockImplementationOnce(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<user><name>Test User</name><stats><score>10</score><score>20</score><average>15.0</average></stats></user>'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
     }));
   return mockFn;
 })();
@@ -172,6 +204,98 @@ describe('xmllm', () => {
         $attr: {}, 
         $text: 'Test' 
       });
+    });
+  });
+
+  describe('value() transformer', () => {
+    it('should handle basic text transformation', async () => {
+      const results = xmllm(({ prompt, value }) => [
+        prompt(
+          'Give me a user record',
+          {
+            user: {
+              name: value(),
+              email: value(e => e.toLowerCase())
+            }
+          }
+        )
+      ]);
+
+      const result = (await results.next()).value;
+      expect(result.user.name).toBe('Test Result');
+      expect(result.user.email).toBe('test result');
+    });
+
+    it('should handle numerical transformations safely', async () => {
+      const results = xmllm(({ prompt, value }) => [
+        prompt(
+          'Give me a product',
+          {
+            product: {
+              price: value(p => {
+                const n = parseFloat(p);
+                return isNaN(n) ? null : n;
+              }),
+              quantity: value(q => {
+                const n = parseInt(q);
+                return isNaN(n) ? 0 : n;
+              })
+            }
+          }
+        )
+      ]);
+
+      const result = (await results.next()).value;
+      expect(typeof result.product.price).toBe('number');
+      expect(typeof result.product.quantity).toBe('number');
+    });
+
+    it('should handle arrays with value transformers', async () => {
+      const results = xmllm(({ prompt, value }) => [
+        prompt(
+          'List some scores',
+          {
+            'score[]': value(s => {
+              const n = parseInt(s);
+              return isNaN(n) ? 0 : n;
+            })
+          }
+        )
+      ]);
+
+      const result = (await results.next()).value;
+      expect(Array.isArray(result.score)).toBe(true);
+      result.score.forEach(score => {
+        expect(typeof score).toBe('number');
+      });
+    });
+
+    it('should handle nested value transformers', async () => {
+      const results = xmllm(({ prompt, value }) => [
+        prompt(
+          'Give me user stats',
+          {
+            user: {
+              name: value(),
+              stats: {
+                'score[]': value(s => {
+                  const n = parseInt(s);
+                  return isNaN(n) ? 0 : n;
+                }),
+                average: value(avg => {
+                  const n = parseFloat(avg);
+                  return isNaN(n) ? 0 : n;
+                })
+              }
+            }
+          }
+        )
+      ]);
+
+      const result = (await results.next()).value;
+      expect(typeof result.user.name).toBe('string');
+      expect(Array.isArray(result.user.stats.score)).toBe(true);
+      expect(typeof result.user.stats.average).toBe('number');
     });
   });
 });

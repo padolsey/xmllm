@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { ModelValidationError } from './errors/ProviderErrors.mjs';
 
 config({
   path: '.env'
@@ -27,7 +28,7 @@ const standardPayloader = ({
 const taiStylePayloader = ({
   messages = [],
   max_tokens = 300,
-  stop = ['</s>','[/INST]'],
+  stop = ['',''],
   temperature = 0.52,
   top_p = 1,
   frequency_penalty = 0.01,
@@ -171,4 +172,95 @@ export function createProvidersWithKeys(keys = {}) {
   }
   
   return newProviders;
+}
+
+export function createCustomModel(baseProvider, config) {
+  // Required fields
+  if (!config.name) {
+    throw new ModelValidationError(
+      'Model name is required',
+      { provider: baseProvider.name }
+    );
+  }
+
+  // Validate maxContextSize
+  if (config.maxContextSize !== undefined) {
+    if (typeof config.maxContextSize !== 'number' || config.maxContextSize <= 0) {
+      throw new ModelValidationError(
+        'maxContextSize must be a positive number',
+        { 
+          provider: baseProvider.name,
+          value: config.maxContextSize 
+        }
+      );
+    }
+  }
+
+  // Validate constraints
+  if (config.constraints) {
+    if (typeof config.constraints !== 'object') {
+      throw new ModelValidationError(
+        'constraints must be an object',
+        { provider: baseProvider.name }
+      );
+    }
+    if (config.constraints.rpmLimit !== undefined) {
+      if (typeof config.constraints.rpmLimit !== 'number' || config.constraints.rpmLimit <= 0) {
+        throw new ModelValidationError(
+          'rpmLimit must be a positive number',
+          { 
+            provider: baseProvider.name,
+            value: config.constraints.rpmLimit 
+          }
+        );
+      }
+    }
+  }
+
+  // Validate endpoint if provided
+  if (config.endpoint !== undefined) {
+    try {
+      new URL(config.endpoint);
+    } catch (e) {
+      throw new ModelValidationError(
+        'Invalid endpoint URL',
+        { 
+          provider: baseProvider.name,
+          value: config.endpoint 
+        }
+      );
+    }
+  }
+
+  // Validate functions
+  if (config.headerGen && typeof config.headerGen !== 'function') {
+    throw new ModelValidationError(
+      'headerGen must be a function',
+      { provider: baseProvider.name }
+    );
+  }
+  if (config.payloader && typeof config.payloader !== 'function') {
+    throw new ModelValidationError(
+      'payloader must be a function',
+      { provider: baseProvider.name }
+    );
+  }
+
+  return {
+    ...baseProvider,
+    endpoint: config.endpoint || baseProvider.endpoint,
+    key: config.key || baseProvider.key,
+    headerGen: config.headerGen || baseProvider.headerGen,
+    payloader: config.payloader || baseProvider.payloader,
+    constraints: {
+      ...baseProvider.constraints,
+      ...(config.constraints || {})
+    },
+    models: {
+      custom: {
+        name: config.name,
+        maxContextSize: config.maxContextSize || baseProvider.models?.fast?.maxContextSize
+      }
+    }
+  };
 }

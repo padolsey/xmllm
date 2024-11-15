@@ -97,4 +97,98 @@ describe('StreamManager', () => {
     expect(mockReader1.releaseLock).toHaveBeenCalled();
     expect(mockReader2.releaseLock).toHaveBeenCalled();
   }, 1000); // explicit timeout
+
+  describe('Edge Cases and Recovery', () => {
+    test('handles malformed stream data', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({ value: new TextEncoder().encode('[invalid json]'), done: false })
+        .mockResolvedValueOnce({ done: true });
+
+      await streamManager.createStream(mockStream, mockRes);
+      
+      // Should continue processing despite malformed data
+      expect(mockRes.write).toHaveBeenCalled();
+      expect(mockReader.releaseLock).toHaveBeenCalled();
+    });
+
+    test('handles stream interruption and cleanup', async () => {
+      const error = new Error('Connection lost');
+      mockReader.read
+        .mockResolvedValueOnce({ value: new TextEncoder().encode('partial data'), done: false })
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce({ done: true });
+
+      await streamManager.createStream(mockStream, mockRes);
+
+      // Should handle the error and clean up
+      expect(mockRes.write).toHaveBeenCalledWith(expect.stringContaining('STREAM_ERROR'));
+      expect(mockReader.releaseLock).toHaveBeenCalled();
+      expect(streamManager.activeStreams.size).toBe(0);
+    });
+
+    test('handles backpressure scenarios', async () => {
+      // Simulate backpressure by making res.write return false
+      mockRes.write.mockReturnValue(false);
+      
+      const largeData = new TextEncoder().encode('x'.repeat(16384)); // 16KB
+      mockReader.read
+        .mockResolvedValueOnce({ value: largeData, done: false })
+        .mockResolvedValueOnce({ done: true });
+
+      await streamManager.createStream(mockStream, mockRes);
+      
+      // Should handle backpressure without crashing
+      expect(mockRes.write).toHaveBeenCalled();
+      expect(mockReader.releaseLock).toHaveBeenCalled();
+    });
+  });
+
+  describe('Concurrent Stream Management', () => {
+    test('handles multiple concurrent streams', async () => {
+      const streams = Array(5).fill().map(() => ({
+        getReader: () => ({
+          read: jest.fn()
+            .mockResolvedValueOnce({ value: new TextEncoder().encode('test'), done: false })
+            .mockResolvedValueOnce({ done: true }),
+          releaseLock: jest.fn()
+        })
+      }));
+
+      const promises = streams.map(stream => 
+        streamManager.createStream(stream, mockRes)
+      );
+
+      await Promise.all(promises);
+
+      expect(streamManager.activeStreams.size).toBe(0); // All cleaned up
+      expect(mockRes.write).toHaveBeenCalledTimes(streams.length * 2); // Data + close for each
+    });
+
+    test('graceful shutdown with active streams', async () => {
+      // Create readers first so we can track them
+      const readers = Array(3).fill().map(() => ({
+        read: jest.fn().mockImplementation(() => new Promise(() => {})),
+        releaseLock: jest.fn()
+      }));
+
+      const hangingStreams = readers.map(reader => ({
+        getReader: () => reader
+      }));
+
+      // Start the streams
+      const streamPromises = hangingStreams.map(stream => 
+        streamManager.createStream(stream, mockRes)
+      );
+
+      // Small delay to ensure streams are registered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      await streamManager.closeAll();
+
+      expect(streamManager.activeStreams.size).toBe(0);
+      readers.forEach(reader => {
+        expect(reader.releaseLock).toHaveBeenCalled();
+      });
+    });
+  });
 }); 

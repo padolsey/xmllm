@@ -1,54 +1,378 @@
 # xmllm
 
-xmllm lets you have natural, structured conversations with AI language models. Instead of forcing AI responses into rigid function calls, xmllm works with the natural way LLMs communicate - through semantically rich, flowing text - while still giving you structured data that's ready to use in your application.
+xmllm lets AI language models communicate naturally while giving you structured data back. Instead of forcing rigid function calls, xmllm lets AIs respond in XML - a format that's both semantic and structured.
 
-## Why xmllm?
+## Core Concepts
 
-Traditional approaches to structured AI responses often use "function calling" or "tools" APIs. These force LLMs to work against their strengths, squeezing rich responses into predetermined function signatures.
+Before diving into code, let's understand how xmllm works:
 
-xmllm takes a different approach:
-1. Let the LLM respond naturally in a semantically meaningful way
-2. Guide the structure through simple XML schemas
-3. Transform the results into exactly the data structures you need
+```
+AI Response (XML) -> Schema Definition -> Transformer -> Structured Data
+```
+
+### 1. XML Schemas & Transformers
+
+xmllm uses schemas to transform XML responses into structured data. Here's a simple example:
+
+```javascript
+const schema = {
+  weather: {
+    temp: Number,        // Transform to number
+    condition: String,   // Keep as string
+    'warning[]': String  // Array of warnings
+  }
+};
+
+// AI responds with:
+// <weather>
+//   <temp>72</temp>
+//   <condition>sunny</condition>
+//   <warning>High UV index</warning>
+//   <warning>Strong winds</warning>
+// </weather>
+
+// You get:
+{
+  weather: {
+    temp: 72,
+    condition: "sunny",
+    warning: ["High UV index", "Strong winds"]
+  }
+}
+```
+
+Every XML element has these core properties available for transformation:
+
+```javascript
+{
+  $text: "element content",      // Text content
+  $attr: { id: "123" },         // XML attributes
+  $key: 1,                      // Unique element ID
+  $closed: true                 // Has closing tag
+}
+```
+
+### 2. Streaming Behavior
+
+xmllm processes XML as it arrives, giving you real-time updates:
+
+```javascript
+// When AI starts responding:
+<weather>              // -> { weather: {} }
+<weather><temp>        // -> { weather: { temp: '' } }
+<weather><temp>72      // -> { weather: { temp: '72' } }
+<weather><temp>72</temp><condition>sunny</condition>
+// -> { weather: { temp: 72, condition: 'sunny' } }
+```
+
+This streaming behavior:
+- Shows real-time progress
+- Enables early processing
+- Helps with debugging
+- Provides better UX
+
+You can handle streaming in two ways:
+
+```javascript
+// 1. Get all updates (default)
+for await (const update of stream) {
+  console.log(update); // See every change
+}
+
+// 2. Get only complete elements
+for await (const complete of closedStream) {
+  console.log(complete); // Only final results
+}
+```
 
 ## Quick Start
+
+```bash
+npm install xmllm
+```
 
 ```javascript
 import { xmllm } from 'xmllm';
 
-// With API keys from environment
-const stream = xmllm(({ p: prompt }) => [
+const stream = xmllm(({ p, value }) => [
   p(
     "What's the weather like in London and Paris?",
     {
       cities: {
         city: [{
-          name: String, // equivalent to `(text) => text`
-          temp: text => parseInt(text),
-          conditions: String
+          name: value(),
+          temp: value(n => parseFloat(n)),
+          conditions: value()
         }]
       }
     }
   )
 ]);
 
-// Get back structured data:
 for await (const result of stream) {
   console.log(result);
   // {
   //   cities: {
   //     city: [
-  //       { name: "London", temp: 18, conditions: "cloudy with light rain" },
-  //       { name: "Paris", temp: 22, conditions: "partly sunny" }
+  //       { name: "London", temp: 18, conditions: "cloudy" },
+  //       { name: "Paris", temp: 22, conditions: "sunny" }
   //     ]
   //   }
   // }
 }
 ```
 
+## Why xmllm?
+
+Consider asking an AI about the weather. Traditional approaches force rigid structures:
+
+```javascript
+// Traditional "function calling" approach:
+getWeather({
+  cities: ["London", "Paris"],
+  fields: ["temperature", "conditions"]
+})
+```
+
+With xmllm, the AI can respond more naturally while still giving you structured data:
+
+```xml
+<response>
+  <city name="London">
+    <temp>18°C</temp>
+    <conditions>Cloudy with light rain expected later</conditions>
+    <note>Bring an umbrella!</note>
+  </city>
+  <city name="Paris">
+    <temp>22°C</temp>
+    <conditions>Partly sunny with mild winds</conditions>
+    <note>Perfect weather for cafés</note>
+  </city>
+</response>
+```
+
+xmllm solves common problems with AI responses:
+1. **Function Calling is Rigid**
+   - Forces LLMs into predefined function signatures
+   - Loses semantic richness of natural responses
+   - Hard to handle complex, nested data
+
+2. **JSON Parsing is Fragile**
+   - Easy for LLMs to generate invalid JSON
+   - No streaming support
+   - All-or-nothing parsing
+
+## Basic Usage
+
+### Schema Design
+
+Here are key principles for effective schemas:
+
+1. Use singular nouns for repeating elements:
+```javascript
+{
+  // Good - matches XML semantics
+  'user[]': {  // Each <user> is one user
+    name: value(),
+    'email[]': value(e => e.toLowerCase())  // Each <email> is one email
+  },
+  
+  // Bad - confusing semantics
+  'users[]': {
+    name: value(),
+    'emails[]': value()
+  }
+}
+```
+
+2. Keep schemas flat when possible:
+```javascript
+// Good - simple and clear
+{
+  'product[]': {
+    name: value(),
+    price: value(p => parseFloat(p))
+  }
+}
+
+// Avoid - unnecessarily nested
+{
+  products: {
+    list: {
+      'item[]': {
+        name: value(),
+        price: value(p => parseFloat(p))
+      }
+    }
+  }
+}
+```
+
+3. Use transformers effectively:
+```javascript
+{
+  user: {
+    // Simple cases: use value()
+    name: value(),
+    
+    // Numbers with validation
+    age: value(age => {
+      const n = parseInt(age);
+      return isNaN(n) ? null : n;
+    }),
+    
+    // Complex cases: custom transform
+    email: ({ $text, $attr }) => ({
+      address: $text.toLowerCase(),
+      verified: $attr.verified === 'true'
+    })
+  }
+}
+```
+
+### Working with Streams
+
+Choose the right streaming approach for your needs:
+
+```javascript
+// 1. Real-time updates (good for UX)
+const stream = xmllm(({ p }) => [
+  p('List three colors', {
+    'color[]': ({ $text, $closed }) => ({
+      value: $text,
+      complete: $closed
+    })
+  })
+]);
+
+// Shows interim states:
+// { value: "re", complete: false }
+// { value: "red", complete: true }
+
+// 2. Complete elements only (simpler logic)
+const stream = xmllm(({ pc }) => [
+  pc('List three colors', {
+    'color[]': String
+  })
+]);
+
+// Only shows final states:
+// { color: ["red", "blue", "green"] }
+```
+
+## Models & Providers
+
+xmllm supports multiple AI providers out of the box. The current model configurations can be found in [PROVIDERS.mjs](https://github.com/padolsey/xmllm/blob/main/src/PROVIDERS.mjs).
+
+```javascript
+const stream = xmllm(({ p }) => [
+  p({
+    messages: [...],
+    model: 'claude:fast'  // Use Claude's fast model
+  })
+]);
+```
+
+Currently supported providers and their models:
+
+- **Claude (Anthropic)**
+  - `claude:superfast` - claude-3-haiku-20240307
+  - `claude:fast` - claude-3-haiku-20240307  
+  - `claude:good` - claude-3-5-sonnet-20240620
+
+- **OpenAI**
+  - `openai:superfast` - gpt-4o-mini
+  - `openai:fast` - gpt-4o-mini
+  - `openai:good` - gpt-4o
+
+- **Together.ai**
+  - `togetherai:superfast` - Qwen/Qwen2.5-7B-Instruct-Turbo
+  - `togetherai:fast` - Qwen/Qwen2.5-7B-Instruct-Turbo
+  - `togetherai:good` - Qwen/Qwen2.5-72B-Instruct-Turbo
+
+- **Perplexity AI**
+  - `perplexityai:superfast` - llama-3.1-sonar-small-128k-chat
+  - `perplexityai:fast` - llama-3.1-sonar-small-128k-chat
+  - `perplexityai:good` - llama-3.1-sonar-large-128k-chat
+
+> **Note:** We will be updating this at some point, likely deprecating the hard-coded models, as it's really not within the remit of xmllm to have hard-coded lists of models. Different providers frequently change models and we don't want to have to keep up with that.
+
+### Custom Models (This is best!)
+
+Use newer or custom models:
+
+```javascript
+// Simple string syntax
+xmllm(({ p }) => [
+  p({
+    messages: [...],
+    model: 'claude:claude-3-haiku-20240901'
+  })
+]);
+
+// Advanced configuration
+xmllm(({ p }) => [
+  p({
+    messages: [...],
+    model: {
+      inherit: 'claude',
+      name: 'claude-3-haiku-20240901',
+      maxContextSize: 200_000,
+      endpoint: 'https://custom-endpoint.com',
+      key: 'your-api-key',
+      constraints: {
+        rpmLimit: 50
+      }
+    }
+  })
+]);
+```
+
+### Provider Fallbacks
+
+Specify multiple providers as fallbacks:
+
+```javascript
+xmllm(({ p }) => [
+  p({
+    messages: [...],
+    model: [
+      'claude:fast',     // Try Claude first
+      'openai:fast',     // Then OpenAI
+      'togetherai:fast'  // Finally TogetherAI
+    ]
+  })
+]);
+```
+
+## Advanced Features
+
+### Pipeline Operations
+
+Available operations:
+- `p` - Alias for `prompt`: Get data from AI
+- `pc` - Alias for `promptClosed`: Get complete elements only
+- `r` - Alias for `req`: Make raw request to AI
+- `map`: Transform data
+- `filter`: Filter results
+- `reduce`: Reduce multiple results
+- `accrue`: Collect all results
+- `tap`: Side effects
+- `waitUntil`: Wait for condition
+- `mergeAggregate`: Combine parallel results
+
+Example:
+```javascript
+const stream = xmllm(({ p, map, filter }) => [
+  p('List colors'),
+  map(data => transform(data)),
+  filter(item => item.valid)
+]);
+```
+
 ### Client-Side Usage
 
-For browser environments, use the proxy server to handle API keys:
+For browser environments:
 
 1. Start proxy:
 ```bash
@@ -67,288 +391,63 @@ const client = new ClientProvider('http://localhost:3124/api/stream');
 const stream = xmllm(({ p }) => [...], client);
 ```
 
-## Core Concepts
+## Resilience & Error Handling
 
-### Schemas and Data Flow
+### Provider Fallbacks & Retries
 
-Schemas define both the expected XML structure and how you'll receive the data in your pipeline. When using repeating elements (arrays), use the singular form as that's how you'll access the data:
-
-```javascript
-const stream = xmllm(({ p }) => [
-  p('List three colors', {
-    'color[]': String  // Note: singular 'color', not 'colors'
-  }),
-  async function*(chunk) {
-    console.log(chunk);
-    // Chunks might look like:
-    // { color: ['red'] }                    // Complete color
-    // { color: ['blue', 'green'] }          // Two complete colors
-    // { color: ['yellow (still typing)'] }  // Incomplete color
-    yield chunk;
-  }
-]);
-
-// With promptClosed (pc), you'll get complete elements only:
-const stream = xmllm(({ pc }) => [
-  pc('List three colors', {
-    'color[]': String
-  }),
-  async function*(chunk) {
-    console.log(chunk);
-    // Will only receive complete colors:
-    // { color: ['red', 'blue', 'green'] }
-    yield chunk;
-  }
-]);
-```
-
-This pattern applies to nested structures too:
+xmllm implements multiple layers of resilience:
 
 ```javascript
-const stream = xmllm(({ p }) => [
-  p('List cities and their landmarks', {
-    'city[]': {            // Matches <city> elements
-      name: String,
-      'landmark[]': {      // Matches <landmark> elements within <city>
-        name: String,
-        year: Number
-      }
-    }
-  }),
-  async function*(chunk) {
-    console.log(chunk);
-    // Might receive:
-    // {
-    //   city: [{
-    //     name: 'Paris',
-    //     landmark: [{
-    //       name: 'Eiffel Tower',
-    //       year: 1889
-    //     }]
-    //   }]
-    // }
-    yield chunk;
-  }
-]);
-```
-
-The key points:
-1. Use singular names in schemas (`'city[]'` not `'cities[]'`)
-2. Access data using the same singular names (`chunk.city` not `chunk.cities`)
-3. With `prompt`/`p`, you may receive partial results as they stream in
-4. With `promptClosed`/`pc`, you'll only receive complete elements
-
-### Schema Design Best Practices
-
-1. Use singular nouns for repeating elements:
-   ```javascript
-   // Good - matches XML semantics:
-   {
-     'city[]': {  // Will match multiple <city> elements
-       name: String,
-       'email[]': String  // Will match multiple <email> elements
-     }
-   }
-
-   // Bad - confusing and doesn't match XML conventions:
-   {
-     'cities[]': {  // Would expect multiple <cities> elements?
-       name: String,
-       'emails[]': String  // Would expect multiple <emails> elements?
-     }
-   }
-   ```
-
-2. Keep schemas flat when possible
-3. Use transformers for data conversion:
-   ```javascript
-   {
-     temperature: Number,  // Converts to number
-     email: text => text.toLowerCase(),  // Custom transformation
-     active: text => text === 'true'  // Convert to boolean
-   }
-   ```
-
-4. Use attributes for metadata:
-   ```javascript
-   {
-     message: {
-       $id: Number,  // Matches id attribute
-       $type: String,  // Matches type attribute
-       _: String  // Matches element content
-     }
-   }
-   ```
-
-### Pipelines
-
-Pipelines are arrays of generator functions that process data step by step:
-
-```javascript
-const stream = xmllm(({ p, m, f }) => [
-  // 1. Get data from AI
-  p('List three colors'),
-  
-  // 2. Transform results
-  m(colors => colors.map(c => c.toUpperCase())),
-  
-  // 3. Filter if needed
-  f(c => c.length > 0)
-]);
-```
-
-### Streaming
-
-xmllm processes XML in chunks as it arrives from the AI. You can handle this in two ways:
-
-```javascript
-// 1. Get all results (closed tags only)
-const stream = xmllm(({ pc }) => [
-  pc(
-    'Generate a story',
-    {
-      story: {
-        title: String,
-        content: String
-      }
-    }
-  )
-]);
-
-// 2. Get partial results as they arrive
-const stream = xmllm(({ p }) => [
-  p(
-    'Generate a story',
-    {
-      story: {
-        title: String,
-        content: String
-      }
-    }
-  )
-]);
-```
-
-## Advanced Features
-
-### Pipeline Operations
-
-xmllm provides a rich set of pipeline operations with short aliases:
-
-```javascript
-const stream = xmllm(({ 
-  p,    // prompt
-  pc,   // promptClosed
-  ms,   // mapSelect
-  msc,  // mapSelectClosed
-  s,    // select
-  m,    // map
-  f,    // filter
-  r,    // reduce
-  a,    // accrue
-  t,    // tap
-  w,    // waitUntil
-  ma    // mergeAggregate
-}) => [
-  // Your pipeline here
-]);
-```
-
-### Result Accumulation
-
-Collect and process multiple results:
-
-```javascript
-const stream = xmllm(({ p, a, r }) => [
-  p('Generate 3 random numbers'),
-  a(),  // Collect all results
-  r((acc, nums) => acc + nums.reduce((s,n) => s + n, 0), 0)
-]);
-```
-
-### Parallel Processing
-
-Run multiple prompts in parallel:
-
-```javascript
-const stream = xmllm(({ p, ma }) => [
-  [
-    p('List colors'),
-    p('List shapes')
-  ],
-  ma((colors, shapes) => ({
-    combinations: colors.flatMap(c => 
-      shapes.map(s => `${c} ${s}`)
-    )
-  }))
-]);
-```
-
-### Provider Configuration
-
-Use multiple providers with fallbacks:
-
-```javascript
-const stream = xmllm(({ p }) => [
+xmllm(({ p }) => [
   p({
     messages: [...],
+    // Specify fallback chain
     model: [
-      'claude:fast',     // Try Claude first
-      'openai:fast',     // Then OpenAI
-      'togetherai:fast'  // Finally TogetherAI
-    ]
+      'claude:good',    // Try Claude first
+      'openai:good',    // Then OpenAI
+      'claude:fast',    // Then faster Claude model
+      'openai:fast'     // Finally faster OpenAI model
+    ],
+    // Configure retry behavior
+    retryMax: 3,              // Max retries per provider
+    retryStartDelay: 1000,    // Start with 1s delay
+    retryBackoffMultiplier: 2 // Double delay after each retry
   })
 ]);
 ```
 
-### Custom Endpoints
+Recovery strategies by error type:
+- **Rate Limits (429)**: Automatic retry with backoff
+- **Server Errors (500)**: Quick switch to next provider
+- **Auth Errors (401/403)**: Immediate skip to next provider
+- **Network Errors**: Retry with backoff
+- **Timeout Errors**: Retry with longer timeout
 
-Add your own OAI-compatible endpoints:
+### Rate Limiting
+
+xmllm implements default rate limits for development purposes. Note that these limits are conservative defaults and may not reflect your actual rate limits, which are determined by your provider and subscription tier.
+
+Default development limits:
+- Claude: 200 RPM
+- OpenAI: 200 RPM 
+- TogetherAI: 100 RPM
+- PerplexityAI: 100 RPM
+
+You can override these defaults:
 
 ```javascript
-const stream = xmllm(({ p }) => [
+xmllm(({ p }) => [
   p({
     messages: [...],
-    model: [{
-      inherit: 'openai',
-      name: 'local-llama',
-      endpoint: 'http://localhost:8000/v1/chat/completions',
-      key: 'local-key'
-    }]
+    model: 'claude:good',
+    constraints: {
+      rpmLimit: 50  // Override default RPM limit
+    }
   })
 ]);
 ```
 
-## Best Practices
-
-### Schema Design
-1. Use elements over attributes for main data
-2. Keep schemas flat when possible
-3. Use arrays with [] suffix
-4. Make transformers pure functions
-
-### Pipeline Design
-1. Keep pipelines focused and composable
-2. Handle errors appropriately
-3. Use streaming consciously
-4. Consider resource constraints
-
-### Error Handling
-```javascript
-try {
-  const stream = xmllm(({ p }) => [...]);
-  
-  for await (const chunk of stream) {
-    try {
-      console.log(chunk);
-    } catch (error) {
-      console.error('Processing error:', error);
-    }
-  }
-} catch (error) {
-  console.error('Pipeline error:', error);
-}
-```
+**Note:** The actual rate limits you encounter will be determined by your API provider and subscription tier. The defaults in xmllm are conservative estimates for development purposes only.
 
 ## License
 

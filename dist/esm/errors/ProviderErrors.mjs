@@ -77,4 +77,16 @@ var ProviderTimeoutError = /*#__PURE__*/function (_ProviderError4) {
   _inherits(ProviderTimeoutError, _ProviderError4);
   return _createClass(ProviderTimeoutError);
 }(ProviderError);
+export var ModelValidationError = /*#__PURE__*/function (_ProviderError5) {
+  function ModelValidationError(message, details) {
+    var _this6;
+    _classCallCheck(this, ModelValidationError);
+    _this6 = _callSuper(this, ModelValidationError, [message, 'MODEL_VALIDATION_ERROR', details === null || details === void 0 ? void 0 : details.provider]);
+    _this6.name = 'ModelValidationError';
+    _this6.details = details;
+    return _this6;
+  }
+  _inherits(ModelValidationError, _ProviderError5);
+  return _createClass(ModelValidationError);
+}(ProviderError);
 export { ProviderError, ProviderRateLimitError, ProviderAuthenticationError, ProviderNetworkError, ProviderTimeoutError };

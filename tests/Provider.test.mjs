@@ -1,12 +1,14 @@
 import { jest } from '@jest/globals';
 import Provider from '../src/Provider.mjs';
+import ProviderManager from '../src/ProviderManager.mjs';
 import xmllm from '../src/xmllm-main.mjs';
 import { createProvidersWithKeys } from '../src/PROVIDERS.mjs';
 import {
   ProviderRateLimitError,
   ProviderAuthenticationError,
   ProviderTimeoutError,
-  ProviderNetworkError
+  ProviderNetworkError,
+  ModelValidationError
 } from '../src/errors/ProviderErrors.mjs';
 
 describe('Provider Error Handling', () => {
@@ -341,5 +343,169 @@ describe('Provider API Key Configuration', () => {
         })
       })
     );
+  });
+});
+
+describe('Custom Model Support', () => {
+  let providerManager;
+  
+  beforeEach(() => {
+    providerManager = new ProviderManager();
+  });
+
+  test('handles string-based custom model names', () => {
+    const { provider, modelType } = providerManager.getProviderByPreference('claude:claude-3-omega-20240901');
+    
+    expect(provider.name).toBe('claude_custom');
+    expect(modelType).toBe('custom');
+    expect(provider.models.custom.name).toBe('claude-3-omega-20240901');
+    // Should inherit base provider properties
+    expect(provider.endpoint).toBe('https://api.anthropic.com/v1/messages');
+  });
+
+  test('handles object-based custom model configuration', () => {
+    const customConfig = {
+      inherit: 'claude',
+      name: 'claude-3-custom',
+      maxContextSize: 200_000,
+      endpoint: 'https://custom-endpoint.com',
+      key: 'custom-key',
+      constraints: {
+        rpmLimit: 50
+      }
+    };
+
+    const { provider, modelType } = providerManager.getProviderByPreference(customConfig);
+    
+    expect(provider.name).toBe('claude_custom');
+    expect(modelType).toBe('custom');
+    expect(provider.models.custom.name).toBe('claude-3-custom');
+    expect(provider.models.custom.maxContextSize).toBe(200_000);
+    expect(provider.endpoint).toBe('https://custom-endpoint.com');
+    expect(provider.key).toBe('custom-key');
+    expect(provider.constraints.rpmLimit).toBe(50);
+  });
+
+  test('inherits default properties when not specified', () => {
+    const { provider } = providerManager.getProviderByPreference({
+      inherit: 'claude',
+      name: 'claude-3-custom'
+    });
+
+    // Should inherit these from base claude provider
+    expect(provider.endpoint).toBe('https://api.anthropic.com/v1/messages');
+    expect(provider.constraints.rpmLimit).toBe(200);
+    expect(provider.models.custom.maxContextSize).toBe(100_000); // Inherited from fast model
+  });
+
+  test('custom headerGen and payloader functions', () => {
+    const customConfig = {
+      inherit: 'claude',
+      name: 'claude-3-custom',
+      headerGen: function() {
+        return {
+          'x-custom-header': 'value',
+          'x-api-key': this.key
+        };
+      },
+      payloader: function(payload) {
+        return {
+          ...payload,
+          custom_field: 'value'
+        };
+      }
+    };
+
+    const { provider } = providerManager.getProviderByPreference(customConfig);
+    
+    const headers = provider.headerGen();
+    expect(headers['x-custom-header']).toBe('value');
+
+    const payload = provider.payloader({ messages: [] });
+    expect(payload.custom_field).toBe('value');
+  });
+
+  test('throws error for invalid base provider', () => {
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'non-existent-provider',
+        name: 'custom-model'
+      });
+    }).toThrow('Base provider non-existent-provider not found');
+  });
+
+  test('validates required model name', () => {
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        // name missing
+      });
+    }).toThrow(ModelValidationError);
+  });
+
+  test('validates maxContextSize', () => {
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        maxContextSize: -1
+      });
+    }).toThrow('maxContextSize must be a positive number');
+
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        maxContextSize: 'invalid'
+      });
+    }).toThrow('maxContextSize must be a positive number');
+  });
+
+  test('validates constraints', () => {
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        constraints: {
+          rpmLimit: -1
+        }
+      });
+    }).toThrow('rpmLimit must be a positive number');
+
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        constraints: 'invalid'
+      });
+    }).toThrow('constraints must be an object');
+  });
+
+  test('validates endpoint URL', () => {
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        endpoint: 'not-a-url'
+      });
+    }).toThrow('Invalid endpoint URL');
+  });
+
+  test('validates function types', () => {
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        headerGen: 'not-a-function'
+      });
+    }).toThrow('headerGen must be a function');
+
+    expect(() => {
+      providerManager.getProviderByPreference({
+        inherit: 'claude',
+        name: 'test-model',
+        payloader: 'not-a-function'
+      });
+    }).toThrow('payloader must be a function');
   });
 }); 

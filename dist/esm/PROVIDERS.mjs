@@ -5,6 +5,7 @@ function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 import { config } from 'dotenv';
+import { ModelValidationError } from './errors/ProviderErrors.mjs';
 config({
   path: '.env'
 });
@@ -41,7 +42,7 @@ var taiStylePayloader = function taiStylePayloader(_ref2) {
     _ref2$max_tokens = _ref2.max_tokens,
     max_tokens = _ref2$max_tokens === void 0 ? 300 : _ref2$max_tokens,
     _ref2$stop = _ref2.stop,
-    stop = _ref2$stop === void 0 ? ['</s>', '[/INST]'] : _ref2$stop,
+    stop = _ref2$stop === void 0 ? ['', ''] : _ref2$stop,
     _ref2$temperature = _ref2.temperature,
     temperature = _ref2$temperature === void 0 ? 0.52 : _ref2$temperature,
     _ref2$top_p = _ref2.top_p,
@@ -195,4 +196,77 @@ export function createProvidersWithKeys() {
     newProviders.perplexityai.key = keys.PERPLEXITY_API_KEY;
   }
   return newProviders;
+}
+export function createCustomModel(baseProvider, config) {
+  var _baseProvider$models;
+  // Required fields
+  if (!config.name) {
+    throw new ModelValidationError('Model name is required', {
+      provider: baseProvider.name
+    });
+  }
+
+  // Validate maxContextSize
+  if (config.maxContextSize !== undefined) {
+    if (typeof config.maxContextSize !== 'number' || config.maxContextSize <= 0) {
+      throw new ModelValidationError('maxContextSize must be a positive number', {
+        provider: baseProvider.name,
+        value: config.maxContextSize
+      });
+    }
+  }
+
+  // Validate constraints
+  if (config.constraints) {
+    if (_typeof(config.constraints) !== 'object') {
+      throw new ModelValidationError('constraints must be an object', {
+        provider: baseProvider.name
+      });
+    }
+    if (config.constraints.rpmLimit !== undefined) {
+      if (typeof config.constraints.rpmLimit !== 'number' || config.constraints.rpmLimit <= 0) {
+        throw new ModelValidationError('rpmLimit must be a positive number', {
+          provider: baseProvider.name,
+          value: config.constraints.rpmLimit
+        });
+      }
+    }
+  }
+
+  // Validate endpoint if provided
+  if (config.endpoint !== undefined) {
+    try {
+      new URL(config.endpoint);
+    } catch (e) {
+      throw new ModelValidationError('Invalid endpoint URL', {
+        provider: baseProvider.name,
+        value: config.endpoint
+      });
+    }
+  }
+
+  // Validate functions
+  if (config.headerGen && typeof config.headerGen !== 'function') {
+    throw new ModelValidationError('headerGen must be a function', {
+      provider: baseProvider.name
+    });
+  }
+  if (config.payloader && typeof config.payloader !== 'function') {
+    throw new ModelValidationError('payloader must be a function', {
+      provider: baseProvider.name
+    });
+  }
+  return _objectSpread(_objectSpread({}, baseProvider), {}, {
+    endpoint: config.endpoint || baseProvider.endpoint,
+    key: config.key || baseProvider.key,
+    headerGen: config.headerGen || baseProvider.headerGen,
+    payloader: config.payloader || baseProvider.payloader,
+    constraints: _objectSpread(_objectSpread({}, baseProvider.constraints), config.constraints || {}),
+    models: {
+      custom: {
+        name: config.name,
+        maxContextSize: config.maxContextSize || ((_baseProvider$models = baseProvider.models) === null || _baseProvider$models === void 0 || (_baseProvider$models = _baseProvider$models.fast) === null || _baseProvider$models === void 0 ? void 0 : _baseProvider$models.maxContextSize)
+      }
+    }
+  });
 }

@@ -51,6 +51,9 @@ var Provider = /*#__PURE__*/function () {
     this.payloader = details.payloader || this.defaultPayloader;
     this.headerGen = details.headerGen || this.defaultHeaderGen;
     this.rpmLimit = ((_details$constraints = details.constraints) === null || _details$constraints === void 0 ? void 0 : _details$constraints.rpmLimit) || 1e6;
+    this.constraints = details.constraints || {
+      rpmLimit: this.rpmLimit
+    };
 
     // Configurable properties with more sensible defaults or overrides
     this.REQUEST_TIMEOUT_MS = configOverrides.REQUEST_TIMEOUT_MS || 50000;
@@ -647,7 +650,7 @@ var Provider = /*#__PURE__*/function () {
       var modelType = customPayload.model || 'fast';
       var model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
       if (!model) {
-        throw new ModelValidationError("No valid model found for provider: ".concat(this.name), {
+        throw new _ProviderErrors.ModelValidationError("No valid model found for provider: ".concat(this.name), {
           provider: this.name,
           availableModels: Object.keys(this.models)
         });

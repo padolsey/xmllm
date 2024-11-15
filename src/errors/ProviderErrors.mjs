@@ -57,6 +57,14 @@ class ProviderTimeoutError extends ProviderError {
   }
 }
 
+export class ModelValidationError extends ProviderError {
+  constructor(message, details) {
+    super(message, 'MODEL_VALIDATION_ERROR', details?.provider);
+    this.name = 'ModelValidationError';
+    this.details = details;
+  }
+}
+
 export {
   ProviderError,
   ProviderRateLimitError,

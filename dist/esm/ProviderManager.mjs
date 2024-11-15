@@ -17,7 +17,7 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-import PROVIDERS from './PROVIDERS.mjs';
+import PROVIDERS, { createCustomModel } from './PROVIDERS.mjs';
 import Provider from './Provider.mjs';
 import Logger from './Logger.mjs';
 var logger = new Logger('ProviderManager');
@@ -29,6 +29,15 @@ var ProviderManager = /*#__PURE__*/function () {
   function ProviderManager() {
     _classCallCheck(this, ProviderManager);
     this.providers = {};
+    this.fallbackConfig = {
+      maxRetriesPerProvider: 3,
+      baseRetryDelay: 1000,
+      backoffMultiplier: 2,
+      fatalErrorCodes: ['AUTH_ERROR'],
+      maxRetries500: 1,
+      // Max retries for 500 errors
+      skipProviderOn500: true // Whether to skip to next provider on 500
+    };
     for (var _i = 0, _Object$entries = Object.entries(PROVIDERS); _i < _Object$entries.length; _i++) {
       var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
         name = _Object$entries$_i[0],
@@ -46,27 +55,34 @@ var ProviderManager = /*#__PURE__*/function () {
       var _preference$split = preference.split(':'),
         _preference$split2 = _slicedToArray(_preference$split, 2),
         providerName = _preference$split2[0],
-        modelType = _preference$split2[1];
-      modelType = modelType || DEFAULT_MODEL_TYPE;
+        modelName = _preference$split2[1];
       var provider = this.providers[providerName];
       if (!provider) {
         throw new Error("Provider ".concat(providerName, " not found"));
       }
-      if (!provider.models[modelType]) {
-        throw new Error("Model ".concat(modelType, " not found for provider ").concat(providerName));
+
+      // If it's a predefined model type (fast, good, etc)
+      if (provider.models[modelName]) {
+        return {
+          provider: provider,
+          modelType: modelName
+        };
       }
-      return {
-        provider: provider,
-        modelType: modelType
-      };
+
+      // If it's a custom model name, create a custom provider
+      return this.createCustomProvider({
+        inherit: providerName,
+        name: modelName
+      });
     }
   }, {
     key: "pickProviderWithFallback",
     value: function () {
       var _pickProviderWithFallback = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(payload, action) {
-        var preferredProviders, lastError, MAX_RETRIES_PER_PROVIDER, retryDelay, backoffMultiplier, _iterator, _step, preference, _this$getProviderByPr, provider, modelType, retry;
-        return _regeneratorRuntime().wrap(function _callee$(_context) {
-          while (1) switch (_context.prev = _context.next) {
+        var _lastError;
+        var preferredProviders, lastError, MAX_RETRIES_PER_PROVIDER, retryDelay, backoffMultiplier, _iterator, _step, preference, _this$getProviderByPr, provider, modelType, consecutiveServerErrors, isOnlyProvider, _loop, _ret, retry;
+        return _regeneratorRuntime().wrap(function _callee$(_context2) {
+          while (1) switch (_context2.prev = _context2.next) {
             case 0:
               preferredProviders = payload.model ? Array.isArray(payload.model) ? payload.model : [payload.model] : DEFAULT_PREFERRED_PROVIDERS;
               lastError = null;
@@ -74,78 +90,157 @@ var ProviderManager = /*#__PURE__*/function () {
               retryDelay = payload.retryStartDelay || 1000;
               backoffMultiplier = payload.retryBackoffMultiplier || 2;
               _iterator = _createForOfIteratorHelper(preferredProviders);
-              _context.prev = 6;
+              _context2.prev = 6;
               _iterator.s();
             case 8:
               if ((_step = _iterator.n()).done) {
-                _context.next = 40;
+                _context2.next = 35;
                 break;
               }
               preference = _step.value;
-              _context.prev = 10;
+              _context2.prev = 10;
               _this$getProviderByPr = this.getProviderByPreference(preference), provider = _this$getProviderByPr.provider, modelType = _this$getProviderByPr.modelType;
               logger.log('Trying provider', provider.name, 'with model', modelType);
-              retry = 0;
-            case 14:
-              if (!(retry < MAX_RETRIES_PER_PROVIDER)) {
-                _context.next = 32;
-                break;
-              }
-              _context.prev = 15;
-              _context.next = 18;
-              return action(provider, _objectSpread(_objectSpread({}, payload), {}, {
-                model: modelType
-              }));
-            case 18:
-              return _context.abrupt("return", _context.sent);
-            case 21:
-              _context.prev = 21;
-              _context.t0 = _context["catch"](15);
-              logger.error("Error from provider ".concat(provider.name, " (attempt ").concat(retry + 1, "): ").concat(_context.t0.message));
-              lastError = "".concat(provider.name, " failed: ").concat(_context.t0.message);
-              if (!(retry < MAX_RETRIES_PER_PROVIDER - 1)) {
-                _context.next = 29;
-                break;
-              }
-              _context.next = 28;
-              return new Promise(function (resolve) {
-                return setTimeout(resolve, retryDelay);
+              consecutiveServerErrors = 0;
+              isOnlyProvider = preferredProviders.length === 1;
+              _loop = /*#__PURE__*/_regeneratorRuntime().mark(function _loop() {
+                var currentDelay;
+                return _regeneratorRuntime().wrap(function _loop$(_context) {
+                  while (1) switch (_context.prev = _context.next) {
+                    case 0:
+                      _context.prev = 0;
+                      _context.next = 3;
+                      return action(provider, _objectSpread(_objectSpread({}, payload), {}, {
+                        model: modelType
+                      }));
+                    case 3:
+                      _context.t0 = _context.sent;
+                      return _context.abrupt("return", {
+                        v: _context.t0
+                      });
+                    case 7:
+                      _context.prev = 7;
+                      _context.t1 = _context["catch"](0);
+                      logger.error("Error from provider ".concat(provider.name, " (attempt ").concat(retry + 1, "):"), _context.t1);
+                      lastError = _context.t1;
+
+                      // Don't retry auth errors regardless of fallback availability
+                      if (!(_context.t1 instanceof ProviderAuthenticationError)) {
+                        _context.next = 14;
+                        break;
+                      }
+                      logger.warn("Authentication error for ".concat(provider.name, ", skipping retries"));
+                      return _context.abrupt("return", 0);
+                    case 14:
+                      if (!(_context.t1.statusCode === 500)) {
+                        _context.next = 27;
+                        break;
+                      }
+                      consecutiveServerErrors++;
+
+                      // If this is our only provider option, be more persistent
+                      if (!isOnlyProvider) {
+                        _context.next = 22;
+                        break;
+                      }
+                      if (!(consecutiveServerErrors >= 5)) {
+                        _context.next = 20;
+                        break;
+                      }
+                      logger.warn("Provider ".concat(provider.name, " returned 5 consecutive 500 errors with no fallback available"));
+                      return _context.abrupt("return", 0);
+                    case 20:
+                      _context.next = 25;
+                      break;
+                    case 22:
+                      if (!(consecutiveServerErrors >= 2)) {
+                        _context.next = 25;
+                        break;
+                      }
+                      logger.warn("Provider ".concat(provider.name, " returned multiple 500 errors, trying next provider"));
+                      return _context.abrupt("return", 0);
+                    case 25:
+                      _context.next = 28;
+                      break;
+                    case 27:
+                      consecutiveServerErrors = 0; // Reset counter for non-500 errors
+                    case 28:
+                      if (!(retry < MAX_RETRIES_PER_PROVIDER - 1)) {
+                        _context.next = 34;
+                        break;
+                      }
+                      currentDelay = isOnlyProvider ? Math.min(retryDelay, 5000) // Cap delay at 5s if it's our only option
+                      : retryDelay;
+                      logger.info("Retrying ".concat(provider.name, " in ").concat(currentDelay, "ms... (").concat(isOnlyProvider ? 'no fallbacks available' : 'has fallbacks', ")"));
+                      _context.next = 33;
+                      return new Promise(function (resolve) {
+                        return setTimeout(resolve, currentDelay);
+                      });
+                    case 33:
+                      retryDelay *= backoffMultiplier;
+                    case 34:
+                    case "end":
+                      return _context.stop();
+                  }
+                }, _loop, null, [[0, 7]]);
               });
-            case 28:
-              retryDelay *= backoffMultiplier;
-            case 29:
+              retry = 0;
+            case 17:
+              if (!(retry < MAX_RETRIES_PER_PROVIDER)) {
+                _context2.next = 27;
+                break;
+              }
+              return _context2.delegateYield(_loop(), "t0", 19);
+            case 19:
+              _ret = _context2.t0;
+              if (!(_ret === 0)) {
+                _context2.next = 22;
+                break;
+              }
+              return _context2.abrupt("break", 27);
+            case 22:
+              if (!_ret) {
+                _context2.next = 24;
+                break;
+              }
+              return _context2.abrupt("return", _ret.v);
+            case 24:
               retry++;
-              _context.next = 14;
+              _context2.next = 17;
               break;
-            case 32:
-              logger.warn("All retries failed for provider ".concat(provider.name, ", moving to next provider"));
-              _context.next = 38;
+            case 27:
+              if (isOnlyProvider) {
+                logger.error("All retries failed for ".concat(provider.name, " with no fallback options available"));
+              } else {
+                logger.warn("All retries failed for provider ".concat(provider.name, ", moving to next provider"));
+              }
+              _context2.next = 33;
+              break;
+            case 30:
+              _context2.prev = 30;
+              _context2.t1 = _context2["catch"](10);
+              logger.error("Error picking preferred provider: ".concat(_context2.t1.message));
+            case 33:
+              _context2.next = 8;
               break;
             case 35:
-              _context.prev = 35;
-              _context.t1 = _context["catch"](10);
-              logger.error("Error picking preferred provider: ".concat(_context.t1.message));
-            case 38:
-              _context.next = 8;
+              _context2.next = 40;
               break;
+            case 37:
+              _context2.prev = 37;
+              _context2.t2 = _context2["catch"](6);
+              _iterator.e(_context2.t2);
             case 40:
-              _context.next = 45;
-              break;
-            case 42:
-              _context.prev = 42;
-              _context.t2 = _context["catch"](6);
-              _iterator.e(_context.t2);
-            case 45:
-              _context.prev = 45;
+              _context2.prev = 40;
               _iterator.f();
-              return _context.finish(45);
-            case 48:
-              throw new Error(lastError || 'All providers failed to fulfill the request.');
-            case 49:
+              return _context2.finish(40);
+            case 43:
+              throw new Error(((_lastError = lastError) === null || _lastError === void 0 ? void 0 : _lastError.message) || "All providers failed to fulfill the request".concat(preferredProviders.length === 1 ? ' (no fallbacks were available)' : ''));
+            case 44:
             case "end":
-              return _context.stop();
+              return _context2.stop();
           }
-        }, _callee, this, [[6, 42, 45, 48], [10, 35], [15, 21]]);
+        }, _callee, this, [[6, 37, 40, 43], [10, 30]]);
       }));
       function pickProviderWithFallback(_x, _x2) {
         return _pickProviderWithFallback.apply(this, arguments);
@@ -156,15 +251,15 @@ var ProviderManager = /*#__PURE__*/function () {
     key: "request",
     value: function () {
       var _request = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
-        return _regeneratorRuntime().wrap(function _callee2$(_context2) {
-          while (1) switch (_context2.prev = _context2.next) {
+        return _regeneratorRuntime().wrap(function _callee2$(_context3) {
+          while (1) switch (_context3.prev = _context3.next) {
             case 0:
-              return _context2.abrupt("return", this.pickProviderWithFallback(payload, function (provider, updatedPayload) {
+              return _context3.abrupt("return", this.pickProviderWithFallback(payload, function (provider, updatedPayload) {
                 return provider.makeRequest(updatedPayload);
               }));
             case 1:
             case "end":
-              return _context2.stop();
+              return _context3.stop();
           }
         }, _callee2, this);
       }));
@@ -177,15 +272,15 @@ var ProviderManager = /*#__PURE__*/function () {
     key: "streamRequest",
     value: function () {
       var _streamRequest = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(payload) {
-        return _regeneratorRuntime().wrap(function _callee3$(_context3) {
-          while (1) switch (_context3.prev = _context3.next) {
+        return _regeneratorRuntime().wrap(function _callee3$(_context4) {
+          while (1) switch (_context4.prev = _context4.next) {
             case 0:
-              return _context3.abrupt("return", this.pickProviderWithFallback(payload, function (provider, updatedPayload) {
+              return _context4.abrupt("return", this.pickProviderWithFallback(payload, function (provider, updatedPayload) {
                 return provider.createStream(updatedPayload);
               }));
             case 1:
             case "end":
-              return _context3.stop();
+              return _context4.stop();
           }
         }, _callee3, this);
       }));
@@ -197,28 +292,28 @@ var ProviderManager = /*#__PURE__*/function () {
   }, {
     key: "createCustomProvider",
     value: function createCustomProvider(customConfig) {
-      // Useful when wishing to 'inherit' from a traditional provider
-      // E.g. using the OpenAI protocol
-
       var inherit = customConfig.inherit,
         name = customConfig.name,
         endpoint = customConfig.endpoint,
-        key = customConfig.key;
+        key = customConfig.key,
+        maxContextSize = customConfig.maxContextSize,
+        headerGen = customConfig.headerGen,
+        payloader = customConfig.payloader,
+        constraints = customConfig.constraints;
       var baseProvider = this.providers[inherit];
       if (!baseProvider) {
         throw new Error("Base provider ".concat(inherit, " not found for custom configuration"));
       }
 
       // Create a new provider instance with custom settings
-      var customProvider = new Provider("".concat(inherit, "_custom"), _objectSpread(_objectSpread({}, baseProvider), {}, {
-        endpoint: endpoint || baseProvider.endpoint,
-        key: key || baseProvider.key,
-        models: {
-          custom: {
-            name: name
-          }
-        },
-        constraints: baseProvider.constraints
+      var customProvider = new Provider("".concat(inherit, "_custom"), createCustomModel(baseProvider, {
+        name: name,
+        endpoint: endpoint,
+        key: key,
+        maxContextSize: maxContextSize,
+        headerGen: headerGen,
+        payloader: payloader,
+        constraints: constraints
       }));
       return {
         provider: customProvider,
