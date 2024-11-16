@@ -1,14 +1,13 @@
 {
   "name": "xmllm",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "main": "./dist/cjs/xmllm-main.js",
   "module": "./dist/esm/xmllm-main.mjs",
-  "types": "./index.d.ts",
+  "types": "index.d.ts",
   "files": [
     "src",
     "dist",
-    "index.d.ts",
-    "xmllm-client.d.ts"
+    "index.d.ts"
   ],
   "scripts": {
     "build": "npm run build:cjs && npm run build:esm",
@@ -62,8 +61,8 @@
     "babel-plugin-transform-import-extension": "^1.0.3",
     "cross-env": "^7.0.3",
     "jest-environment-jsdom": "^29.7.0",
+    "typescript": "^5.6.3",
     "webpack": "^5.94.0",
-    "webpack-cli": "^5.1.4",
-    "concurrently": "^8.2.0"
+    "webpack-cli": "^5.1.4"
   }
 }

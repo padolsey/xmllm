@@ -91,9 +91,63 @@ for await (const complete of closedStream) {
 npm install xmllm
 ```
 
+### API Keys & Configuration
+
+xmllm supports multiple AI providers and models. Each provider requires its own API key:
+
+| Provider | Environment Variable | Models |
+|----------|---------------------|---------|
+| Claude (Anthropic) | `ANTHROPIC_API_KEY` | `claude:superfast` (claude-3-haiku)<br>`claude:fast` (claude-3-haiku)<br>`claude:good` (claude-3-sonnet) |
+| OpenAI | `OPENAI_API_KEY` | `openai:superfast` (gpt-4-turbo)<br>`openai:fast` (gpt-4-turbo)<br>`openai:good` (gpt-4) |
+| Together.ai | `TOGETHERAI_API_KEY` | `togetherai:superfast` (Qwen 7B)<br>`togetherai:fast` (Qwen 7B)<br>`togetherai:good` (Qwen 72B) |
+| Perplexity | `PERPLEXITYAI_API_KEY` | `perplexityai:superfast` (sonar-small-chat)<br>`perplexityai:fast` (sonar-small-chat)<br>`perplexityai:good` (sonar-large-chat) |
+
+You can configure API keys in two ways:
+
+1. **Environment Variables**
+```bash
+# Create a .env file in your project root
+ANTHROPIC_API_KEY=your_claude_key
+OPENAI_API_KEY=your_openai_key
+TOGETHERAI_API_KEY=your_together_key
+PERPLEXITYAI_API_KEY=your_perplexity_key
+```
+
+2. **Runtime Configuration**
 ```javascript
 import { xmllm } from 'xmllm';
 
+// Pass API keys when creating xmllm instance
+const stream = xmllm(({ p }) => [...], {
+  apiKeys: {
+    ANTHROPIC_API_KEY: 'your_claude_key',
+    OPENAI_API_KEY: 'your_openai_key',
+    TOGETHERAI_API_KEY: 'your_together_key',
+    PERPLEXITYAI_API_KEY: 'your_perplexity_key'
+  }
+});
+```
+
+You only need to provide keys for the providers you plan to use. For example, if you're only using Claude:
+
+```javascript
+const stream = xmllm(({ p }) => [
+  p('What is the weather like?', {
+    weather: {
+      temp: Number,
+      condition: String
+    }
+  })
+], {
+  apiKeys: {
+    ANTHROPIC_API_KEY: 'your_claude_key'
+  }
+});
+```
+
+### Basic Usage
+
+```javascript
 const stream = xmllm(({ p, value }) => [
   p(
     "What's the weather like in London and Paris?",
@@ -370,25 +424,98 @@ const stream = xmllm(({ p, map, filter }) => [
 ]);
 ```
 
-### Client-Side Usage
+### Client-Side Usage & Proxy Server
 
-For browser environments:
+When using xmllm in a browser environment, you'll need to run a proxy server to handle API requests. This is necessary because:
 
-1. Start proxy:
+1. API keys should not be exposed in client-side code
+2. CORS restrictions may prevent direct API calls
+3. Rate limiting and request management is better handled server-side
+
+### Setting Up the Proxy
+
+1. **Configure API Keys**
+
+Create a `.env` file in your project root with your API keys:
 ```bash
-# Create .env with your API keys
+# Required - at least one provider's API key
 ANTHROPIC_API_KEY=your_claude_key
 OPENAI_API_KEY=your_openai_key
-
-npm run proxy
+TOGETHERAI_API_KEY=your_together_key
+PERPLEXITYAI_API_KEY=your_perplexity_key
 ```
 
-2. Use in browser:
+2. **Start the Server**
+
+The proxy can be started in two ways:
+
+a) **Command Line**
+```bash
+# Basic start
+npm run proxy
+
+# With configuration options
+npm run proxy -- \
+  --port=4000 \
+  --corsOrigins=http://localhost:3000,https://yourdomain.com \
+  --maxRequestSize=10mb \
+  --timeout=30000 \
+  --debug \
+  --verbose
+
+# Environment variables are also supported
+PORT=4000 DEBUG=true npm run proxy
+```
+
+Available command line options:
+- `--port`: Server port (default: 3124)
+- `--corsOrigins`: Allowed CORS origins (comma-separated)
+- `--maxRequestSize`: Maximum request size (e.g., "10mb")
+- `--timeout`: Request timeout in ms (default: 30000)
+- `--debug`: Enable debug logging
+- `--verbose`: Enable verbose logging
+
+Environment variables:
+- `PORT`: Server port
+- `DEBUG`: Enable debug mode
+
+b) **Programmatic Usage**
+```javascript
+import createServer from 'xmllm/proxy';
+
+createServer({
+  port: 4000,
+  corsOrigins: 'http://localhost:3000,https://yourdomain.com',
+  maxRequestSize: '10mb',
+  timeout: 30000,
+  debug: true,
+  verbose: true
+});
+```
+
+### Using xmllm with the Proxy
+
+Once your proxy is running, you can use xmllm in your browser code:
+
 ```javascript
 import { xmllm, ClientProvider } from 'xmllm/client';
 
+// Connect to your proxy server
 const client = new ClientProvider('http://localhost:3124/api/stream');
-const stream = xmllm(({ p }) => [...], client);
+
+// Use xmllm as normal
+const stream = xmllm(({ p }) => [
+  p('What is the weather like?', {
+    weather: {
+      temp: Number,
+      condition: String
+    }
+  })
+], client);
+
+for await (const update of stream) {
+  console.log(update);
+}
 ```
 
 ## Resilience & Error Handling

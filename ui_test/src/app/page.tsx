@@ -118,7 +118,7 @@ export default function Home() {
 
     try {
       // Create a function from the code string and execute it
-      const code = editedCode || tests[selectedTest].code
+      const code = editedCode || tests[selectedTest as keyof typeof tests].code
       const fn = new Function('xmllm', 'clientProvider', 'setOutput', `
         return (async () => {
           try {
@@ -181,8 +181,8 @@ export default function Home() {
               <div className="bg-card border border-border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="font-bold text-lg">{tests[selectedTest].name}</h2>
-                    <p className="text-muted-foreground">{tests[selectedTest].description}</p>
+                    <h2 className="font-bold text-lg">{tests[selectedTest as keyof typeof tests].name}</h2>
+                    <p className="text-muted-foreground">{tests[selectedTest as keyof typeof tests].description}</p>
                   </div>
                   <button
                     onClick={runTest}
@@ -210,7 +210,7 @@ export default function Home() {
                   </div>
                   <div className="h-[500px] overflow-auto"> 
                     <CodeMirror
-                      value={editedCode || tests[selectedTest].code}
+                      value={editedCode || tests[selectedTest as keyof typeof tests].code}
                       height="500px"
                       theme={theme === 'dark' ? oneDark : undefined}
                       extensions={[javascript({ jsx: true })]}
