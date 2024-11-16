@@ -53,6 +53,7 @@ export interface PromptConfig {
   constraints?: {
     rpmLimit?: number;
   };
+  schema?: SchemaType;
 }
 
 export interface XMLElement {
