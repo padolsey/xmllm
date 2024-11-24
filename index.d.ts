@@ -1,27 +1,17 @@
-// First define the ClientProvider interface
-export interface IClientProvider {
-  createStream(payload: any): Promise<ReadableStream>;
+// Core interfaces
+export interface XMLElement {
+  $text: string;
+  $attr: Record<string, string>;
+  $key: number;
+  $closed: boolean;
 }
 
-// Use it in the options interface
-export interface ClientXmllmOptions extends XmllmOptions {
-  clientProvider: IClientProvider | string;
+export interface Message {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
-// Export the actual class
-export class ClientProvider implements IClientProvider {
-  constructor(endpoint?: string);
-  createStream(payload: any): Promise<ReadableStream>;
-}
-
-// Export the client xmllm function
-export function xmllmClient<T = any>(
-  pipelineFn: (helpers: PipelineHelpers) => any[],
-  clientProvider: ClientProvider | string,
-  options?: Omit<XmllmOptions, 'clientProvider'>
-): AsyncGenerator<T>;
-
-// Core types
+// Configuration interfaces
 export interface XmllmOptions {
   apiKeys?: {
     ANTHROPIC_API_KEY?: string;
@@ -34,36 +24,18 @@ export interface XmllmOptions {
   streamConfig?: StreamConfig;
 }
 
-// Pipeline types
-export interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface PromptConfig {
-  messages?: Message[];
-  system?: string;
-  model?: ModelPreference;
-  max_tokens?: number;
-  temperature?: number;
-  cache?: boolean;
+export interface StreamConfig {
+  timeout?: number;
+  forcedConcurrency?: number;
+  waitMessageString?: string;
+  waitMessageDelay?: number;
   retryMax?: number;
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
-  constraints?: {
-    rpmLimit?: number;
-  };
-  schema?: SchemaType;
+  fakeDelay?: number;
 }
 
-export interface XMLElement {
-  $text: string;
-  $attr: Record<string, string>;
-  $key: number;
-  $closed: boolean;
-}
-
-// Pipeline helper functions
+// Pipeline helper types
 export type PromptFn = (
   prompt: string | ((input: any) => string) | PromptConfig,
   schema?: SchemaType,
@@ -87,27 +59,6 @@ export type ValueFn = TextFn;
 export type WithAttrsFn = (fn: (text: string, attrs: Record<string, string>) => any) => (el: XMLElement) => any;
 export type WhenClosedFn = (fn: (el: XMLElement) => any) => (el: XMLElement) => any;
 
-// Schema types
-export type SchemaType = Record<string, any>;
-
-// Model types
-export type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai';
-export type ModelSpeed = 'superfast' | 'fast' | 'good';
-export type ModelString = `${ModelProvider}:${ModelSpeed}` | `${ModelProvider}:${string}`;
-
-export interface ModelConfig {
-  inherit: ModelProvider;
-  name: string;
-  maxContextSize?: number;
-  endpoint?: string;
-  key?: string;
-  constraints?: {
-    rpmLimit?: number;
-  };
-}
-
-export type ModelPreference = ModelString | ModelConfig | Array<ModelString | ModelConfig>;
-
 // Pipeline helpers interface
 export interface PipelineHelpers {
   p: PromptFn;
@@ -129,106 +80,81 @@ export interface PipelineHelpers {
   whenClosed: WhenClosedFn;
 }
 
-// Client types
-export interface ClientProviderConfig {
+// Model types
+export type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai';
+export type ModelSpeed = 'superfast' | 'fast' | 'good';
+export type ModelString = `${ModelProvider}:${ModelSpeed}` | `${ModelProvider}:${string}`;
+
+export interface ModelConfig {
+  inherit: ModelProvider;
+  name: string;
+  maxContextSize?: number;
   endpoint?: string;
+  key?: string;
+  constraints?: {
+    rpmLimit?: number;
+  };
 }
+
+export type ModelPreference = ModelString | ModelConfig | Array<ModelString | ModelConfig>;
+
+// Schema types
+export type SchemaType = Record<string, any>;
+
+// Add these new types
+export type PipelineFunction = 
+  | AsyncGenerator<any, any, any>
+  | Generator<any, any, any>
+  | AsyncGeneratorFunction
+  | GeneratorFunction
+  | Promise<any>
+  | ((input?: any) => AsyncGenerator<any, any, any>)
+  | ((input?: any) => Generator<any, any, any>)
+  | ((input?: any) => Promise<any>)
+  | ((input?: any) => any)  // Allow regular functions
+  | any;  // Allow raw values
 
 // Main xmllm function
 export default function xmllm<T = any>(
-  pipelineFn: (helpers: PipelineHelpers) => any[],
+  pipelineFn: (helpers: PipelineHelpers) => Array<PipelineFunction>,
   options?: XmllmOptions
 ): AsyncGenerator<T>;
 
-// Add these interfaces from provider.d.ts
-export interface Provider {
-  name: string;
-  endpoint: string;
-  key: string;
-  models: Record<string, {
-    name: string;
-    maxContextSize?: number;
-  }>;
-  constraints?: {
-    rpmLimit?: number;
-  };
-  makeRequest(payload: any): Promise<any>;
-  createStream(payload: any, retries?: number): Promise<ReadableStream>;
-  getHeaders(): Record<string, string>;
-  preparePayload(payload: any): any;
-}
-
-export interface ProviderConfig {
-  endpoint: string;
-  key: string;
-  models: Record<string, {
-    name: string;
-    maxContextSize?: number;
-  }>;
-  constraints?: {
-    rpmLimit?: number;
-  };
-  headerGen?: () => Record<string, string>;
-  payloader?: (payload: any) => any;
-}
-
-export interface ProviderManager {
-  getProviderByPreference(preference: ModelPreference): {
-    provider: Provider;
-    modelType: string;
-  };
-  request(payload: any): Promise<any>;
-  streamRequest(payload: any): Promise<ReadableStream>;
-}
-
-// Add these interfaces from cache.d.ts
-export interface CacheConfig {
-  maxSize?: number;
-  maxAge?: number;
-  maxEntrySize?: number;
-}
-
-export interface CacheEntry<T> {
-  value: T;
-  timestamp: number;
-  size: number;
-}
-
-export interface CacheService {
-  get(key: string): Promise<CacheEntry<any> | undefined>;
-  set(key: string, value: any): Promise<void>;
-  clear(): Promise<void>;
-}
-
-// Add these stream-related types
-export interface StreamManager {
-  createStream(stream: ReadableStream, res: any): Promise<void>;
-  handleTimeout(res: any): void;
-  handleError(res: any, error: Error): void;
-  cleanup(reader: ReadableStreamDefaultReader, res: any): void;
-  closeAll(): Promise<void>;
-}
-
-export interface StreamConfig {
-  timeout?: number;
-  forcedConcurrency?: number;
+// Stream function type
+export type StreamFunction = (payload: {
+  messages: Message[];
+  model: ModelPreference;
+  temperature?: number;
+  max_tokens?: number;
+  stream?: boolean;
+  cache?: boolean;
+  fakeDelay?: number;
   waitMessageString?: string;
   waitMessageDelay?: number;
   retryMax?: number;
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
-  fakeDelay?: number;
+  [key: string]: any;
+}) => Promise<ReadableStream>;
+
+// Add this with the other interfaces
+export interface PromptConfig {
+  messages?: Message[];
+  system?: string;
+  model?: ModelPreference;
+  max_tokens?: number;
+  temperature?: number;
+  cache?: boolean;
+  retryMax?: number;
+  retryStartDelay?: number;
+  retryBackoffMultiplier?: number;
+  constraints?: {
+    rpmLimit?: number;
+  };
+  schema?: SchemaType;
 }
 
-// Add Logger type since it's used throughout
-export interface Logger {
-  log(...args: any[]): void;
-  error(...args: any[]): void;
-  warn(...args: any[]): void;
-  dev(...args: any[]): void;
-}
-
-// Add validation error types
+// Add back error types
 export class ValidationError extends Error {
   code: string;
   details: any;
@@ -250,7 +176,7 @@ export class ParameterValidationError extends ValidationError {
   code: 'PARAMETER_VALIDATION_ERROR';
 }
 
-// Add ValidationService interface
+// Add back validation service interface
 export interface ValidationService {
   validateMessages(messages: Message[]): {
     systemMessage: string;
@@ -268,20 +194,49 @@ export interface ValidationService {
   }): boolean;
 }
 
-// Better type the Stream function
-export type StreamFunction = (payload: {
-  messages: Message[];
-  model: ModelPreference;
-  temperature?: number;
-  max_tokens?: number;
-  stream?: boolean;
-  cache?: boolean;
-  fakeDelay?: number;
-  waitMessageString?: string;
-  waitMessageDelay?: number;
-  retryMax?: number;
-  retryStartDelay?: number;
-  retryBackoffMultiplier?: number;
-  [key: string]: any;
-}) => Promise<ReadableStream>;
+// Add back provider interfaces
+export interface Provider {
+  name: string;
+  endpoint: string;
+  key: string;
+  models: Record<string, {
+    name: string;
+    maxContextSize?: number;
+  }>;
+  constraints?: {
+    rpmLimit?: number;
+  };
+  makeRequest(payload: any): Promise<any>;
+  createStream(payload: any, retries?: number): Promise<ReadableStream>;
+  getHeaders(): Record<string, string>;
+  preparePayload(payload: any): any;
+}
+
+export interface ProviderManager {
+  getProviderByPreference(preference: ModelPreference): {
+    provider: Provider;
+    modelType: string;
+  };
+  request(payload: any): Promise<any>;
+  streamRequest(payload: any): Promise<ReadableStream>;
+}
+
+// Add back cache interfaces
+export interface CacheConfig {
+  maxSize?: number;
+  maxAge?: number;
+  maxEntrySize?: number;
+}
+
+export interface CacheEntry<T> {
+  value: T;
+  timestamp: number;
+  size: number;
+}
+
+export interface CacheService {
+  get(key: string): Promise<CacheEntry<any> | undefined>;
+  set(key: string, value: any): Promise<void>;
+  clear(): Promise<void>;
+}
 

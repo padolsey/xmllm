@@ -4,15 +4,21 @@ import { selectOne, selectAll } from 'css-select';
 class Node {
 
   constructor(name, o) {
+    // super();
+    this.length = 0;
     this.__isNodeObj__ = true;
-    this.$key = o.key;
-    this.$attr = o.attr;
-    this.$text = o.text;
-    this.$closed = o.closed;
+    if (o) {
+      this.$key = o.key;
+      this.$attr = o.attr;
+      this.$text = o.text;
+      this.$closed = o.closed;
+      this.$children = o.children || [];
+      this.$name = name;
 
-    const { key, attr, text, closed, ...rest } = o;
-    
-    Object.assign(this, rest);
+      const { key, attr, text, closed, children, ...rest } = o;
+      
+      Object.assign(this, rest);
+    }
   }
 }
 
@@ -31,14 +37,21 @@ class IncomingXMLParserSelectorEngine {
           key: this.elementIndex++,
           type: 'tag',
           name,
-          attributes,
+          attribs: attributes,
           children: [],
           parent: this.openElements[this.openElements.length - 1] || null,
           closed: false,
-          textContent: ''
+          textContent: '',
+          prev: null,
+          next: null
         };
         
         if (element.parent) {
+          const siblings = element.parent.children;
+          element.prev = siblings[siblings.length - 1] || null;
+          if (element.prev) {
+            element.prev.next = element;
+          }
           element.parent.children.push(element);
         } else {
           this.parsedData.push(element);
@@ -49,10 +62,19 @@ class IncomingXMLParserSelectorEngine {
       ontext: (text) => {
         if (this.openElements.length > 0) {
           const currentElement = this.openElements[this.openElements.length - 1];
-          currentElement.children.push({
+          const textNode = {
             type: 'text',
             data: text,
-          });
+            parent: currentElement,
+            prev: currentElement.children[currentElement.children.length - 1] || null,
+            next: null
+          };
+          
+          if (textNode.prev) {
+            textNode.prev.next = textNode;
+          }
+          
+          currentElement.children.push(textNode);
         }
       },
       onclosetag: (name) => {
@@ -111,17 +133,20 @@ class IncomingXMLParserSelectorEngine {
     }, '');
   }
 
-  select(selector) {
-    const results = selectAll(selector, this.parsedData).filter(el => el.closed);
-    return this.formatResults(results);
+  select(selector, includeOpenTags = false) {
+    const results = selectAll(selector, this.parsedData).filter(el => includeOpenTags || el.closed);
+    return this.formatResults(results, includeOpenTags);
   }
 
   dedupeSelect(selector, includeOpenTags = false) {
+
     if (!this.returnedElementSignatures.has(selector)) {
       this.returnedElementSignatures.set(selector, new Map());
     }
     
-    const results = selectAll(selector, this.parsedData).filter(el => includeOpenTags || el.closed);
+    const unfilteredResults = selectAll(selector, this.parsedData);
+    const results = unfilteredResults.filter(el => includeOpenTags || el.closed);
+    
     const newResults = results.filter(result => {
       const dedupeSignature = this.getElementSignature(result, true);
       const fullSignature = this.getElementSignature(result, false);
@@ -150,35 +175,39 @@ class IncomingXMLParserSelectorEngine {
     });
   }
 
-  formatElement(element) {
-    const formatted = new Node(element.name, {
-      key: element.key,
-      attr: { ...element.attributes },
-      text: element.textContent,
-      closed: element.closed
-    });
-    
-    element.children.forEach(child => {
-      if (child.type === 'tag') {
-        if (!formatted[child.name]) {
-          formatted[child.name] = [];
-        }
-        formatted[child.name].push(this.formatElement(child));
-      }
-    });
-    
-    return formatted;
-  }
-
   formatElement(element, includeOpenTags = false) {
+    // Special case for text nodes
+    if (element.type === 'text') {
+      return new Node('TEXT_NODE', {
+        key: -1, // Text nodes don't need unique keys
+        text: element.data,
+        closed: true, // Text nodes are always "closed"
+        children: [],
+        attr: {}
+      });
+    }
+
+    // Skip any non-text, non-tag nodes
+    if (element.type !== 'tag' && element.type !== 'text') {
+      return null;
+    }
+
+    // First format all children recursively
+    const formattedChildren = element.children?.map(child => {
+      return this.formatElement(child, includeOpenTags);
+    }).filter(Boolean) || []; // Filter out null results from skipped nodes
+
     const formatted = new Node(element.name, {
       key: element.key,
-      attr: { ...element.attributes },
+      attr: { ...element.attribs },
       text: includeOpenTags ? (
         element.closed ? element.textContent : this.getTextContent(element)
       ) : element.textContent,
-      closed: element.closed
+      closed: element.closed,
+      children: formattedChildren
     });
+
+    formatted.length = 0;
     
     if (element.children?.length) {
       element.children.forEach(child => {
@@ -189,7 +218,10 @@ class IncomingXMLParserSelectorEngine {
           if (!Array.isArray(formatted[child.name])) {
             formatted[child.name] = [formatted[child.name]];
           }
-          formatted[child.name].push(this.formatElement(child));
+          const formattedChild = this.formatElement(child, includeOpenTags);
+          if (formattedChild) {
+            formatted[child.name].push(formattedChild);
+          }
         }
       });
     }
@@ -210,13 +242,8 @@ class IncomingXMLParserSelectorEngine {
       if (Array.isArray(schema)) return schema.map(normalizeSchema);
 
       const result = {};
-      for (const [key, value] of Object.entries(schema)) {
-        if (key.endsWith('[]')) {
-          const actualKey = key.slice(0, -2);
-          result[actualKey] = [normalizeSchema(value)];
-        } else {
-          result[key] = normalizeSchema(value);
-        }
+      for (let [key, value] of Object.entries(schema)) {
+        result[key] = normalizeSchema(value);
       }
       return result;
     };
@@ -226,6 +253,24 @@ class IncomingXMLParserSelectorEngine {
       : normalizeSchema(mapping);
 
     const applyMapping = (element, map) => {
+
+      // Only handle as array notation if explicitly marked
+      // if (typeof map === 'object' && map.__isArrayNotation__) {
+      //   return (element.item || []).map(item => {
+      //     const transformation = map.item;
+      //     if (typeof transformation === 'string') {
+      //       return String(item.$text);
+      //     }
+      //     if (typeof transformation === 'function') {
+      //       if (transformation === String || transformation === Number || transformation === Boolean) {
+      //         return transformation(item.$text);
+      //       }
+      //       return transformation(item.$text);
+      //     }
+      //     return applyMapping(item, transformation);
+      //   });
+      // }
+
       if (Array.isArray(map)) {
         if (map.length !== 1) {
           throw new Error('A map array must only have one element');
@@ -233,6 +278,11 @@ class IncomingXMLParserSelectorEngine {
         return Array.isArray(element)
           ? element.map(e => applyMapping(e, map[0]))
           : [applyMapping(element, map[0])];
+      }
+
+      // Add handling for string literals - treat them as String type
+      if (typeof map === 'string') {
+        return element.length ? element.map(e => String(e)) : String(element.$text);
       }
 
       if (typeof map === 'function') {
@@ -251,23 +301,28 @@ class IncomingXMLParserSelectorEngine {
       const out = {};
 
       for (const k in map) {
+
+        const resultKey = k.replace(/\[\](?=\s+|$)/g, ''); // TODO: remove
+        const mapItem = map[k];
+        const isItemMapping = resultKey !== k;
+
         if (k.startsWith('$')) {
           // Handle attributes
           const attrName = k.slice(1);
           if (element.$attr && element.$attr[attrName] !== undefined) {
-            out[k] = map[k](element.$attr[attrName]);
+            out[resultKey] = mapItem(element.$attr[attrName]);
           }
         } else if (k === '_') {
           // Handle text content
-          out[k] = map[k](element.$text);
-        } else if (!element[k]) {
-          out[k] = Array.isArray(map[k]) ? [] : undefined;
-        } else if (Array.isArray(map[k])) {
-          out[k] = applyMapping(element[k], map[k]);
+          out[resultKey] = mapItem(element.$text);
+        } else if (!element[resultKey]) {
+          out[resultKey] = Array.isArray(mapItem) ? [] : undefined;
+        } else if (Array.isArray(mapItem)) {
+          out[resultKey] = applyMapping(element[resultKey], mapItem);
         } else {
-          out[k] = applyMapping(
-            Array.isArray(element[k]) ? element[k][0] : element[k],
-            map[k]
+          out[resultKey] = applyMapping(
+            Array.isArray(element[resultKey]) ? element[resultKey][0] : element[resultKey],
+            mapItem
           );
         }
       }
@@ -290,16 +345,19 @@ class IncomingXMLParserSelectorEngine {
     rootSelectors.forEach(selector => {
       const elements = this.dedupeSelect(selector, includeOpenTags);
 
+      const resultName = selector.replace(/\[\](?=\s+|$)/g, '');
+      const isArraySuffix = selector !== resultName;
+
       if (!elements?.length) return;
 
-      if (Array.isArray(normalizedMapping[selector])) {
+      if (Array.isArray(normalizedMapping[selector]) || isArraySuffix) {
         elements.forEach((el) => {
-          results[selector] = (
-            results[selector] || []
+          results[resultName] = (
+            results[resultName] || []
           ).concat(applyMapping(el, normalizedMapping[selector]));
         });
       } else {
-        results[selector] = applyMapping(elements[0], normalizedMapping[selector]);
+        results[resultName] = applyMapping(elements[0], normalizedMapping[selector]);
       }
     });
 
@@ -313,57 +371,49 @@ class IncomingXMLParserSelectorEngine {
 
       for (let key in obj) {
         const value = obj[key];
-        const isArray = key.endsWith('[]');
-        const actualKey = isArray ? key.slice(0, -2) : key;
 
-        if (actualKey === '_') continue;
-        if (actualKey.startsWith('$')) continue;
+        if (key === '_') continue;
+        if (key.startsWith('$')) continue;
 
         const attrs = getAttributes(obj[key]);
         
-        if (typeof value === 'function' || typeof value === 'string' || value === String || value === Number || value === Boolean) {
-          xml += `${indentation}<${actualKey}${attrs}>...text content...</${actualKey}>\n`;
-          if (isArray) {
-            xml += `${indentation}<${actualKey}${attrs}>...text content...</${actualKey}>\n`;
-            xml += `${indentation}/*etc.*/\n`;
-          }
+        // Handle string literals as explanation hints
+        if (typeof value === 'string') {
+          xml += `${indentation}<${key}${attrs}>${value}</${key}>\n`;
+        } else if (typeof value === 'function' || value === String || value === Number || value === Boolean) {
+          xml += `${indentation}<${key}${attrs}>...text content...</${key}>\n`;
         } else if (Array.isArray(value)) {
           const item = value[0];
-          if (typeof item === 'function' || typeof item === 'string' || item === String || item === Number || item === Boolean) {
-            xml += `${indentation}<${actualKey}>...text content...</${actualKey}>\n`;
-            xml += `${indentation}<${actualKey}>...text content...</${actualKey}>\n`;
+          if (typeof item === 'string') {
+            xml += `${indentation}<${key}>${item}</${key}>\n`;
+            xml += `${indentation}<${key}>${item}</${key}>\n`;
+            xml += `${indentation}/*etc.*/\n`;
+          } else if (typeof item === 'function' || item === String || item === Number || item === Boolean) {
+            xml += `${indentation}<${key}>...text content...</${key}>\n`;
+            xml += `${indentation}<${key}>...text content...</${key}>\n`;
             xml += `${indentation}/*etc.*/\n`;
           } else {
-            xml += `${indentation}<${actualKey}${getAttributes(item)}>\n`;
+            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
             xml += processObject(item, level + 1);
             if ('_' in item) {
               xml += `${indentation}  ...text content...\n`;
             }
-            xml += `${indentation}</${actualKey}>\n`;
-            xml += `${indentation}<${actualKey}${getAttributes(item)}>\n`;
+            xml += `${indentation}</${key}>\n`;
+            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
             xml += processObject(item, level + 1);
             if ('_' in item) {
               xml += `${indentation}  ...text content...\n`;
             }
-            xml += `${indentation}</${actualKey}>\n`;
+            xml += `${indentation}</${key}>\n`;
             xml += `${indentation}/*etc.*/\n`;
           }
         } else if (typeof value === 'object') {
-          xml += `${indentation}<${actualKey}${attrs}>\n`;
+          xml += `${indentation}<${key}${attrs}>\n`;
           if ('_' in value) {
             xml += `${indentation}  ...text content...\n`;
           }
           xml += processObject(value, level + 1);
-          xml += `${indentation}</${actualKey}>\n`;
-          if (isArray) {
-            xml += `${indentation}<${actualKey}${attrs}>\n`;
-            if ('_' in value) {
-              xml += `${indentation}  ...text content...\n`;
-            }
-            xml += processObject(value, level + 1);
-            xml += `${indentation}</${actualKey}>\n`;
-            xml += `${indentation}/*etc.*/\n`;
-          }
+          xml += `${indentation}</${key}>\n`;
         }
       }
 

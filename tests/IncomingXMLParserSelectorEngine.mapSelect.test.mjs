@@ -585,159 +585,152 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     });
   });
 
-  test('mapSelect should support [] array notation', () => {
-
-    const xmlString = `
-      <result>
-        <person>
-          <alias>Johnny</alias>
-          <alias>John</alias>
-          <address>123 Main St</address>
-        </person>
-        <person>
-          <alias>Bobby</alias>
-          <address>456 Oak Rd</address>
-        </person>
-      </result>
-    `;
-    // Test the new style
-    const engine1 = new IncomingXMLParserSelectorEngine();
-    engine1.add(xmlString);
-
-    const engine2 = new IncomingXMLParserSelectorEngine();
-    engine2.add(xmlString);
-  
-    // Fix schema structure
-    const newStyleSchema = {
-      result: {
-        'person[]': {
-          'alias[]': String,
-          address: String
-        }
-      }
-    };
-  
-    const oldStyleSchema = {
-      result: {
-        person: [{
-          alias: [String],
-          address: String
-        }]
-      }
-    };
-  
-    // Test both styles
-    let newResult = engine1.mapSelect(newStyleSchema);
-    let oldResult = engine2.mapSelect(oldStyleSchema);
-  
-    const expected = {
-      result: {
-        person: [
-          {
-            alias: ["Johnny", "John"],
-            address: "123 Main St"
-          },
-          {
-            alias: ["Bobby"],
-            address: "456 Oak Rd"
-          }
-        ]
-      }
-    };
-  
-    expect(newResult).toEqual(expected);
-    expect(oldResult).toEqual(expected);
-    expect(newResult).toEqual(oldResult);
+  test('temp: test unclosed things', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<thing>red</thing><thing>blu');
+    let result = engine.mapSelect({
+      thing: [String]
+    });
+    expect(result).toEqual({ thing: [ 'red', 'blu' ] });
   });
 
-  test('makeMapSelectXMLScaffold should handle [] array notation', () => {
-    const schema = {
-      'person[]': {
-        name: String,
-        'alias[]': String,
-        contact: {
-          'email[]': String,
-          'phone[]': {
-            number: String,
-            type: String
-          }
-        }
+  test('temp: test unclosed things#2 non-root', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add('<stuff><thing>red</thing><thing>blu');
+    let result = engine.mapSelect({
+      stuff: {
+        thing: [String]
       }
-    };
-
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
-    console.log("Generated scaffold:\n", result);  // For debugging
-
-    const expectedXML = `
-<person>
-  <name>...text content...</name>
-  <alias>...text content...</alias>
-  <alias>...text content...</alias>
-  /*etc.*/
-  <contact>
-    <email>...text content...</email>
-    <email>...text content...</email>
-    /*etc.*/
-    <phone>
-      <number>...text content...</number>
-      <type>...text content...</type>
-    </phone>
-    <phone>
-      <number>...text content...</number>
-      <type>...text content...</type>
-    </phone>
-    /*etc.*/
-  </contact>
-</person>
-<person>
-  <name>...text content...</name>
-  <alias>...text content...</alias>
-  <alias>...text content...</alias>
-  /*etc.*/
-  <contact>
-    <email>...text content...</email>
-    <email>...text content...</email>
-    /*etc.*/
-    <phone>
-      <number>...text content...</number>
-      <type>...text content...</type>
-    </phone>
-    <phone>
-      <number>...text content...</number>
-      <type>...text content...</type>
-    </phone>
-    /*etc.*/
-  </contact>
-</person>
-/*etc.*/
-`.trim();
-
-    expect(result.replace(/\s+/g, '')).toBe(expectedXML.replace(/\s+/g, ''));
+    });
+    expect(result).toEqual({
+      stuff: {
+        thing: [ 'red', 'blu' ]
+      }
+    });
   });
 
-  test('Currently: unclosed elements are included and then later included in FULL upon being closed', () => {
+  test('Array notation handles unclosed elements appropriately', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     
     // Add a complete color and an incomplete one
-    engine.add('<color>red</color><color>blu');
+    engine.add('<colors><color>red</color><color>blu');
     
     let result = engine.mapSelect({
-      'color[]': String
+      colors: {
+        color: [String]
+      }
     });
 
     console.log('First chunk result:', result);
 
-    expect(result).toEqual({ color: [ 'red', 'blu' ] });
+    // Should include both complete and incomplete items
+    expect(result).toEqual({ colors: {
+      color: [ 'red', 'blu' ]
+    } });
     
     // Add the rest of the incomplete color
-    engine.add('e</color>');
+    engine.add('e</color></colors>');
     
     result = engine.mapSelect({
-      'color[]': String
+      colors: {
+        color: [String]
+      }
     });
 
     console.log('Second chunk result:', result);
 
-    expect(result).toEqual({ color: [ 'blue' ] });
+    // Now expect the completed item
+    expect(result).toEqual({ colors: {
+      color: [ 'red', 'blue' ]
+    } });
+  });
+  
+  test('mapSelect should handle string literals as String type with explanation hints', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <person>
+        <name>John Smith</name>
+        <age>42</age>
+        <occupation>Software Engineer</occupation>
+      </person>
+    `);
+
+    const result = engine.mapSelect({
+      person: {
+        name: "The person's full name",
+        age: Number,
+        occupation: "The person's current job title"
+      }
+    });
+
+    expect(result).toEqual({
+      person: {
+        name: 'John Smith',
+        age: 42,
+        occupation: 'Software Engineer'
+      }
+    });
+  });
+
+  test('makeMapSelectXMLScaffold should use string literals as explanation hints', () => {
+    const schema = {
+      person: {
+        name: "The person's full name",
+        age: Number,
+        occupation: "The person's current job title",
+        'hobbies': {
+          hobby: ["A hobby"]
+        }
+      }
+    };
+
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    expect(normalized).toContain(`<name>The person's full name</name>`);
+    expect(normalized).toContain(`<age>...text content...</age>`);
+    expect(normalized).toContain(`<occupation>The person's current job title</occupation>`);
+    expect(normalized).toContain(`<hobby>A hobby</hobby>`);
+  });
+
+  test('mapSelect should handle transformations #2', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <user>
+        <emails>
+          <email>test@example.com</email>
+          <email>another@example.com</email>
+        </emails>
+        <scores>
+          <score>10</score>
+          <score>20</score>
+        </scores>
+      </user>
+    `);
+
+    const result = engine.mapSelect({
+      user: {
+        emails: {
+          email: [({$text: email}) => {
+            console.log('>>>>email', email);
+            return email.toUpperCase();
+          }]
+        },
+        scores: {
+          score: [({$text: score}) => Number(score) * 2]
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      user: {
+        emails: {
+          email: ['TEST@EXAMPLE.COM', 'ANOTHER@EXAMPLE.COM']
+        },
+        scores: {
+          score: [20, 40]
+        }
+      }
+    });
   });
 });

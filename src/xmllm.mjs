@@ -21,11 +21,17 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   const xmlps = new IncomingXMLParserSelectorEngine();
 
   const pipeline = pipelineFn({
-    p: prompt,
-    pc: promptClosed,
+
+    // Convenience aliases
+    p: promptClosed,
+    pc: promptClosed, //legacy
+    ps: promptStream,
     r: req,
-    prompt,
+
+    prompt: promptStream,
+    promptStream,
     promptClosed,
+    promptComplex,
     select,
     mapSelect,
     mapSelectClosed,
@@ -38,6 +44,9 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     tap: streamops.tap,
     waitUntil: streamops.waitUntil,
     mergeAggregate: streamops.mergeAggregate,
+    take: streamops.take,
+    batch: streamops.batch,
+    skip: streamops.skip,
 
     text,
     val: text,
@@ -106,7 +115,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       let accrued = config.accrued || '';
       let cancelled = false;
 
-      yield accrued;
+      if (accrued) yield accrued;
 
       try {
         while (true) {
@@ -303,7 +312,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   }
 
-  function prompt(prompt, schema, mapper, fakeResponse) {
+  function promptStream(prompt, schema, mapper, fakeResponse) {
 
     if (typeof prompt == 'string' || typeof prompt == 'function') {
       return promptComplex({
@@ -482,7 +491,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     return function* (chunk) {
       xmlps.add([chunk].flat().join(''));
 
-      const selection = xmlps.dedupeSelect(selector);
+      const selection = xmlps.dedupeSelect(selector, true);
       if (selection?.length) {
         yield* selection.map(mapperFn);
       }
@@ -517,3 +526,4 @@ function xmllm(pipelineFn, options = {}) {
 }
 
 export default xmllm;
+export { xmllm };

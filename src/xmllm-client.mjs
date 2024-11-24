@@ -1,7 +1,13 @@
-import xmllm from './xmllm.mjs';
+import {xmllm} from './xmllm.mjs';
+import XMLStream from './XMLStream.mjs';
 
 class ClientProvider {
-  constructor(endpoint = 'http://localhost:3000/api/stream') {
+  constructor(endpoint) {
+
+    if (!endpoint) {
+      throw new Error('You must provide an endpoint for the client provider');
+    }
+
     this.endpoint = endpoint;
   }
 
@@ -56,9 +62,6 @@ function clientLlmStream(clientProvider) {
 }
 
 function xmllmClient(pipelineFn, clientProvider, options = {}) {
-
-  console.log('XMLLM Client', clientProvider, options)
-
   const llmStream = typeof clientProvider === 'string'
     ? clientLlmStream(new ClientProvider(clientProvider))
     : clientLlmStream(clientProvider);
@@ -66,5 +69,55 @@ function xmllmClient(pipelineFn, clientProvider, options = {}) {
   return xmllm(pipelineFn, { ...options, llmStream });
 }
 
-export { xmllmClient as xmllm, ClientProvider };
-export default { ClientProvider, xmllm: xmllmClient };
+function stream(promptOrConfig, options = {}, clientProvider) {
+  const llmStream = (
+    typeof clientProvider === 'string'
+      ? clientLlmStream(new ClientProvider(clientProvider))
+      : clientLlmStream(clientProvider)
+  );
+
+  let config = {};
+  
+  // Handle different argument patterns
+  if (typeof promptOrConfig === 'string') {
+    config = {
+      prompt: promptOrConfig,
+      ...options
+    };
+  } else if (typeof promptOrConfig === 'object') {
+    config = {
+      ...promptOrConfig,
+      ...options
+    };
+  }
+
+  const { prompt, schema, system, ...restOptions } = config;
+
+  // If schema is provided, use schema-style config
+  if (schema) {
+    return new XMLStream([
+      ['req', {
+        messages: [{
+          role: 'user',
+          content: prompt
+        }],
+        schema,
+        system
+      }]
+    ], {
+      ...restOptions,
+      llmStream
+    });
+  }
+
+  // Basic prompt
+  return new XMLStream([
+    ['req', prompt]
+  ], {
+    ...restOptions,
+    llmStream
+  });
+}
+
+export { xmllmClient as xmllm, ClientProvider, stream };
+export default { ClientProvider, xmllm: xmllmClient, stream };

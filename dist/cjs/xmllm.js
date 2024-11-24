@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports["default"] = void 0;
+exports.xmllm = xmllm;
 var _streamops = _interopRequireDefault(require("streamops"));
 var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
@@ -59,7 +60,7 @@ function _xmllmGen() {
       timeout = _ref7.timeout,
       llmStream = _ref7.llmStream;
     return /*#__PURE__*/_regeneratorRuntime().mark(function _callee12() {
-      var streamops, xmlps, pipeline, stream, req, xmlReq, promptClosed, prompt, promptComplex, mapSelect, mapSelectClosed, select;
+      var streamops, xmlps, pipeline, stream, req, xmlReq, promptClosed, promptStream, promptComplex, mapSelect, mapSelectClosed, select;
       return _regeneratorRuntime().wrap(function _callee12$(_context12) {
         while (1) switch (_context12.prev = _context12.next) {
           case 0:
@@ -73,7 +74,7 @@ function _xmllmGen() {
                   while (1) switch (_context11.prev = _context11.next) {
                     case 0:
                       xmlps.add([chunk].flat().join(''));
-                      selection = xmlps.dedupeSelect(selector);
+                      selection = xmlps.dedupeSelect(selector, true);
                       if (!(selection !== null && selection !== void 0 && selection.length)) {
                         _context11.next = 4;
                         break;
@@ -499,7 +500,7 @@ function _xmllmGen() {
                 };
               }();
             };
-            prompt = function _prompt(prompt, schema, mapper, fakeResponse) {
+            promptStream = function _promptStream(prompt, schema, mapper, fakeResponse) {
               if (typeof prompt == 'string' || typeof prompt == 'function') {
                 return promptComplex({
                   schema: schema,
@@ -714,50 +715,54 @@ function _xmllmGen() {
                         reader = stream.getReader();
                         accrued = config.accrued || '';
                         cancelled = false;
-                        _context.next = 14;
-                        return accrued;
-                      case 14:
-                        _context.prev = 14;
-                      case 15:
-                        if (!true) {
-                          _context.next = 29;
+                        if (!accrued) {
+                          _context.next = 15;
                           break;
                         }
-                        _context.next = 18;
+                        _context.next = 15;
+                        return accrued;
+                      case 15:
+                        _context.prev = 15;
+                      case 16:
+                        if (!true) {
+                          _context.next = 30;
+                          break;
+                        }
+                        _context.next = 19;
                         return _awaitAsyncGenerator(reader.read());
-                      case 18:
+                      case 19:
                         _yield$_awaitAsyncGen = _context.sent;
                         done = _yield$_awaitAsyncGen.done;
                         value = _yield$_awaitAsyncGen.value;
                         if (!(cancelled || done)) {
-                          _context.next = 23;
+                          _context.next = 24;
                           break;
                         }
-                        return _context.abrupt("break", 29);
-                      case 23:
+                        return _context.abrupt("break", 30);
+                      case 24:
                         _text = new TextDecoder().decode(value);
                         accrued += _text;
-                        _context.next = 27;
+                        _context.next = 28;
                         return _text;
-                      case 27:
-                        _context.next = 15;
+                      case 28:
+                        _context.next = 16;
                         break;
-                      case 29:
-                        _context.next = 34;
+                      case 30:
+                        _context.next = 35;
                         break;
-                      case 31:
-                        _context.prev = 31;
-                        _context.t0 = _context["catch"](14);
+                      case 32:
+                        _context.prev = 32;
+                        _context.t0 = _context["catch"](15);
                         logger.error("Error reading stream:", _context.t0);
-                      case 34:
-                        _context.prev = 34;
+                      case 35:
+                        _context.prev = 35;
                         reader.releaseLock();
-                        return _context.finish(34);
-                      case 37:
+                        return _context.finish(35);
+                      case 38:
                       case "end":
                         return _context.stop();
                     }
-                  }, _callee, null, [[14, 31, 34, 37]]);
+                  }, _callee, null, [[15, 32, 35, 38]]);
                 }));
                 return function (_x2) {
                   return _ref.apply(this, arguments);
@@ -775,11 +780,16 @@ function _xmllmGen() {
           case 11:
             xmlps = new _IncomingXMLParserSelectorEngine["default"]();
             pipeline = pipelineFn({
-              p: prompt,
+              // Convenience aliases
+              p: promptClosed,
               pc: promptClosed,
+              //legacy
+              ps: promptStream,
               r: req,
-              prompt: prompt,
+              prompt: promptStream,
+              promptStream: promptStream,
               promptClosed: promptClosed,
+              promptComplex: promptComplex,
               select: select,
               mapSelect: mapSelect,
               mapSelectClosed: mapSelectClosed,
@@ -791,6 +801,9 @@ function _xmllmGen() {
               tap: streamops.tap,
               waitUntil: streamops.waitUntil,
               mergeAggregate: streamops.mergeAggregate,
+              take: streamops.take,
+              batch: streamops.batch,
+              skip: streamops.skip,
               text: text,
               val: text,
               value: text,

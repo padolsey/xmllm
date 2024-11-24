@@ -38,7 +38,7 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
       ]
     });
   });
-
+  
   test('mapSelectClosed should handle nested structures', () => {
     engine.add(`
       <root>

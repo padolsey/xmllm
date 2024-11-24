@@ -172,4 +172,132 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     result = engine.dedupeSelect('subitem', true);
     expect(result).toHaveLength(0);
   });
+
+  test('dedupeSelect should handle complex hierarchical streaming with diverse CSS selectors', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+
+    // First chunk - start of document with some complete and incomplete elements
+    engine.add(`
+      <library type="public">
+        <section id="fiction">
+          <shelf location="A1">
+            <book category="fantasy">
+              <title>The Hobbit</title>
+              <author>Tolkien</author>
+            </book>
+            <book category="sci-fi">
+              <title>Dune</title>
+              <author>Herbert</author>
+            </book>
+            <book category="fantasy"><title>The Way of K`);
+
+    // Test immediate selection of completed elements
+
+    let openResults = engine.select('book[category="fantasy"] > title', true);
+    console.log('Results>>>>', openResults);
+
+    // It will include open tags
+    expect(openResults).toHaveLength(2);
+    expect(openResults[0].$text).toBe('The Hobbit');
+    expect(openResults[1].$text).toBe('The Way of K');
+    // return;
+
+    let closedResults = engine.select('book[category="fantasy"] > title');
+    expect(closedResults).toHaveLength(1);
+    expect(closedResults[0].$text).toBe('The Hobbit');
+
+    let results;
+    // Test parent-based selector
+    results = engine.select('shelf > book[category="sci-fi"]');
+    expect(results).toHaveLength(1);
+    expect(results[0].title[0].$text).toBe('Dune');
+
+    // Add more content, including nested structures
+    engine.add(`ings</title>
+              <author>Sanderson</author>
+            </book>
+          </shelf>
+          <shelf location="A2">
+            <book category="mystery">
+              <title>The Da Vinci Code</title>
+              <author>Brown</author>
+              <reviews>
+                <review stars="4">Great plot</review>
+                <review stars="5">Couldn't put it down!</review>
+              </reviews>
+            </book>
+            <book category="mystery"><title>Sh`);
+
+    // Test attribute selectors
+    results = engine.select('review[stars="5"]');
+    expect(results).toHaveLength(1);
+    expect(results[0].$text).toBe("Couldn't put it down!");
+
+    // Test ancestor-descendant selector
+    results = engine.select('section[id="fiction"] title');
+    expect(results).toHaveLength(4); // All completed titles so far
+
+    // Complete the document with more nested content
+    engine.add(`erlock Holmes</title>
+              <author>Doyle</author>
+              <reviews>
+                <review stars="5">Classic!</review>
+              </reviews>
+            </book>
+          </shelf>
+        </section>
+        <section id="non-fiction">
+          <shelf location="B1">
+            <book category="science" featured="true">
+              <title>A Brief History of Time</title>
+              <author>Hawking</author>
+            </book>
+          </shelf>
+        </section>
+      </library>`);
+
+    // Test complex attribute + descendant selectors
+    results = engine.select('book[category="mystery"] review[stars="5"]');
+    expect(results).toHaveLength(2);
+    expect(results.map(r => r.$text)).toEqual([
+      "Couldn't put it down!",
+      "Classic!"
+    ]);
+  
+    // Test direct child selector with attributes
+    results = engine.select('section[id="non-fiction"] > shelf > book[featured="true"]');
+    expect(results).toHaveLength(1);
+    expect(results[0].title[0].$text).toBe('A Brief History of Time');
+
+
+    // Test sibling selectors
+    results = engine.dedupeSelect('title + author');
+    expect(results).toHaveLength(6); // All authors that follow titles
+
+    // Test multiple selector combinations
+    results = engine.dedupeSelect('book[category="fantasy"] title, book[category="science"] title');
+    expect(results).toHaveLength(3);
+    expect(results.map(r => r.$text)).toEqual([
+      'The Hobbit',
+      'The Way of Kings',
+      'A Brief History of Time'
+    ]);
+
+    // Test nested structure completeness
+    results = engine.dedupeSelect('book');
+    expect(results).toHaveLength(6);
+    results.forEach(book => {
+      expect(book.title).toBeDefined();
+      expect(book.author).toBeDefined();
+      if (book.$attr.category === 'mystery') {
+        expect(book.reviews).toBeDefined();
+        expect(book.reviews[0].review).toBeDefined();
+      }
+    });
+
+    // Test parent attribute inheritance
+    results = engine.select('shelf[location="A1"] > book > title');
+    expect(results).toHaveLength(3);
+    
+  });
 });

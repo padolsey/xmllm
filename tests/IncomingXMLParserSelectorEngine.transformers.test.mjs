@@ -159,7 +159,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     // We get a result even though tag isn't closed
     expect(result).toEqual({
       data: {
-        value: ''  // Empty string for unclosed tag
+        value: 'HELLO'
       }
     });
 
@@ -174,7 +174,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
 
     expect(result).toEqual({
       data: {
-        value: 'HELLO WORLD'  // Full transformed text once closed
+        value: 'HELLO WORLD'
       }
     });
   });

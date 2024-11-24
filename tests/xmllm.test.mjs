@@ -67,7 +67,7 @@ const TestStream = (() => {
 const xmllm = (pipeline, opts) => {
   return _xmllm(pipeline, {
     ...(opts || {}),
-    Stream: TestStream // Inject TestStream Service so no real reqs are made
+    llmStream: TestStream // Inject TestStream Service so no real reqs are made
   })
 }
 
@@ -92,8 +92,11 @@ describe('xmllm', () => {
 
   describe('xmllm.prompt', () => {
     it('should process a prompt and apply selection schema', async () => {
-      const results = await xmllm(({ prompt }) => [
-        prompt(
+      const results = await xmllm(({ promptClosed }) => [
+        function* () {
+          yield '<item><name>Test</name><value>42</value></item>';
+        },
+        promptClosed(
           'List an item',
           {
             item: {
@@ -107,9 +110,11 @@ describe('xmllm', () => {
         }
       ]);
 
-      expect((await results.next()).value.item).toEqual({
-        name: 'Test Result',
-        value: 42
+      expect((await results.next()).value).toEqual({
+        item: {
+          name: 'Test Result',
+          value: 42
+        }
       });
     });
   });
@@ -255,10 +260,11 @@ describe('xmllm', () => {
         prompt(
           'List some scores',
           {
-            'score[]': value(s => {
+            'score': [value(s => {
+              console.log(99999, s);
               const n = parseInt(s);
               return isNaN(n) ? 0 : n;
-            })
+            })]
           }
         )
       ]);
@@ -278,10 +284,10 @@ describe('xmllm', () => {
             user: {
               name: value(),
               stats: {
-                'score[]': value(s => {
+                score: [value(s => {
                   const n = parseInt(s);
                   return isNaN(n) ? 0 : n;
-                }),
+                })],
                 average: value(avg => {
                   const n = parseFloat(avg);
                   return isNaN(n) ? 0 : n;

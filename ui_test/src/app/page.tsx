@@ -4,112 +4,132 @@ import { useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { javascript } from '@codemirror/lang-javascript'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { ClientProvider, xmllm } from '../../../src/xmllm-client.mjs'
+import { ClientProvider, xmllm, stream } from '../../../src/xmllm-client.mjs'
 import { useTheme } from './theme-provider'
 
 const clientProvider = new ClientProvider('http://localhost:3124/api/stream')
 
 // Just store the example code strings
 const tests = {
-  basic: {
-    name: 'Basic XML Generation',
-    description: 'Simple example of generating structured data',
-    code: `const stream = await xmllm(({ prompt }) => [
-  prompt(
-    "What is 2+2?",
-    {
-      answer: {
-        value: Number,
-        explanation: String
-      }
-    }
-  )
-], clientProvider);
+  raw: {
+    name: 'Raw Text Streaming',
+    description: 'Stream raw LLM output as it arrives',
+    code: `const rawStream = stream('Tell me a story', {}, clientProvider)
+  .raw();
 
-for await (const chunk of stream) {
-  console.log(chunk);
-  setOutput(prev => prev + JSON.stringify(chunk, null, 2) + '\\n');
+for await (const chunk of rawStream) {
+  setOutput(prev => prev + chunk);
 }`
   },
 
   streaming: {
-    name: 'Streaming with Pipeline',
-    description: 'Shows how to process streaming chunks with transformations',
-    code: `const stream = await xmllm(({ prompt, map }) => [
-  prompt(
-    "Count from 1 to 5 slowly.",
-    {
-      count: {
-        number: Number,
-        word: String
-      }
-    }
-  ),
-  map(chunk => ({
-    ...chunk,
-    count: {
-      ...chunk.count,
-      word: chunk.count?.word?.toUpperCase()
-    }
+    name: 'Element Streaming',
+    description: 'Process elements as they arrive',
+    code: `const thoughtStream = stream('Share some deep thoughts I.e. <thought>...</thought> etc.', {}, clientProvider)
+  .select('thought')
+  .map(({$text}) => $text);
+
+for await (const thought of thoughtStream) {
+  setOutput(prev => prev + thought + '\\n');
+}`
+  },
+
+  partial: {
+    name: 'Real-time Updates',
+    description: 'See content grow within elements',
+    code: `const storyStream = stream('Write a story', {}, clientProvider)
+  .select('story');
+
+for await (const update of storyStream) {
+  // See the story grow word by word
+  setOutput(update.$text);
+}`
+  },
+
+  schema: {
+    name: 'Schema Analysis',
+    description: 'Get complete structured analysis',
+    code: `const analysis = await stream('Analyze this tweet: "Just landed my first dev job!"', {
+  schema: {
+    sentiment: String,
+    topics: [String],
+    insights: [{
+      point: String,
+      reasoning: String
+    }]
+  }
+}, clientProvider)
+.merge()  // Collect and merge all chunks
+.value();
+
+setOutput(JSON.stringify(analysis, null, 2));`
+  },
+
+  advanced: {
+    name: 'Advanced Selection',
+    description: 'Multiple selectors and nested elements',
+    code: `const baseStream = stream('List books by category', {}, clientProvider);
+
+// Get all books
+const allBooks = await baseStream
+  .select('book')
+  .map(book => ({
+    title: book.title[0].$text,
+    author: book.author[0].$text
   }))
-], clientProvider);
+  .all()
+  .value();
 
-for await (const chunk of stream) {
-  console.log(chunk);
-  setOutput(prev => prev + JSON.stringify(chunk, null, 2) + '\\n');
-}`
+// Get fiction books specifically
+const fictionBooks = await baseStream
+  .select('shelf[category="fiction"] > book')
+  .map(book => book.title[0].$text)
+  .all()
+  .value();
+
+setOutput(JSON.stringify({
+  all: allBooks,
+  fiction: fictionBooks
+}, null, 2));`
   },
 
-  streamingVsClosed: {
-    name: 'Streaming vs Closed Elements',
-    description: 'Compare streaming updates vs waiting for closed elements',
-    code: `// First demonstrate streaming updates
-console.log('=== Streaming Updates ===');
-let stream = await xmllm(({ prompt }) => [
-  prompt(
-    "Count from 1 to 3.",
-    {
-      count: {
-        number: Number,
-        word: String
-      }
-    }
-  )
-], clientProvider);
+  betterPrompting: {
+    name: 'Structured Data',
+    description: 'Transform complex XML structures',
+    code: `const colorStream = stream(
+  'List 3 colors with their RGB values using this structure:\\n' +
+  '<color>\\n' +
+  '  <name>purple</name>\\n' +
+  '  <rgb>\\n' +
+  '    <r>128</r>\\n' +
+  '    <g>0</g>\\n' +
+  '    <b>128</b>\\n' +
+  '  </rgb>\\n' +
+  '</color>',
+  {},
+  clientProvider
+)
+.select('color')
+.map(color => ({
+  name: color.name[0].$text,
+  rgb: {
+    r: parseInt(color.rgb[0].r[0].$text),
+    g: parseInt(color.rgb[0].g[0].$text),
+    b: parseInt(color.rgb[0].b[0].$text)
+  }
+}));
 
-for await (const chunk of stream) {
-  console.log(chunk);
-  setOutput(prev => prev + JSON.stringify(chunk, null, 2) + '\\n');
-}
-
-// Then demonstrate closed-only updates
-setOutput(prev => prev + '\\n=== Closed Elements Only ===\\n');
-stream = await xmllm(({ promptClosed }) => [
-  promptClosed(
-    "Count from 1 to 3.",
-    {
-      count: {
-        number: Number,
-        word: String
-      }
-    }
-  )
-], clientProvider);
-
-for await (const chunk of stream) {
-  console.log(chunk);
-  setOutput(prev => prev + JSON.stringify(chunk, null, 2) + '\\n');
+for await (const color of colorStream) {
+  setOutput(prev => prev + JSON.stringify(color, null, 2) + '\\n');
 }`
-  },
-
-  // ... other test cases follow the same pattern
-}
+  }
+};
 
 export default function Home() {
   const { theme } = useTheme()
   const [output, setOutput] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [selectedTest, setSelectedTest] = useState<string>('basic')
+  const [selectedTest, setSelectedTest] = useState<string>('streaming')
   const [editedCode, setEditedCode] = useState<string>('')
 
   async function runTest() {
@@ -117,10 +137,13 @@ export default function Home() {
     setOutput('Running test...\n')
 
     try {
-      // Create a function from the code string and execute it
       const code = editedCode || tests[selectedTest as keyof typeof tests].code
-      const fn = new Function('xmllm', 'clientProvider', 'setOutput', `
-        return (async () => {
+      const fn = new Function(
+        'xmllm',
+        'clientProvider',
+        'setOutput',
+        'stream',
+        `return (async () => {
           try {
             ${code}
           } catch (error) {
@@ -130,7 +153,7 @@ export default function Home() {
         })()
       `)
 
-      await fn(xmllm, clientProvider, setOutput)
+      await fn(xmllm, clientProvider, setOutput, stream)
     } catch (error) {
       console.error('Test error:', error)
       setOutput(prev => prev + `\nError: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -169,7 +192,11 @@ export default function Home() {
                   }`}
                 >
                   <div className="font-bold">{test.name}</div>
-                  <div className="text-sm text-muted-foreground mt-1">
+                  <div className={`text-sm mt-1 ${
+                    selectedTest === key 
+                      ? 'text-primary-foreground/80' 
+                      : 'text-muted-foreground'
+                  }`}>
                     {test.description}
                   </div>
                 </button>
