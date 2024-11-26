@@ -5,6 +5,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports["default"] = void 0;
 var _xmllm = _interopRequireDefault(require("./xmllm.js"));
+var _Logger = _interopRequireDefault(require("./Logger.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
@@ -28,6 +29,9 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _asyncIterator(r) { var n, t, o, e = 2; for ("undefined" != typeof Symbol && (t = Symbol.asyncIterator, o = Symbol.iterator); e--;) { if (t && null != (n = r[t])) return n.call(r); if (o && null != (n = r[o])) return new AsyncFromSyncIterator(n.call(r)); t = "@@asyncIterator", o = "@@iterator"; } throw new TypeError("Object is not async iterable"); }
+function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r) { if (Object(r) !== r) return Promise.reject(new TypeError(r + " is not an object.")); var n = r.done; return Promise.resolve(r.value).then(function (r) { return { value: r, done: n }; }); } return AsyncFromSyncIterator = function AsyncFromSyncIterator(r) { this.s = r, this.n = r.next; }, AsyncFromSyncIterator.prototype = { s: null, n: null, next: function next() { return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments)); }, "return": function _return(r) { var n = this.s["return"]; return void 0 === n ? Promise.resolve({ value: r, done: !0 }) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); }, "throw": function _throw(r) { var n = this.s["return"]; return void 0 === n ? Promise.reject(r) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); } }, new AsyncFromSyncIterator(r); }
+var logger = new _Logger["default"]('XMLStream');
 var XMLStream = /*#__PURE__*/function () {
   function XMLStream() {
     var pipeline = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
@@ -42,21 +46,42 @@ var XMLStream = /*#__PURE__*/function () {
     key: "first",
     value: function () {
       var _first = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-        var _yield$this$Symbol$as, value;
+        var _yield$this$Symbol$as, value, done, errorInfo;
         return _regeneratorRuntime().wrap(function _callee$(_context) {
           while (1) switch (_context.prev = _context.next) {
             case 0:
-              _context.next = 2;
+              _context.prev = 0;
+              _context.next = 3;
               return this[Symbol.asyncIterator]().next();
-            case 2:
+            case 3:
               _yield$this$Symbol$as = _context.sent;
               value = _yield$this$Symbol$as.value;
+              done = _yield$this$Symbol$as.done;
+              if (!done) {
+                _context.next = 8;
+                break;
+              }
+              return _context.abrupt("return", undefined);
+            case 8:
               return _context.abrupt("return", value);
-            case 5:
+            case 11:
+              _context.prev = 11;
+              _context.t0 = _context["catch"](0);
+              errorInfo = parseError(_context.t0);
+              _context.t1 = errorInfo.type;
+              _context.next = _context.t1 === 'TimeoutError' ? 17 : _context.t1 === 'NetworkError' ? 18 : 19;
+              break;
+            case 17:
+              throw new Error("LLM request timed out: ".concat(errorInfo.message));
+            case 18:
+              throw new Error("Failed to connect to LLM service: ".concat(errorInfo.message));
+            case 19:
+              throw _context.t0;
+            case 20:
             case "end":
               return _context.stop();
           }
-        }, _callee, this);
+        }, _callee, this, [[0, 11]]);
       }));
       function first() {
         return _first.apply(this, arguments);
@@ -103,45 +128,87 @@ var XMLStream = /*#__PURE__*/function () {
       }]]), this.options);
     }
   }, {
-    key: "value",
+    key: "allValues",
     value: function () {
-      var _value = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-        var _yield$this$Symbol$as2, _value2, done, errorInfo;
+      var _allValues = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+        var result, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, value;
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
-              _context2.prev = 0;
-              _context2.next = 3;
-              return this[Symbol.asyncIterator]().next();
-            case 3:
-              _yield$this$Symbol$as2 = _context2.sent;
-              _value2 = _yield$this$Symbol$as2.value;
-              done = _yield$this$Symbol$as2.done;
-              if (!done) {
-                _context2.next = 8;
+              result = [];
+              _iteratorAbruptCompletion = false;
+              _didIteratorError = false;
+              _context2.prev = 3;
+              _iterator = _asyncIterator(this);
+            case 5:
+              _context2.next = 7;
+              return _iterator.next();
+            case 7:
+              if (!(_iteratorAbruptCompletion = !(_step = _context2.sent).done)) {
+                _context2.next = 13;
                 break;
               }
-              return _context2.abrupt("return", undefined);
-            case 8:
-              return _context2.abrupt("return", _value2);
-            case 11:
-              _context2.prev = 11;
-              _context2.t0 = _context2["catch"](0);
-              errorInfo = parseError(_context2.t0);
-              _context2.t1 = errorInfo.type;
-              _context2.next = _context2.t1 === 'TimeoutError' ? 17 : _context2.t1 === 'NetworkError' ? 18 : 19;
+              value = _step.value;
+              result.push(value);
+            case 10:
+              _iteratorAbruptCompletion = false;
+              _context2.next = 5;
               break;
-            case 17:
-              throw new Error("LLM request timed out: ".concat(errorInfo.message));
-            case 18:
-              throw new Error("Failed to connect to LLM service: ".concat(errorInfo.message));
+            case 13:
+              _context2.next = 19;
+              break;
+            case 15:
+              _context2.prev = 15;
+              _context2.t0 = _context2["catch"](3);
+              _didIteratorError = true;
+              _iteratorError = _context2.t0;
             case 19:
-              throw _context2.t0;
-            case 20:
+              _context2.prev = 19;
+              _context2.prev = 20;
+              if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
+                _context2.next = 24;
+                break;
+              }
+              _context2.next = 24;
+              return _iterator["return"]();
+            case 24:
+              _context2.prev = 24;
+              if (!_didIteratorError) {
+                _context2.next = 27;
+                break;
+              }
+              throw _iteratorError;
+            case 27:
+              return _context2.finish(24);
+            case 28:
+              return _context2.finish(19);
+            case 29:
+              return _context2.abrupt("return", result);
+            case 30:
             case "end":
               return _context2.stop();
           }
-        }, _callee2, this, [[0, 11]]);
+        }, _callee2, this, [[3, 15, 19, 29], [20,, 24, 28]]);
+      }));
+      function allValues() {
+        return _allValues.apply(this, arguments);
+      }
+      return allValues;
+    }()
+  }, {
+    key: "value",
+    value: function () {
+      var _value = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
+        return _regeneratorRuntime().wrap(function _callee3$(_context3) {
+          while (1) switch (_context3.prev = _context3.next) {
+            case 0:
+              logger.warn('Warning: value() is deprecated. Use first() or last() instead.');
+              return _context3.abrupt("return", this.first());
+            case 2:
+            case "end":
+              return _context3.stop();
+          }
+        }, _callee3, this);
       }));
       function value() {
         return _value.apply(this, arguments);
@@ -185,10 +252,11 @@ var XMLStream = /*#__PURE__*/function () {
     key: "debug",
     value: function debug() {
       var label = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+      logger.log('Instigate debug() with label', label);
       return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['map', function (value) {
-        console.group("Debug: ".concat(label));
-        console.log(value);
-        console.groupEnd();
+        logger.debug("=== Debug ".concat(label ? "(".concat(label, ")") : '', " ==="));
+        logger.debug(value);
+        logger.debug('===================');
         return value;
       }]]), this.options);
     }
@@ -201,11 +269,11 @@ var XMLStream = /*#__PURE__*/function () {
       return {
         next: function next() {
           var _this = this;
-          return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
-            return _regeneratorRuntime().wrap(function _callee3$(_context3) {
-              while (1) switch (_context3.prev = _context3.next) {
+          return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
+            return _regeneratorRuntime().wrap(function _callee4$(_context4) {
+              while (1) switch (_context4.prev = _context4.next) {
                 case 0:
-                  _context3.prev = 0;
+                  _context4.prev = 0;
                   if (!iterator) {
                     iterator = (0, _xmllm["default"])(function (_ref) {
                       var req = _ref.req,
@@ -251,47 +319,49 @@ var XMLStream = /*#__PURE__*/function () {
                           case 'req':
                             return arg.schema ? promptComplex.call(_this, arg) : req.call(_this, arg);
                         }
+                        throw new Error("Unknown pipeline type: ".concat(type));
                       });
                     }, options);
                   }
-                  return _context3.abrupt("return", iterator.next());
+                  return _context4.abrupt("return", iterator.next());
                 case 5:
-                  _context3.prev = 5;
-                  _context3.t0 = _context3["catch"](0);
+                  _context4.prev = 5;
+                  _context4.t0 = _context4["catch"](0);
                   iterator = null;
-                  throw _context3.t0;
-                case 9:
+                  logger.error('XMLStream error', _context4.t0);
+                  throw _context4.t0;
+                case 10:
                 case "end":
-                  return _context3.stop();
+                  return _context4.stop();
               }
-            }, _callee3, null, [[0, 5]]);
+            }, _callee4, null, [[0, 5]]);
           }))();
         },
         "return": function _return() {
-          return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
-            return _regeneratorRuntime().wrap(function _callee4$(_context4) {
-              while (1) switch (_context4.prev = _context4.next) {
+          return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
+            return _regeneratorRuntime().wrap(function _callee5$(_context5) {
+              while (1) switch (_context5.prev = _context5.next) {
                 case 0:
-                  _context4.prev = 0;
+                  _context5.prev = 0;
                   if (!(iterator && typeof iterator["return"] === 'function')) {
-                    _context4.next = 4;
+                    _context5.next = 4;
                     break;
                   }
-                  _context4.next = 4;
+                  _context5.next = 4;
                   return iterator["return"]();
                 case 4:
-                  _context4.prev = 4;
+                  _context5.prev = 4;
                   iterator = null;
-                  return _context4.finish(4);
+                  return _context5.finish(4);
                 case 7:
-                  return _context4.abrupt("return", {
+                  return _context5.abrupt("return", {
                     done: true
                   });
                 case 8:
                 case "end":
-                  return _context4.stop();
+                  return _context5.stop();
               }
-            }, _callee4, null, [[0,, 4, 7]]);
+            }, _callee5, null, [[0,, 4, 7]]);
           }))();
         }
       };
@@ -310,34 +380,26 @@ var XMLStream = /*#__PURE__*/function () {
   }, {
     key: "complete",
     value: function complete() {
-      console.warn('Warning: complete() is deprecated. Use closedOnly() instead as it better describes what this method does - it filters for closed XML elements.');
+      logger.warn('Warning: complete() is deprecated. Use closedOnly() instead as it better describes what this method does - it filters for closed XML elements.');
       return this.closedOnly();
     }
-
-    // async text() {
-    //   const value = await this.value();
-    //   if (Array.isArray(value)) {
-    //     return value.map(el => el.$text);
-    //   }
-    //   return value?.$text;
-    // }
 
     // Convenience method for schema-based collection
   }, {
     key: "collect",
     value: function () {
-      var _collect = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
-        return _regeneratorRuntime().wrap(function _callee5$(_context5) {
-          while (1) switch (_context5.prev = _context5.next) {
+      var _collect = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee6() {
+        return _regeneratorRuntime().wrap(function _callee6$(_context6) {
+          while (1) switch (_context6.prev = _context6.next) {
             case 0:
-              return _context5.abrupt("return", this.all().reduce(function (acc, chunk) {
+              return _context6.abrupt("return", this.all().reduce(function (acc, chunk) {
                 return _objectSpread(_objectSpread({}, acc), chunk);
               }, {}).value());
             case 1:
             case "end":
-              return _context5.stop();
+              return _context6.stop();
           }
-        }, _callee5, this);
+        }, _callee6, this);
       }));
       function collect() {
         return _collect.apply(this, arguments);
@@ -347,23 +409,33 @@ var XMLStream = /*#__PURE__*/function () {
   }, {
     key: "merge",
     value: function merge() {
-      return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['accrue'], ['map', function (chunks) {
-        // Deep merge function
+      return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['accrue'],
+      // Collects all items into array
+      ['map', function (chunks) {
         var _deepMerge = function deepMerge(target, source) {
+          // Special case: if source is a special object type (Date, RegExp, etc), return it directly
+          if (source !== null && _typeof(source) === 'object' && source.constructor !== Object && source.constructor !== Array) {
+            return source;
+          }
           for (var key in source) {
-            if (source[key] !== null && _typeof(source[key]) === 'object') {
-              // Handle arrays
-              if (Array.isArray(source[key])) {
-                target[key] = target[key] || [];
-                target[key] = target[key].concat(source[key]);
+            var sourceValue = source[key];
+            if (sourceValue !== null && _typeof(sourceValue) === 'object') {
+              // Special object type - pass through
+              if (sourceValue.constructor !== Object && sourceValue.constructor !== Array) {
+                target[key] = sourceValue;
               }
-              // Handle objects
+              // Array - concat
+              else if (Array.isArray(sourceValue)) {
+                target[key] = target[key] || [];
+                target[key] = target[key].concat(sourceValue);
+              }
+              // Plain object - recurse
               else {
                 target[key] = target[key] || {};
-                _deepMerge(target[key], source[key]);
+                _deepMerge(target[key], sourceValue);
               }
             } else {
-              target[key] = source[key];
+              target[key] = sourceValue;
             }
           }
           return target;
@@ -373,6 +445,110 @@ var XMLStream = /*#__PURE__*/function () {
         }, {});
       }]]), this.options);
     }
+  }, {
+    key: "last",
+    value: function () {
+      var _last = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7() {
+        var n,
+          allItems,
+          _iteratorAbruptCompletion2,
+          _didIteratorError2,
+          _iteratorError2,
+          _iterator2,
+          _step2,
+          value,
+          errorInfo,
+          _args7 = arguments;
+        return _regeneratorRuntime().wrap(function _callee7$(_context7) {
+          while (1) switch (_context7.prev = _context7.next) {
+            case 0:
+              n = _args7.length > 0 && _args7[0] !== undefined ? _args7[0] : 1;
+              _context7.prev = 1;
+              if (!(n < 1)) {
+                _context7.next = 4;
+                break;
+              }
+              throw new Error('n must be greater than 0');
+            case 4:
+              allItems = [];
+              _iteratorAbruptCompletion2 = false;
+              _didIteratorError2 = false;
+              _context7.prev = 7;
+              _iterator2 = _asyncIterator(this);
+            case 9:
+              _context7.next = 11;
+              return _iterator2.next();
+            case 11:
+              if (!(_iteratorAbruptCompletion2 = !(_step2 = _context7.sent).done)) {
+                _context7.next = 17;
+                break;
+              }
+              value = _step2.value;
+              allItems.push(value);
+            case 14:
+              _iteratorAbruptCompletion2 = false;
+              _context7.next = 9;
+              break;
+            case 17:
+              _context7.next = 23;
+              break;
+            case 19:
+              _context7.prev = 19;
+              _context7.t0 = _context7["catch"](7);
+              _didIteratorError2 = true;
+              _iteratorError2 = _context7.t0;
+            case 23:
+              _context7.prev = 23;
+              _context7.prev = 24;
+              if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
+                _context7.next = 28;
+                break;
+              }
+              _context7.next = 28;
+              return _iterator2["return"]();
+            case 28:
+              _context7.prev = 28;
+              if (!_didIteratorError2) {
+                _context7.next = 31;
+                break;
+              }
+              throw _iteratorError2;
+            case 31:
+              return _context7.finish(28);
+            case 32:
+              return _context7.finish(23);
+            case 33:
+              if (!(allItems.length === 0)) {
+                _context7.next = 35;
+                break;
+              }
+              return _context7.abrupt("return", undefined);
+            case 35:
+              return _context7.abrupt("return", n === 1 ? allItems[allItems.length - 1] : allItems.slice(-n));
+            case 38:
+              _context7.prev = 38;
+              _context7.t1 = _context7["catch"](1);
+              errorInfo = parseError(_context7.t1);
+              _context7.t2 = errorInfo.type;
+              _context7.next = _context7.t2 === 'TimeoutError' ? 44 : _context7.t2 === 'NetworkError' ? 45 : 46;
+              break;
+            case 44:
+              throw new Error("LLM request timed out: ".concat(errorInfo.message));
+            case 45:
+              throw new Error("Failed to connect to LLM service: ".concat(errorInfo.message));
+            case 46:
+              throw _context7.t1;
+            case 47:
+            case "end":
+              return _context7.stop();
+          }
+        }, _callee7, this, [[1, 38], [7, 19, 23, 33], [24,, 28, 32]]);
+      }));
+      function last() {
+        return _last.apply(this, arguments);
+      }
+      return last;
+    }()
   }]);
 }();
 var _default = exports["default"] = XMLStream;

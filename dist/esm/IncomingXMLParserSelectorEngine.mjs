@@ -141,14 +141,16 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
     key: "getTextContent",
     value: function getTextContent(element) {
       var _this2 = this;
-      return (element.children || []).reduce(function (text, child) {
+      var tc = (element.children || []).reduce(function (text, child) {
         if (child.type === 'text') {
           return text + child.data;
         } else if (child.type === 'tag') {
           return text + _this2.getTextContent(child);
         }
+        console.error('Unknown child type:', child);
         return text;
       }, '');
+      return tc;
     }
   }, {
     key: "select",
@@ -335,7 +337,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             if (element.$attr && element.$attr[attrName] !== undefined) {
               out[resultKey] = mapItem(element.$attr[attrName]);
             }
-          } else if (k === '_') {
+          } else if (k === '_' || k === '$text') {
             // Handle text content
             out[resultKey] = mapItem(element.$text);
           } else if (!element[resultKey]) {
@@ -359,10 +361,11 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var results = {};
       rootSelectors.forEach(function (selector) {
         var elements = _this6.dedupeSelect(selector, includeOpenTags);
-        var resultName = selector.replace(/\[\](?=\s+|$)/g, '');
-        var isArraySuffix = selector !== resultName;
+
+        // If no elements found, just return/skip
         if (!(elements !== null && elements !== void 0 && elements.length)) return;
-        if (Array.isArray(normalizedMapping[selector]) || isArraySuffix) {
+        var resultName = selector;
+        if (Array.isArray(normalizedMapping[selector])) {
           elements.forEach(function (el) {
             results[resultName] = (results[resultName] || []).concat(_applyMapping(el, normalizedMapping[selector]));
           });
@@ -370,6 +373,8 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           results[resultName] = _applyMapping(elements[0], normalizedMapping[selector]);
         }
       });
+
+      // Returns empty object if no matches found
       return results;
     }
   }], [{

@@ -2,13 +2,16 @@ import {xmllm} from './xmllm.mjs';
 import XMLStream from './XMLStream.mjs';
 
 class ClientProvider {
-  constructor(endpoint) {
-
-    if (!endpoint) {
-      throw new Error('You must provide an endpoint for the client provider');
+  constructor(proxyEndpoint) {
+    if (!proxyEndpoint) {
+      throw new Error(
+        'You must provide a proxy endpoint URL. This is required for browser usage ' +
+        'to route requests through your server. Example: ' +
+        'new ClientProvider("http://localhost:3124/api/stream")'
+      );
     }
 
-    this.endpoint = endpoint;
+    this.endpoint = proxyEndpoint;
   }
 
   async createStream(payload) {
@@ -69,7 +72,16 @@ function xmllmClient(pipelineFn, clientProvider, options = {}) {
   return xmllm(pipelineFn, { ...options, llmStream });
 }
 
-function stream(promptOrConfig, options = {}, clientProvider) {
+function stream(promptOrConfig, options = {}) {
+  const { clientProvider } = options;
+
+  if (!clientProvider) {
+    throw new Error(
+      'ClientProvider is required for browser usage. Example: ' +
+      'stream("prompt", { clientProvider: new ClientProvider("http://your-proxy/api/stream") })'
+    );
+  }
+
   const llmStream = (
     typeof clientProvider === 'string'
       ? clientLlmStream(new ClientProvider(clientProvider))
@@ -78,21 +90,21 @@ function stream(promptOrConfig, options = {}, clientProvider) {
 
   let config = {};
   
-  // Handle different argument patterns
   if (typeof promptOrConfig === 'string') {
     config = {
       prompt: promptOrConfig,
       ...options
     };
-  } else if (typeof promptOrConfig === 'object') {
+  } else {
     config = {
       ...promptOrConfig,
       ...options
     };
   }
 
-  const { prompt, schema, system, ...restOptions } = config;
+  const { prompt, schema, system, closed, onChunk, ...restOptions } = config;
 
+  console.log('Client all config', config);
   // If schema is provided, use schema-style config
   if (schema) {
     return new XMLStream([
@@ -102,7 +114,10 @@ function stream(promptOrConfig, options = {}, clientProvider) {
           content: prompt
         }],
         schema,
-        system
+        system,
+        onChunk,
+        doMapSelectClosed: closed,
+        ...restOptions
       }]
     ], {
       ...restOptions,
@@ -117,6 +132,17 @@ function stream(promptOrConfig, options = {}, clientProvider) {
     ...restOptions,
     llmStream
   });
+}
+
+export async function simple(prompt, schema, options = {}) {
+  const theStream = await stream(prompt, {
+    ...options,
+    schema,
+    closed: true
+  });
+  
+  const result = await theStream.merge().last();
+  return result;
 }
 
 export { xmllmClient as xmllm, ClientProvider, stream };

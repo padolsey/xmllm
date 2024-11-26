@@ -419,7 +419,6 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     };
 
     const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
-    console.log("Generated scaffold:\n", result);  // Add this line to see the actual output
 
     const expectedXML = `
   <person id="...">
@@ -463,7 +462,6 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     };
 
     const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
-    console.log("Generated scaffold:\n", result);  // Keep this for debugging
 
     const expectedXML = `
   <book>
@@ -512,7 +510,6 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     };
 
     const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
-    console.log("Generated scaffold:\n", result);
 
     const expectedXML = `
   <book id="...">

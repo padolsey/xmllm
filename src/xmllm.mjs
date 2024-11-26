@@ -4,15 +4,23 @@ import Logger from './Logger.mjs';
 
 const logger = new Logger('xmllm');
 
+const DEFAULT_TEMPERATURE = 0.72;
+
 const text = (fn) => ({ $text }) => fn ? fn($text) : $text;
 const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
 const whenClosed = (fn) => (el) => el.$closed ? fn(el) : undefined;
+
+const parserStack = new WeakMap();
 
 async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   const streamops = createStreaming({
     timeout: timeout || 1e6
   });
+
+  const context = {};
+  parserStack.set(context, []);
+  pushNewParser(); // ensure there's at least one
 
   if (typeof pipelineFn !== 'function') {
     throw new Error('You must pass a function to xmllm - and that function must return a pipeline array.');
@@ -36,6 +44,21 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     mapSelect,
     mapSelectClosed,
     req,
+
+    // Manually add things to parser
+    // Useful for testing or adding HTML/XML from other non req/xmlReq
+    // sources.
+    parse: (str) => {
+      return function*(incoming) {
+        if (str) {
+          getCurrentParser().add(String(str));
+        }
+        if (typeof incoming == 'string' && incoming) {
+          getCurrentParser().add(incoming);
+        }
+        yield incoming;
+      }
+    },
 
     map: streamops.map,
     filter: streamops.filter,
@@ -63,9 +86,23 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   const stream = streamops(pipeline);
   yield* stream;
 
+  function getCurrentParser() {
+    const stack = parserStack.get(context);
+    return stack[stack.length - 1];
+  }
+
+  function pushNewParser() {
+    const parser = new IncomingXMLParserSelectorEngine();
+    const stack = parserStack.get(context);
+    stack.push(parser);
+    return parser;
+  }
+
   function req(config) {
 
     return async function*(thing) {
+      const parser = pushNewParser();
+
       let transformedConfig = config;
 
       if (typeof transformedConfig == 'function') {
@@ -73,7 +110,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
 
       if (typeof transformedConfig === 'string') {
-        transformedConfig = {
+        transformedConfig = { 
           system: '',
           messages: [
             {
@@ -97,7 +134,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
       const stream = await (llmStream)({
         max_tokens: transformedConfig.max_tokens || 4000,
-        temperature: transformedConfig.temperature == null ? 0.51 : transformedConfig.temperature,
+        temperature: transformedConfig.temperature == null ? DEFAULT_TEMPERATURE : transformedConfig.temperature,
         fakeDelay: transformedConfig.fakeDelay,
         messages: [
           {
@@ -123,7 +160,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           if (cancelled || done) break;
 
           const text = new TextDecoder().decode(value);
-
+          parser.add(text);
           accrued += text;
 
           yield text;
@@ -144,13 +181,19 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     maxTokens, 
     model, 
     temperature, 
+    stop,
+    top_p,
+    topP,
+    presence_penalty,
+    presencePenalty,
     cache,
     fakeDelay,
     waitMessageString,
     waitMessageDelay,
     retryMax,
     retryStartDelay,
-    retryBackoffMultiplier
+    retryBackoffMultiplier,
+    onChunk
   }) {
 
     messages = (messages || []).slice();
@@ -168,6 +211,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     }
 
     return async function*(thing) {
+      const parser = pushNewParser();
+
       let transformedPrompt = prompt;
 
       const mapSelectionSchemaScaffold =
@@ -232,6 +277,9 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       const stream = await (llmStream)({
         max_tokens: max_tokens || maxTokens || 4000,
         temperature: temperature == null ? 0.5 : temperature,
+        top_p: top_p || topP || null,
+        stop: stop || null,
+        presence_penalty: presence_penalty || presencePenalty || null,
         messages: [
           {
             role: 'system',
@@ -262,7 +310,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       let accrued = '';
       let cancelled = false;
 
-      yield accrued;
+      yield accrued; // Do we need this?
+      // (can't hurt?)
 
       try {
         while (true) {
@@ -270,11 +319,19 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           if (cancelled || done) break;
 
           const text = new TextDecoder().decode(value);
-
+          if (onChunk) {
+            try {
+              onChunk(text);
+            } catch(err) {
+              logger.error('onChunk err', err);
+            }
+          }
+          parser.add(text);
           accrued += text;
 
           yield text;
         }
+
       } catch (e) {
         logger.error(`Error reading stream:`, e);
       } finally {
@@ -283,12 +340,13 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function promptClosed(prompt, schema, mapper, fakeResponse) {
-
+  function promptClosed(prompt, schema, options = {}, fakeResponse = null) {
     let transformedConfig = prompt;
     
     if (typeof transformedConfig == 'function') {
-      return promptComplex(prompt, {doMapSelectClosed: true});
+      return promptComplex(prompt, {
+        doMapSelectClosed: true
+      });
     }
 
     if (typeof transformedConfig === 'string') {
@@ -304,12 +362,16 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
     }
 
+    const { mapper, ...restOptions } = options;
+
     return promptComplex({
-      schema, mapper, fakeResponse,
+      schema,
+      mapper,
+      fakeResponse,
       ...transformedConfig,
+      ...restOptions,
       doMapSelectClosed: true
     });
-
   }
 
   function promptStream(prompt, schema, mapper, fakeResponse) {
@@ -355,6 +417,12 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         system,
         max_tokens,
         maxTokens,
+        top_p,
+        topP,
+        stop,
+        presence_penalty,
+        presencePenalty,
+        temperature,
         fakeResponse,
         doMapSelectClosed = false,
         model,
@@ -362,12 +430,13 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         waitMessageString,
         waitMessageDelay,
         retryMax,
+        onChunk,
         retryStartDelay,
         retryBackoffMultiplier,
         cache
       } = config;
 
-      logger.dev('promptComplex()', {
+      console.log('promptComplex()', {
         messages,
         schema,
         mapper,
@@ -375,30 +444,38 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         model,
         fakeResponse,
         max_tokens,
+        temperature,
         cache
-      });
+      }, config);
 
       if (
         mapper && !schema 
       ) {
-        throw new Error('You cannot have a schema without a mapper; it makes no sense.');
+        throw new Error('You cannot have a schema with a mapper; it makes no sense.');
       }
 
       if (!schema) {
         return xmlReq({
           system: system,
           messages,
+          model,
           max_tokens,
-          model
+          stop,
+          maxTokens,
+          top_p,
+          topP,
+          presence_penalty,
+          presencePenalty,
+          temperature,
         });
       }
 
       const reqPipeline = [
         function*() {
-          if (input == null) {
-            yield [undefined];
-            return;
-          }
+          // if (input == null) {
+          //   yield [undefined];
+          //   return;
+          // }
           if (isComplexIterable(input)) {
             yield* input;
           } else {
@@ -412,7 +489,11 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
         fakeResponse 
           ? function*() {
-            yield* [fakeResponse]
+            // If it's a fakeResponse we still want to ensure it's added
+            // to the parser, otherwise selections won't work and there's
+            // no point...
+            getCurrentParser().add(fakeResponse);
+            yield* [fakeResponse];
           }
           : xmlReq({
             system: system,
@@ -424,16 +505,27 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             waitMessageString,
             waitMessageDelay,
             retryMax,
+            temperature,
+            top_p,
+            topP,
+            presence_penalty,
+            presencePenalty,
+            stop,
+            onChunk,
             retryStartDelay,
             retryBackoffMultiplier,
             cache
           }),
 
-        function*(x) {
-          yield x;
-        },
+        // function*(x) {
+        //   yield x;
+        // },
 
-        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema)
+        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema),
+
+        // function*(x) {
+        //   yield x;
+        // },
       ];
 
       const pipeline = [
@@ -469,8 +561,13 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   function mapSelect(schema) {
     return function* (chunk) {
-      xmlps.add([chunk].flat().join(''));
-      let selection = xmlps.mapSelect(schema);
+      const currentParser = getCurrentParser();
+      if (!currentParser) {
+        logger.warn('No active parser found for mapSelect()');
+        return;
+      }
+
+      let selection = currentParser.mapSelect(schema);
       if (selection && Object.keys(selection).length) {
         yield selection;
       }
@@ -479,8 +576,13 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   function mapSelectClosed(schema) {
     return function* (chunk) {
-      xmlps.add([chunk].flat().join(''));
-      let selection = xmlps.mapSelectClosed(schema);
+      const currentParser = getCurrentParser();
+      if (!currentParser) {
+        logger.warn('No active parser found for mapSelectClosed()');
+        return;
+      }
+
+      let selection = currentParser.mapSelectClosed(schema);
       if (selection && Object.keys(selection).length) {
         yield selection;
       }
@@ -488,10 +590,14 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
   }
 
   function select(selector, mapperFn = x => x) {
-    return function* (chunk) {
-      xmlps.add([chunk].flat().join(''));
+    return function*(chunk) {
+      const currentParser = getCurrentParser();
+      if (!currentParser) {
+        logger.warn('No active parser found for select()');
+        return;
+      }
 
-      const selection = xmlps.dedupeSelect(selector, true);
+      const selection = currentParser.dedupeSelect(selector, true);
       if (selection?.length) {
         yield* selection.map(mapperFn);
       }
@@ -520,6 +626,24 @@ function xmllm(pipelineFn, options = {}) {
       results.push(item);
     }
     return results;
+  };
+
+  g.first = async function(n = 1) {
+    const results = [];
+    for await (const item of this) {
+      results.push(item);
+      if (results.length >= n) break;
+    }
+    return n === 1 ? results[0] : results;
+  };
+
+  g.last = async function(n = 1) {
+    const results = [];
+    for await (const item of this) {
+      results.push(item);
+    }
+    const lastN = results.slice(-n);
+    return n === 1 ? lastN[0] : lastN;
   };
 
   return g;

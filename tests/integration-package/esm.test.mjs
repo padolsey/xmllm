@@ -19,10 +19,8 @@ describe('ESM Imports', () => {
 
   // Add a basic functionality test
   test('xmllm function works', async () => {
-    const result = await xmllm(({ select }) => [
-      function* () {
-        yield '<root><item>Test</item></root>';
-      },
+    const result = await xmllm(({ select, parse }) => [
+      parse('<root><item>Test</item></root>'),
       select('item')
     ]);
     

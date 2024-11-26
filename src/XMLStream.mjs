@@ -1,4 +1,7 @@
 import xmllm from './xmllm.mjs';
+import Logger from './Logger.mjs';
+
+const logger = new Logger('XMLStream');
 
 class XMLStream {
   constructor(pipeline = [], options = {}) {
@@ -8,8 +11,21 @@ class XMLStream {
 
   // Get first matching element
   async first() {
-    const {value} = await this[Symbol.asyncIterator]().next();
-    return value;
+    try {
+      const {value, done} = await this[Symbol.asyncIterator]().next();
+      if (done) return undefined;
+      return value;
+    } catch (error) {
+      const errorInfo = parseError(error);
+      switch (errorInfo.type) {
+        case 'TimeoutError':
+          throw new Error(`LLM request timed out: ${errorInfo.message}`);
+        case 'NetworkError':
+          throw new Error(`Failed to connect to LLM service: ${errorInfo.message}`);
+        default:
+          throw error;
+      }
+    }
   }
 
   select(selector) {
@@ -53,23 +69,17 @@ class XMLStream {
     ], this.options);
   }
 
-  async value() {
-    try {
-      const {value, done} = await this[Symbol.asyncIterator]().next();
-      if (done) return undefined;
-      return value;
-    } catch (error) {
-      const errorInfo = parseError(error);
-      
-      switch (errorInfo.type) {
-        case 'TimeoutError':
-          throw new Error(`LLM request timed out: ${errorInfo.message}`);
-        case 'NetworkError':
-          throw new Error(`Failed to connect to LLM service: ${errorInfo.message}`);
-        default:
-          throw error;
-      }
+  async allValues() {
+    const result = [];
+    for await (const value of this) {
+      result.push(value);
     }
+    return result;
+  }
+
+  async value() {
+    logger.warn('Warning: value() is deprecated. Use first() or last() instead.');
+    return this.first();
   }
 
   take(n) {
@@ -115,12 +125,13 @@ class XMLStream {
   }
 
   debug(label = '') {
+    logger.log('Instigate debug() with label', label);
     return new XMLStream([
       ...this.pipeline,
       ['map', value => {
-        console.group(`Debug: ${label}`);
-        console.log(value);
-        console.groupEnd();
+        logger.debug(`=== Debug ${label ? `(${label})` : ''} ===`);
+        logger.debug(value);
+        logger.debug('===================');
         return value;
       }]
     ], this.options);
@@ -151,6 +162,8 @@ class XMLStream {
                   case 'take': return take.call(this, arg);
                   case 'req': return arg.schema ? promptComplex.call(this, arg) : req.call(this, arg);
                 }
+
+                throw new Error(`Unknown pipeline type: ${type}`);
               });
             }, options);
           }
@@ -158,6 +171,7 @@ class XMLStream {
           return iterator.next();
         } catch (error) {
           iterator = null;
+          logger.error('XMLStream error', error);
           throw error;
         }
       },
@@ -185,17 +199,9 @@ class XMLStream {
 
   // Mark complete() as deprecated but keep it for backwards compatibility
   complete() {
-    console.warn('Warning: complete() is deprecated. Use closedOnly() instead as it better describes what this method does - it filters for closed XML elements.');
+    logger.warn('Warning: complete() is deprecated. Use closedOnly() instead as it better describes what this method does - it filters for closed XML elements.');
     return this.closedOnly();
   }
-
-  // async text() {
-  //   const value = await this.value();
-  //   if (Array.isArray(value)) {
-  //     return value.map(el => el.$text);
-  //   }
-  //   return value?.$text;
-  // }
 
   // Convenience method for schema-based collection
   async collect() {
@@ -208,37 +214,84 @@ class XMLStream {
   merge() {
     return new XMLStream([
       ...this.pipeline,
-      ['accrue'],
+      ['accrue'],  // Collects all items into array
       ['map', chunks => {
-        // Deep merge function
         const deepMerge = (target, source) => {
+          // Special case: if source is a special object type (Date, RegExp, etc), return it directly
+          if (source !== null && 
+              typeof source === 'object' && 
+              source.constructor !== Object && 
+              source.constructor !== Array) {
+            return source;
+          }
+
           for (const key in source) {
-            if (source[key] !== null && typeof source[key] === 'object') {
-              // Handle arrays
-              if (Array.isArray(source[key])) {
-                target[key] = target[key] || [];
-                target[key] = target[key].concat(source[key]);
+            const sourceValue = source[key];
+            
+            if (sourceValue !== null && typeof sourceValue === 'object') {
+              // Special object type - pass through
+              if (sourceValue.constructor !== Object && sourceValue.constructor !== Array) {
+                target[key] = sourceValue;
               }
-              // Handle objects
+              // Array - concat
+              else if (Array.isArray(sourceValue)) {
+                target[key] = target[key] || [];
+                target[key] = target[key].concat(sourceValue);
+              }
+              // Plain object - recurse
               else {
                 target[key] = target[key] || {};
-                deepMerge(target[key], source[key]);
+                deepMerge(target[key], sourceValue);
               }
             } else {
-              target[key] = source[key];
+              target[key] = sourceValue;
             }
           }
           return target;
         };
 
-        return chunks.reduce((acc, chunk) => deepMerge(acc, chunk), {});
+        return chunks.reduce((acc, chunk) => {
+          return deepMerge(acc, chunk);
+        }, {});
       }]
     ], this.options);
+  }
+
+  async last(n = 1) {
+    try {
+      if (n < 1) {
+        throw new Error('n must be greater than 0');
+      }
+
+      const allItems = [];
+      for await (const value of this) {
+        allItems.push(value);
+      }
+
+      if (allItems.length === 0) {
+        return undefined;
+      }
+
+      // If n=1, return single value, otherwise return array of last n items
+      return n === 1 
+        ? allItems[allItems.length - 1]
+        : allItems.slice(-n);
+
+    } catch (error) {
+      const errorInfo = parseError(error);
+      switch (errorInfo.type) {
+        case 'TimeoutError':
+          throw new Error(`LLM request timed out: ${errorInfo.message}`);
+        case 'NetworkError':
+          throw new Error(`Failed to connect to LLM service: ${errorInfo.message}`);
+        default:
+          throw error;
+      }
+    }
   }
 }
 
 export default XMLStream;
-
 function parseError(error) {
   // Start with the raw message
   let message = error.message || '';
@@ -274,3 +327,4 @@ function parseError(error) {
 
   return { type, message };
 }
+

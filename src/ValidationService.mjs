@@ -145,9 +145,14 @@ class ValidationService {
     } = params;
 
     if (temperature !== undefined) {
-      if (typeof temperature !== 'number' || temperature < 0 || temperature > 1) {
+      // OpenAI allows up to 2.0; let's just use that.
+      if (
+        typeof temperature !== 'number' ||
+        temperature < 0 ||
+        temperature > 2
+      ) {
         throw new ParameterValidationError(
-          'Temperature must be between 0 and 1',
+          'Temperature must be between 0 and 2',
           { temperature }
         );
       }

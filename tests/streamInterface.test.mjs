@@ -355,7 +355,7 @@ describe('Stream Chaining Convenience API', () => {
         llmStream: TestStream
       })
       .closedOnly()
-      .value();
+      .last();
 
       expect(result).toEqual({
         answer: {
@@ -396,7 +396,6 @@ describe('Stream Chaining Convenience API', () => {
         ])
       }));
 
-      const results = [];
       const scoreStream = stream({
         prompt: 'Give me scores',
         schema: {
@@ -409,9 +408,7 @@ describe('Stream Chaining Convenience API', () => {
         llmStream: TestStream
       });
 
-      for await (const result of scoreStream) {
-        results.push(result);
-      }
+      const results = await scoreStream.last(2);
 
       expect(results).toEqual([
         { result: { score: 8 } },
@@ -437,7 +434,7 @@ describe('Stream Chaining Convenience API', () => {
         system: "You are a math tutor. Always explain your method."
       }, {
         llmStream: TestStream
-      }).value();
+      }).last();
 
       expect(result).toEqual({
         math: {
@@ -586,7 +583,6 @@ describe('Stream Chaining Convenience API', () => {
       })
         .select('stats, tag')
         .map(el => {
-          console.log('>>>name', el);
           if (el.$name === 'stats') {
             const child = el.$children[0];
             console.log('>>>child', child);
@@ -661,6 +657,156 @@ describe('Stream Chaining Convenience API', () => {
           }
         }
       });
+    });
+  });
+
+  describe('last(n)', () => {
+    it('should get last n items', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          '<thinking><num>1</num><num>2</num><num>3</num><num>4</num></thinking>'
+        ])
+      }));
+
+      const stream1 = stream('List numbers', {
+        llmStream: TestStream
+      })
+        .select('num')
+        .map(({$text}) => parseInt($text));
+
+      // Get last 2 items
+      const lastTwo = await stream1.last(2);
+      expect(lastTwo).toEqual([3, 4]);
+
+      // Default to last 1 item
+      const lastOne = await stream1.last();
+      expect(lastOne).toBe(4);
+
+      // Get last 3 items
+      const lastThree = await stream1.last(3);
+      expect(lastThree).toEqual([2, 3, 4]);
+    });
+
+    it('should handle fewer items than requested', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          '<thinking><num>1</num><num>2</num></thinking>'
+        ])
+      }));
+
+      const nums = stream('List numbers', {
+        llmStream: TestStream
+      })
+        .select('num')
+        .map(({$text}) => parseInt($text));
+
+      const lastThree = await nums.last(3);
+      expect(lastThree).toEqual([1, 2]);
+    });
+
+    it('should validate n parameter', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          '<thinking><num>1</num></thinking>'
+        ])
+      }));
+
+      const nums = stream('List numbers', {
+        llmStream: TestStream
+      }).select('num');
+
+      await expect(nums.last(0)).rejects.toThrow('n must be greater than 0');
+      await expect(nums.last(-1)).rejects.toThrow('n must be greater than 0');
+    });
+  });
+});
+
+describe('Stream to Provider Parameter Passing', () => {
+  test('parameters from stream() reach provider payloader correctly', async () => {
+    let capturedParams = {};
+
+    const TestStream = jest.fn().mockImplementation((payload) => {
+      console.log('fake payload capture', payload);
+      capturedParams = payload;
+      throw new Error('Payload captured');
+    });
+
+    const customPayloader = (payload) => {
+      throw new Error('Should not reach payloader');
+    };
+
+    const streamConfig = {
+      prompt: 'Test prompt 111',
+      model: {
+        inherit: 'claude',
+        name: 'param-test-model',
+        payloader: customPayloader
+      },
+      // Core parameters that MUST be passed through
+      maxTokens: 1000,
+      temperature: 0.7,
+      topP: 0.9,
+      presencePenalty: 0.5,
+      system: 'Test system prompt 222',
+      cache: true,
+      stop: ['EOR'],
+      schema: {
+        response: String
+      }
+    };
+
+    await expect(
+      stream(streamConfig, { llmStream: TestStream }).value()
+    ).rejects.toThrow('Payload captured');
+
+    // Verify message content
+    const systemMessage = capturedParams.messages.find(m => m.role === 'system');
+    const userMessage = capturedParams.messages.find(m => m.role === 'user');
+
+    expect(systemMessage.content).toContain('Test system prompt 222');
+    expect(userMessage.content).toContain('Test prompt 111');
+    expect(userMessage.content).toContain('<response>');
+
+    console.log('CAPTURED', capturedParams);4
+
+    // Strict parameter checking
+    expect(capturedParams).toMatchObject({
+      // Core parameters must match exactly what we passed in
+      max_tokens: 1000,        // Not defaulting to 4000
+      temperature: 0.7,        // Not defaulting to 0.5
+      top_p: 0.9,             // Should pass through
+      presence_penalty: 0.5,   // Should pass through
+      cache: true,            // Should pass through
+      
+      stop: ['EOR'],
+      model: {
+        name: 'param-test-model',
+        inherit: 'claude',
+        payloader: customPayloader
+      }
+    });
+  });
+
+  // Add test for default values when parameters aren't specified
+  test('uses correct defaults when parameters not specified', async () => {
+    const capturedParams = {};
+
+    const TestStream = jest.fn().mockImplementation((payload) => {
+      Object.assign(capturedParams, payload);
+      throw new Error('Payload captured');
+    });
+
+    // Minimal configuration
+    await expect(
+      stream({
+        prompt: 'Test prompt'
+      }, { llmStream: TestStream }).value()
+    ).rejects.toThrow('Payload captured');
+
+    // Verify default values
+    expect(capturedParams).toMatchObject({
+      max_tokens: 4000,      // Default max tokens
+      temperature: 0.72,     // Default temperature
     });
   });
 }); 

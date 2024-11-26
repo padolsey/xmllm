@@ -36,7 +36,13 @@ export function stream(promptOrConfig, options = {}) {
     };
   }
 
-  const { prompt, schema, system, closed, ...restOptions } = config;
+  const { prompt, schema, system, closed, onChunk, ...restOptions } = config;
+
+  console.log('Calling XMLStream req with', {
+    prompt,
+    schema,
+    system
+  });
 
   // If schema is provided, use promptComplex style config
   if (schema) {
@@ -47,10 +53,14 @@ export function stream(promptOrConfig, options = {}) {
           content: prompt
         }],
         schema,
+        onChunk,
         system,
-        doMapSelectClosed: closed
+        doMapSelectClosed: closed,
+        ...restOptions
       }]
-    ], restOptions);
+    ], {
+      llmStream: restOptions.llmStream || null
+    });
   }
 
   // Basic prompt
@@ -62,15 +72,24 @@ export function stream(promptOrConfig, options = {}) {
   });
 }
 
-export function simple(prompt, schema, options = {}) {
-  return stream({
-    prompt,
+export async function simple(prompt, schema, options = {}) {
+
+  const theStream = await stream(prompt, {
+    ...options,
     schema,
-    closed: true,
-    ...options
-  })
-  .merge()
-  .value();
+    closed: true
+  });
+
+  const result = await theStream.merge().last();
+
+  return result;
+
+  // return result;
+  //   mergeAggregate(),
+  //   function*(result) {
+  //     yield result;
+  //   }
+  // ], options);
 }
 
 export default xmllm;

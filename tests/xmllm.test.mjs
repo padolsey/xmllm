@@ -67,17 +67,15 @@ const TestStream = (() => {
 const xmllm = (pipeline, opts) => {
   return _xmllm(pipeline, {
     ...(opts || {}),
-    llmStream: TestStream // Inject TestStream Service so no real reqs are made
+    llmStream: TestStream
   })
 }
 
 describe('xmllm', () => {
   describe('Simple pipeline', () => {
     it('should process a single step pipeline', async () => {
-      const results = xmllm(({ select }) => [
-        function* () {
-          yield '<root><item>Test</item></root>';
-        },
+      const results = xmllm(({ select, parse }) => [
+        parse('<root><item>Test</item></root>'),
         select('item')
       ]);
       
@@ -110,7 +108,8 @@ describe('xmllm', () => {
         }
       ]);
 
-      expect((await results.next()).value).toEqual({
+      const result = await results.last();
+      expect(result).toEqual({
         item: {
           name: 'Test Result',
           value: 42
@@ -121,10 +120,8 @@ describe('xmllm', () => {
 
   describe('xmllm.mapSelect', () => {
     it('should select and map XML content', async () => {
-      const results = await xmllm(({ mapSelect }) => [
-        function* () {
-          yield '<root><item><name>Item 1</name><value>10</value></item><item><name>Item 2</name><value>20</value></item></root>';
-        },
+      const results = await xmllm(({ mapSelect, parse }) => [
+        parse('<root><item><name>Item 1</name><value>10</value></item><item><name>Item 2</name><value>20</value></item></root>'),
         mapSelect({
           item: [{
             name: String,
@@ -144,7 +141,7 @@ describe('xmllm', () => {
 
   describe('Complex pipeline', () => {
     it('should process a multi-step pipeline', async () => {
-      const stream = await xmllm(({ prompt }) => [
+      const stream = await xmllm(({ prompt, filter }) => [
         function* () {
           yield "Artificial Intelligence";
         },
@@ -157,6 +154,7 @@ describe('xmllm', () => {
             }]
           }
         ),
+        filter(thing => !!thing.subtopic),
         prompt(
           (thing) => {
             const {subtopic: [{perspective, title}]} = thing;
@@ -173,13 +171,12 @@ describe('xmllm', () => {
         )
       ]);
 
-      const results = [];
-      for await (const r of stream) results.push(r);
+      const result = await stream.last();
 
-      expect(results[0].subtopic).toBeDefined();
-      expect(results[0].subtopic[0].perspective).toBe('Test Result');
-      expect(results[0].subtopic[0].title).toBe('Test Result');
-      expect(results[0].explanation).toBe('Test Result');
+      expect(result.subtopic).toBeDefined();
+      expect(result.subtopic[0].perspective).toBe('Test Result');
+      expect(result.subtopic[0].title).toBe('Test Result');
+      expect(result.explanation).toBe('Test Result');
     });
   });
 
@@ -196,10 +193,8 @@ describe('xmllm', () => {
     });
 
     it('should handle malformed XML', async () => {
-      const results = await xmllm(({ select }) => [
-        function* () {
-          yield '<root><item>Test</item><unclosed>';
-        },
+      const results = await xmllm(({ select, parse }) => [
+        parse('<root><item>Test</item><unclosed>'),
         select('item')
       ]);
 
@@ -226,7 +221,7 @@ describe('xmllm', () => {
         )
       ]);
 
-      const result = (await results.next()).value;
+      const result = await results.last();
       expect(result.user.name).toBe('Test Result');
       expect(result.user.email).toBe('test result');
     });
@@ -250,7 +245,8 @@ describe('xmllm', () => {
         )
       ]);
 
-      const result = (await results.next()).value;
+      const result = await results.last();
+      console.log('>>last', result);
       expect(typeof result.product.price).toBe('number');
       expect(typeof result.product.quantity).toBe('number');
     });
@@ -261,7 +257,6 @@ describe('xmllm', () => {
           'List some scores',
           {
             'score': [value(s => {
-              console.log(99999, s);
               const n = parseInt(s);
               return isNaN(n) ? 0 : n;
             })]
@@ -269,7 +264,7 @@ describe('xmllm', () => {
         )
       ]);
 
-      const result = (await results.next()).value;
+      const result = await results.last();
       expect(Array.isArray(result.score)).toBe(true);
       result.score.forEach(score => {
         expect(typeof score).toBe('number');
@@ -298,7 +293,7 @@ describe('xmllm', () => {
         )
       ]);
 
-      const result = (await results.next()).value;
+      const result = await results.last();
       expect(typeof result.user.name).toBe('string');
       expect(Array.isArray(result.user.stats.score)).toBe(true);
       expect(typeof result.user.stats.average).toBe('number');

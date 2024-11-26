@@ -98,8 +98,22 @@ export interface ModelConfig {
 
 export type ModelPreference = ModelString | ModelConfig | Array<ModelString | ModelConfig>;
 
-// Schema types
-export type SchemaType = Record<string, any>;
+// First, let's define what a string hint can be
+export type SchemaHint = string;
+
+// Then define what a schema value can be
+export type SchemaValue = 
+  | StringConstructor
+  | NumberConstructor
+  | BooleanConstructor
+  | ((element: XMLElement) => any)
+  | SchemaHint;
+
+// Finally, define the full schema type that can be recursive
+export type SchemaType = 
+  | SchemaValue
+  | { [key: string]: SchemaType }
+  | Array<SchemaType>;
 
 // Add these new types
 export type PipelineFunction = 
@@ -239,4 +253,46 @@ export interface CacheService {
   set(key: string, value: any): Promise<void>;
   clear(): Promise<void>;
 }
+
+// Add these interfaces
+export interface StreamOptions extends XmllmOptions {
+  schema?: SchemaType;
+  system?: string;
+  closed?: boolean;
+  model?: ModelPreference;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface XMLStream<T = any> {
+  select(selector: string): XMLStream<T>;
+  map<U>(fn: (value: T) => U): XMLStream<U>;
+  filter(fn: (value: T) => boolean): XMLStream<T>;
+  text(): XMLStream<string>;
+  merge(): XMLStream<T>;
+  value(): Promise<T>;
+  closedOnly(): XMLStream<T>;
+  complete(): XMLStream<T>;  // deprecated
+  all(): XMLStream<T[]>;
+  first(): Promise<T>;
+  take(n: number): XMLStream<T>;
+  skip(n: number): XMLStream<T>;
+  raw(): XMLStream<string>;
+  debug(label?: string): XMLStream<T>;
+  collect(): Promise<T>;
+  reduce<U>(reducer: (acc: U, value: T) => U, initialValue: U): XMLStream<U>;
+  mergeAggregate(): XMLStream<T[]>;
+}
+
+// Add these function declarations
+export function stream(
+  promptOrConfig: string | StreamConfig,
+  options?: StreamOptions
+): XMLStream;
+
+export function simple<T = any>(
+  prompt: string,
+  schema: SchemaType,
+  options?: Omit<StreamOptions, 'schema'> // schema comes from second param
+): Promise<T>;
 

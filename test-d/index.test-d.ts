@@ -4,7 +4,11 @@ import xmllm, {
   PipelineHelpers, 
   XMLElement,
   PromptConfig,
-  ModelPreference
+  ModelPreference,
+  simple,
+  stream,
+  XMLStream,
+  SchemaType
 } from '../index';
 import { xmllm as clientXmllm, ClientProvider } from '../client';
 
@@ -15,12 +19,12 @@ const validMessage: Message = {
 };
 expectType<Message>(validMessage);
 
-// Negative test - should fail with invalid role
-// @ts-expect-error
-const invalidMessage2: Message = {
+// Test invalid message without @ts-expect-error
+const invalidMessage2 = {
   role: 'invalid' as const,
   content: 'hello'
-};
+} as const;
+expectError<Message>(invalidMessage2);
 
 // Positive test - valid XMLElement
 const validElement: XMLElement = {
@@ -70,20 +74,20 @@ const validPromptConfig: PromptConfig = {
 };
 expectType<PromptConfig>(validPromptConfig);
 
-// Negative test - wrong type for temperature
-// @ts-expect-error - Temperature must be a number between 0 and 1, not a string
-const invalidPromptConfig: PromptConfig = {
-  temperature: 'high' // This should trigger a type error
-};
+// Test invalid prompt config without @ts-expect-error
+const invalidPromptConfig = {
+  temperature: 'high' as const
+} as const;
+expectError<PromptConfig>(invalidPromptConfig);
 
 // Main xmllm usage - valid case
-const stream = xmllm(validPipeline, {
+const testStream = xmllm(validPipeline, {
   timeout: 1000,
   apiKeys: {
     ANTHROPIC_API_KEY: 'test'
   }
 });
-expectType<AsyncGenerator<any>>(stream);
+expectType<AsyncGenerator<any>>(testStream);
 
 // Negative test - wrong argument type
 // @ts-expect-error - xmllm's first argument must be a function that returns a pipeline array
@@ -147,3 +151,141 @@ expectError<Message>({
 expectError<PromptConfig>({
   temperature: 'high' as const
 });
+
+// Add comprehensive simple() tests
+
+// Test simple() with basic types
+const numberResult = await simple<{ answer: number }>(
+  "What is 2+2?",
+  { answer: Number }
+);
+expectType<{ answer: number }>(numberResult);
+
+// Test simple() with nested schema
+const userResult = await simple<{
+  user: {
+    name: string;
+    age: number;
+    tags: string[];
+  }
+}>(
+  "Get user info",
+  {
+    user: {
+      name: String,
+      age: Number,
+      tags: [String]
+    }
+  }
+);
+expectType<{
+  user: {
+    name: string;
+    age: number;
+    tags: string[];
+  }
+}>(userResult);
+
+// Test simple() with custom transformers
+const dateResult = await simple<{ date: Date }>(
+  "Get date",
+  {
+    date: (element: XMLElement) => new Date(element.$text)
+  }
+);
+expectType<{ date: Date }>(dateResult);
+
+// Test stream() type inference - just rename local variable
+const streamResult = stream("Count to 3")
+  .select("number")
+  .map((x: XMLElement) => parseInt(x.$text));
+expectType<XMLStream<number>>(streamResult);
+
+// Test stream() with schema - rename local variable
+const streamWithSchema = stream("Get users", {
+  schema: {
+    users: [{
+      name: String,
+      age: Number
+    }]
+  }
+});
+expectType<XMLStream<any>>(streamWithSchema);
+
+// Test stream chaining type inference - rename local variable
+const streamChained = stream("Test")
+  .select("item")
+  .map((x: XMLElement) => x.$text)
+  .filter((x: string) => x.length > 0)
+  .map((x: string) => parseInt(x));
+expectType<XMLStream<number>>(streamChained);
+
+// Test error cases - use something that's definitely not a valid schema type
+expectError<SchemaType>({
+  number: 42  // Should error - raw numbers aren't valid schema types
+});
+
+// Or test invalid function signature
+expectError<SchemaType>({
+  field: (x: number) => x  // Should error - transformers must take XMLElement
+});
+
+const streamValue = stream("Test")
+  .select("item")
+  .value();
+// This should error because value() returns Promise<T>, not XMLStream<T>
+expectError(streamValue.map());
+
+// Test string literals as explanation hints
+const schemaWithHints = {
+  user: {
+    name: "The user's full name",  // String literal as hint
+    age: Number,
+    occupation: "The person's current job title",  // String literal as hint
+    hobbies: {
+      hobby: ["A hobby they enjoy"]  // String literal in array
+    }
+  }
+};
+
+type HintSchema = {
+  user: {
+    name: string;
+    age: number;
+    occupation: string;
+    hobbies: {
+      hobby: string[];
+    }
+  }
+};
+
+const hintResult = await simple<HintSchema>(
+  "Get user info",
+  schemaWithHints
+);
+expectType<HintSchema>(hintResult);
+
+// Test string literals as valid schema values at any level
+const validSchemas: Record<string, SchemaType> = {
+  topLevel: "This is a valid explanation hint",
+  user: {
+    name: "The user's full name",
+    details: "Additional user information",
+    age: Number
+  },
+  items: ["These are the items"],
+  mixed: {
+    hint: "An explanation hint",
+    transform: Number,
+    nested: {
+      moreHints: "More documentation",
+      value: String
+    }
+  }
+};
+
+// These should work
+expectType<SchemaType>(validSchemas.topLevel);
+expectType<SchemaType>(validSchemas.user);
+expectType<SchemaType>(validSchemas.items);
+expectType<SchemaType>(validSchemas.mixed);

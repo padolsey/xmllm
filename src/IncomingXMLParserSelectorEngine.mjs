@@ -123,14 +123,16 @@ class IncomingXMLParserSelectorEngine {
   }
 
   getTextContent(element) {
-    return (element.children || []).reduce((text, child) => {
+    const tc = (element.children || []).reduce((text, child) => {
       if (child.type === 'text') {
         return text + child.data;
       } else if (child.type === 'tag') {
         return text + this.getTextContent(child);
       }
+      console.error('Unknown child type:', child);
       return text;
     }, '');
+    return tc;
   }
 
   select(selector, includeOpenTags = false) {
@@ -312,7 +314,7 @@ class IncomingXMLParserSelectorEngine {
           if (element.$attr && element.$attr[attrName] !== undefined) {
             out[resultKey] = mapItem(element.$attr[attrName]);
           }
-        } else if (k === '_') {
+        } else if (k === '_' || k === '$text') {
           // Handle text content
           out[resultKey] = mapItem(element.$text);
         } else if (!element[resultKey]) {
@@ -345,12 +347,12 @@ class IncomingXMLParserSelectorEngine {
     rootSelectors.forEach(selector => {
       const elements = this.dedupeSelect(selector, includeOpenTags);
 
-      const resultName = selector.replace(/\[\](?=\s+|$)/g, '');
-      const isArraySuffix = selector !== resultName;
-
+      // If no elements found, just return/skip
       if (!elements?.length) return;
 
-      if (Array.isArray(normalizedMapping[selector]) || isArraySuffix) {
+      const resultName = selector;
+
+      if (Array.isArray(normalizedMapping[selector])) {
         elements.forEach((el) => {
           results[resultName] = (
             results[resultName] || []
@@ -361,6 +363,7 @@ class IncomingXMLParserSelectorEngine {
       }
     });
 
+    // Returns empty object if no matches found
     return results;
   }
 

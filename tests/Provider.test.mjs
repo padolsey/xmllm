@@ -508,4 +508,282 @@ describe('Custom Model Support', () => {
       });
     }).toThrow('payloader must be a function');
   });
+});
+
+describe('Configuration Parameter Passing', () => {
+  let providerManager;
+  let mockFetch;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    providerManager = new ProviderManager();
+  });
+
+  test('passes all configuration parameters through to provider payloader', async () => {
+    // Create a custom provider that logs all received parameters
+    const receivedParams = {};
+
+    const customConfig = {
+      inherit: 'claude',
+      name: 'config-test-model',
+      payloader: function(payload) {
+        // Store received parameters for verification
+        Object.assign(receivedParams, {
+          max_tokens: payload.max_tokens,
+          maxTokens: payload.maxTokens,
+          temperature: payload.temperature,
+          top_p: payload.top_p,
+          topP: payload.topP,
+          presence_penalty: payload.presence_penalty,
+          presencePenalty: payload.presencePenalty,
+          system: payload.system,
+          messages: payload.messages,
+          model: payload.model,
+          stream: payload.stream
+        });
+
+        // Return standard payload
+        return {
+          messages: payload.messages,
+          max_tokens: payload.max_tokens,
+          temperature: payload.temperature
+        };
+      }
+    };
+
+    // Mock successful response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ 
+        choices: [{ message: { content: 'test response' } }] 
+      })
+    });
+
+    const { provider } = providerManager.getProviderByPreference(customConfig);
+    provider.fetch = mockFetch;
+
+    // Test with all possible parameters
+    const testConfig = {
+      messages: [{ role: 'user', content: 'test' }],
+      max_tokens: 1000,
+      maxTokens: 1000,  // Alias
+      temperature: 0.7,
+      top_p: 0.9,
+      topP: 0.9,  // Alias
+      presence_penalty: 0.5,
+      presencePenalty: 0.5,  // Alias
+      system: 'You are a test assistant',
+      model: 'config-test-model',
+      stream: true
+    };
+
+    await provider.makeRequest(testConfig);
+
+    // Verify all parameters were received by payloader
+    expect(receivedParams).toEqual(expect.objectContaining({
+      max_tokens: 1000,
+      maxTokens: 1000,
+      temperature: 0.7,
+      top_p: 0.9,
+      topP: 0.9,
+      presence_penalty: 0.5,
+      presencePenalty: 0.5,
+      system: 'You are a test assistant',
+      model: 'config-test-model',
+      stream: true
+    }));
+
+    // Verify fetch was called with transformed payload
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('"max_tokens":1000'),
+        body: expect.stringContaining('"temperature":0.7')
+      })
+    );
+  });
+
+  test('handles parameter aliases consistently', async () => {
+    const receivedParams = {};
+
+    const customConfig = {
+      inherit: 'claude',
+      name: 'alias-test-model',
+      payloader: function(payload) {
+        // Store only the parameters we want to verify
+        const { 
+          max_tokens, maxTokens,
+          top_p, topP,
+          presence_penalty, presencePenalty,
+          temperature
+        } = payload;
+        
+        Object.assign(receivedParams, {
+          max_tokens, maxTokens,
+          top_p, topP,
+          presence_penalty, presencePenalty,
+          temperature
+        });
+        return payload;
+      }
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ 
+        choices: [{ message: { content: 'test response' } }] 
+      })
+    });
+
+    const { provider } = providerManager.getProviderByPreference(customConfig);
+    provider.fetch = mockFetch;
+
+    // Test with mixed alias usage
+    await provider.makeRequest({
+      messages: [{ role: 'user', content: 'test' }],
+      maxTokens: 1000,      // Use alias
+      temperature: 0.7,
+      topP: 0.9,           // Use alias
+      presencePenalty: 0.5  // Use alias
+    });
+
+    // Verify both original and alias parameters are present
+    expect(receivedParams).toMatchObject({
+      maxTokens: 1000,
+      max_tokens: 1000,
+      temperature: 0.7,
+      topP: 0.9,
+      presencePenalty: 0.5
+    });
+  });
+
+  test('passes configuration through stream interface', async () => {
+    const receivedParams = {};
+
+    const customConfig = {
+      inherit: 'claude',
+      name: 'stream-test-model',
+      payloader: function(payload) {
+        // Store only the parameters we want to verify
+        const { 
+          max_tokens, maxTokens,
+          temperature,
+          top_p, topP,
+          presence_penalty, presencePenalty,
+          system,
+          stream
+        } = payload;
+        
+        Object.assign(receivedParams, {
+          max_tokens, maxTokens,
+          temperature,
+          top_p, topP,
+          presence_penalty, presencePenalty,
+          system,
+          stream
+        });
+        return payload;
+      }
+    };
+
+    // Mock streaming response
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: {
+        getReader: () => ({
+          read: jest.fn()
+            .mockResolvedValueOnce({ 
+              value: new TextEncoder().encode('test response'),
+              done: false 
+            })
+            .mockResolvedValueOnce({ done: true }),
+          releaseLock: jest.fn()
+        })
+      }
+    });
+
+    const { provider } = providerManager.getProviderByPreference(customConfig);
+    provider.fetch = mockFetch;
+
+    // Test streaming with configuration
+    await provider.createStream({
+      messages: [{ role: 'user', content: 'test' }],
+      maxTokens: 1000,
+      temperature: 0.7,
+      topP: 0.9,
+      presencePenalty: 0.5,
+      system: 'You are a test assistant',
+      stream: true
+    });
+
+    // Verify both original and alias parameters are present
+    expect(receivedParams).toMatchObject({
+      maxTokens: 1000,
+      max_tokens: 1000,
+      temperature: 0.7,
+      topP: 0.9,
+      presencePenalty: 0.5,
+      system: 'You are a test assistant',
+      stream: true
+    });
+  });
+});
+
+describe('Provider Payloader Error Handling', () => {
+  let provider;
+  let mockFetch;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { 
+        fast: { name: 'test-model' } 
+      },
+      // Payloader that throws
+      payloader: () => {
+        throw new Error('Payloader Error');
+      }
+    }, mockFetch);
+  });
+
+  test('makeRequest handles payloader errors without fetching', async () => {
+    await expect(provider.makeRequest({
+      messages: [{ role: 'user', content: 'test' }]
+    })).rejects.toThrow('Payloader Error');
+
+    // Verify fetch was never called
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('createStream handles payloader errors without fetching', async () => {
+    await expect(provider.createStream({
+      messages: [{ role: 'user', content: 'test' }]
+    })).rejects.toThrow('Payloader Error');
+
+    // Verify fetch was never called
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test('cleans up resources when payloader throws', async () => {
+    const mockReader = {
+      releaseLock: jest.fn()
+    };
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: {
+        getReader: () => mockReader
+      }
+    });
+
+    await expect(provider.createStream({
+      messages: [{ role: 'user', content: 'test' }]
+    })).rejects.toThrow('Payloader Error');
+
+    // Verify cleanup occurred
+    expect(mockReader.releaseLock).not.toHaveBeenCalled(); // Should never get to this point
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 }); 

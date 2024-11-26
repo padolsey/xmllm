@@ -28,7 +28,7 @@ describe('xmllm - Gathering results from multiple prompts', () => {
       ],
 
       function*(thing99) {
-        console.log('>> thing99', thing99);
+        // if (thing99 == null) return; // avoid implicit stream start value
         yield thing99;
       },
 

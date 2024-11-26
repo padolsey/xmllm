@@ -2,6 +2,8 @@
 
 xmllm is a provider-agnostic JavaScript library that lets AI language models communicate naturally while still giving you structured data back. Instead of forcing AIs to return strict JSON through brittle function-calling APIs, xmllm lets them respond in XML/HTML - formats they deeply understand from training data.
 
+![XMLLM Demo](https://j11y.io/public_images/xmllm1.gif)
+
 **Why does this matter?** Most LLM function-calling APIs force models to return JSON, which:
 1. Often fails due to strict grammar requirements
 2. Typically doesn't support streaming responses
@@ -81,7 +83,36 @@ export ANTHROPIC_API_KEY=your_key    # For Claude
 export OPENAI_API_KEY=your_key       # For GPT-4
 ```
 
-### Basic Usage
+### Simplest Usage
+
+The `simple()` function provides the easiest way to get structured data from AI:
+
+```javascript
+import { simple } from 'xmllm';
+
+// Get structured data in one line
+const result = await simple(
+  "What is 2+2?", 
+  {
+    answer: {
+      value: Number,
+      explanation: String
+    }
+  }
+);
+
+console.log(result);
+// {
+//   answer: {
+//     value: 4,
+//     explanation: "Basic addition of two plus two"
+//   }
+// }
+```
+
+### Streaming Usage
+
+For more control over the response stream, use the `stream()` API:
 
 ```javascript
 import { stream } from 'xmllm';

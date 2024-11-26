@@ -14,8 +14,10 @@ const tests = {
   raw: {
     name: 'Raw Text Streaming',
     description: 'Stream raw LLM output as it arrives',
-    code: `const rawStream = stream('Tell me a story', {}, clientProvider)
-  .raw();
+    code: `const rawStream = stream('Tell me a story', {
+  clientProvider
+})
+.raw();
 
 for await (const chunk of rawStream) {
   setOutput(prev => prev + chunk);
@@ -25,9 +27,11 @@ for await (const chunk of rawStream) {
   streaming: {
     name: 'Element Streaming',
     description: 'Process elements as they arrive',
-    code: `const thoughtStream = stream('Share some deep thoughts I.e. <thought>...</thought> etc.', {}, clientProvider)
-  .select('thought')
-  .map(({$text}) => $text);
+    code: `const thoughtStream = stream('Share some deep thoughts I.e. <thought>...</thought> etc.', {
+  clientProvider
+})
+.select('thought')
+.map(({$text}) => $text);
 
 for await (const thought of thoughtStream) {
   setOutput(prev => prev + thought + '\\n');
@@ -37,11 +41,12 @@ for await (const thought of thoughtStream) {
   partial: {
     name: 'Real-time Updates',
     description: 'See content grow within elements',
-    code: `const storyStream = stream('Write a story', {}, clientProvider)
-  .select('story');
+    code: `const storyStream = stream('Write a story in tags: <story>...</story>', {
+  clientProvider
+})
+.select('story');
 
 for await (const update of storyStream) {
-  // See the story grow word by word
   setOutput(update.$text);
 }`
   },
@@ -49,7 +54,9 @@ for await (const update of storyStream) {
   schema: {
     name: 'Schema Analysis',
     description: 'Get complete structured analysis',
-    code: `const analysis = await stream('Analyze this tweet: "Just landed my first dev job!"', {
+    code: `const analysis = await stream({
+  prompt: 'Analyze this tweet: "Just landed my first dev job!"',
+  closed: true,
   schema: {
     sentiment: String,
     topics: [String],
@@ -58,8 +65,10 @@ for await (const update of storyStream) {
       reasoning: String
     }]
   }
-}, clientProvider)
-.merge()  // Collect and merge all chunks
+}, {
+  clientProvider
+})
+.merge()
 .value();
 
 setOutput(JSON.stringify(analysis, null, 2));`
@@ -68,24 +77,32 @@ setOutput(JSON.stringify(analysis, null, 2));`
   advanced: {
     name: 'Advanced Selection',
     description: 'Multiple selectors and nested elements',
-    code: `const baseStream = stream('List books by category', {}, clientProvider);
+    code: `const baseStream = stream(\`List 3 fiction books and 3 non-fiction like so:
+  <shelf category="fiction">
+    <book><title>___</title>
+    <author>___</author></book>
+  </shelf>\`, {
+  model: 'claude:fast',
+  clientProvider
+});
 
 // Get all books
 const allBooks = await baseStream
   .select('book')
-  .map(book => ({
-    title: book.title[0].$text,
-    author: book.author[0].$text
-  }))
-  .all()
-  .value();
+  .filter(b => b.title?.[0].$closed && b.author?.[0].$closed)
+  .map(({title, author}) => {
+    return {title: title[0].$text, author: author[0].$text}
+  })
+  .all().value()
 
 // Get fiction books specifically
 const fictionBooks = await baseStream
   .select('shelf[category="fiction"] > book')
-  .map(book => book.title[0].$text)
-  .all()
-  .value();
+  .filter(b => b.title?.[0].$closed && b.author?.[0].$closed)
+  .map(({title, author}) => {
+    return {title: title[0].$text, author: author[0].$text}
+  })
+  .all().value()
 
 setOutput(JSON.stringify({
   all: allBooks,
@@ -106,18 +123,23 @@ setOutput(JSON.stringify({
   '    <b>128</b>\\n' +
   '  </rgb>\\n' +
   '</color>',
-  {},
-  clientProvider
+  {
+    clientProvider,
+    system: 'You are a color expert'
+  }
 )
 .select('color')
-.map(color => ({
-  name: color.name[0].$text,
-  rgb: {
-    r: parseInt(color.rgb[0].r[0].$text),
-    g: parseInt(color.rgb[0].g[0].$text),
-    b: parseInt(color.rgb[0].b[0].$text)
+.map(color => {
+  console.log('color', color);
+  return {
+    name: color?.name?.[0]?.$text,
+    rgb: {
+      r: color?.rgb?.[0]?.r?.[0].$text,
+      g: color?.rgb?.[0]?.g?.[0].$text,
+      b: color?.rgb?.[0]?.b?.[0].$text
+    }
   }
-}));
+}).filter(f => f.name && f.rgb.r && f.rgb.g && f.rgb.b)
 
 for await (const color of colorStream) {
   setOutput(prev => prev + JSON.stringify(color, null, 2) + '\\n');

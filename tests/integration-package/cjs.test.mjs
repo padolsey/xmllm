@@ -29,10 +29,8 @@ describe('CommonJS Imports', () => {
 
   // Add a basic functionality test
   test('xmllm function works', async () => {
-    const result = await xmllm.default(({ select }) => [
-      function* () {
-        yield '<root><item>Test</item></root>';
-      },
+    const result = await xmllm.default(({ select, parse }) => [
+      parse('<root><item>Test</item></root>'),
       select('item')
     ]);
     

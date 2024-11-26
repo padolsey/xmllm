@@ -239,3 +239,210 @@ Choose based on your needs:
    - Show meaningful progress indicators
    - Provide feedback during processing
    - Handle both fast and slow responses gracefully 
+
+## Working with Partial & Complete Results 
+
+### Understanding Streaming Results
+
+When working with xmllm streams, results arrive in chunks and gradually coalesce into complete structures:
+
+```javascript
+const analysis = stream('Analyze this text')
+  .select('analysis')
+  .map(({$text, $closed}) => ({
+    text: $text,
+    isComplete: $closed
+  }));
+
+// You might see:
+// { text: "This tex", isComplete: false }
+// { text: "This text is gr", isComplete: false }
+// { text: "This text is great", isComplete: true }
+```
+
+### Using first() and last()
+
+`first(n)` and `last(n)` help you work with streaming results:
+
+```javascript
+// Get first complete result
+const firstComplete = await stream('List colors')
+  .select('color')
+  .closedOnly()  // Only consider complete elements
+  .first();
+
+// Get last 2 results (waits for stream to finish)
+const lastTwo = await stream('List colors')
+  .select('color')
+  .last(2);
+
+// Combine with schema for structured data
+const finalAnalysis = await stream('Analyze text', {
+  schema: {
+    analysis: {
+      sentiment: String,
+      score: Number
+    }
+  }
+})
+.last();  // Get final complete structure
+```
+
+### When to Use Each
+
+- Use `first()` when:
+  - You need just one result quickly
+  - You're validating/testing responses
+  - The order matters (first response is most relevant)
+
+- Use `last()` when:
+  - You need the final/complete result
+  - Working with schemas (wait for full structure)
+  - You want the most refined/complete answer
+  - Collecting the final n items
+
+### Streaming vs Complete Results
+
+Remember that streaming results may be partial:
+
+```javascript
+const colorStream = stream('List 3 colors')
+  .select('color');
+
+// 1. See every update (including partial)
+for await (const color of colorStream) {
+  console.log('Update:', color.$text);  // Might see: "re", "red", "blu", "blue"
+}
+
+// 2. Only see complete elements
+for await (const color of colorStream.closedOnly()) {
+  console.log('Complete:', color.$text);  // Only sees: "red", "blue"
+}
+
+// 3. Wait for final result
+const lastColor = await colorStream.last();
+console.log('Final:', lastColor.$text);  // Gets last complete color
+```
+
+### Working with Schemas
+
+When using schemas, results build up gradually:
+
+```javascript
+const analysis = stream('Analyze text', {
+  schema: {
+    analysis: {
+      sentiment: String,
+      topics: [String],
+      score: Number
+    }
+  }
+});
+
+// 1. See partial updates
+for await (const result of analysis) {
+  console.log('Partial:', result);
+  // Might see:
+  // { analysis: { sentiment: "Pos" } }
+  // { analysis: { sentiment: "Positive", topics: ["AI"] } }
+  // { analysis: { sentiment: "Positive", topics: ["AI"], score: 8 } }
+}
+
+// 2. Wait for complete structure
+const final = await analysis.last();
+console.log('Complete:', final);
+// Gets full structure with all fields
+```
+
+### Best Practices
+
+1. **Choose the Right Method**
+   - Use streaming iteration for real-time updates/feedback
+   - Use `first()`/`last()` for complete results
+   - Combine with `closedOnly()` for reliable complete elements
+
+2. **Schema Considerations**
+   - Partial results may not match your schema
+   - Use `last()` to wait for complete structure
+   - Consider using `merge()` to combine partial updates
+
+3. **Error Handling**
+   - Partial results might be malformed
+   - Use `closedOnly()` for safer processing
+   - Handle timeouts when using `last()`
+
+4. **Performance**
+   - `first()` returns quickly
+   - `last()` must consume entire stream
+   - Consider memory usage with large streams
+
+### Complete Configuration Example
+
+Here's a fully qualified example showing system prompts, model selection, and other options:
+
+```javascript
+const analysis = stream({
+  prompt: "Analyze this technical document",
+  system: "You are an expert technical writer who excels at clear, concise analysis.",
+  
+  schema: {
+    analysis: {
+      summary: String,
+      technical_level: Number,
+      key_point: [String],
+      recommendation: [{
+        title: String,
+        priority: Number,
+        detail: String
+      }]
+    }
+  },
+  model: 'claude-3-opus-20240229',
+  temperature: 0.7,
+  maxTokens: 2000,
+  cache: true,
+  retryMax: 3,
+  retryStartDelay: 1000,
+  retryBackoffMultiplier: 2,
+  waitMessageString: 'Analyzing... ',
+  waitMessageDelay: 500
+});
+
+// 1. Stream updates in real-time
+for await (const update of analysis) {
+  console.log('Progress:', update);
+  // Might see:
+  // { analysis: { summary: "This document..." } }
+  // { analysis: { summary: "...", keyPoints: ["First point"] } }
+  // etc.
+}
+
+// 2. Or wait for final result
+const final = await analysis.last();
+console.log('Complete Analysis:', final);
+// Gets full structure with all fields
+```
+
+This example shows:
+- System prompt to guide AI behavior
+- Structured schema for response format
+- Model selection and parameters
+- Retry logic for reliability
+- Progress indicators for UX
+- Both streaming and final result patterns
+
+You can also use the same options with simpler prompts:
+
+```javascript
+const colors = stream('List 5 colors', {
+  system: 'You are a color expert. Prefer unique and interesting colors.',
+  model: 'claude-3-sonnet',
+  temperature: 0.9
+})
+.select('color')
+.text();
+
+for await (const color of colors) {
+  console.log('Color:', color);
+}
+```
