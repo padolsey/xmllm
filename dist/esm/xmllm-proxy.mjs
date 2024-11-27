@@ -29,13 +29,14 @@ function createServer() {
   console.log('Starting Proxy Server with config', config, 'Port:', port);
   app.post('/api/stream', /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(req, res) {
-      var _req$body, messages, _req$body$model, model, max_tokens, temperature, fakeDelay, cache, stream, theStream;
+      var _req$body, messages, _req$body$model, model, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, fakeDelay, stop, cache, stream, theStream;
       return _regeneratorRuntime().wrap(function _callee$(_context) {
         while (1) switch (_context.prev = _context.next) {
           case 0:
-            _context.prev = 0;
-            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens, temperature = _req$body.temperature, fakeDelay = _req$body.fakeDelay, cache = _req$body.cache, stream = _req$body.stream;
-            _context.prev = 2;
+            console.log('Stream request', req.body);
+            _context.prev = 1;
+            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens, maxTokens = _req$body.maxTokens, temperature = _req$body.temperature, top_p = _req$body.top_p, topP = _req$body.topP, presence_penalty = _req$body.presence_penalty, presencePenalty = _req$body.presencePenalty, fakeDelay = _req$body.fakeDelay, stop = _req$body.stop, cache = _req$body.cache, stream = _req$body.stream;
+            _context.prev = 3;
             // Validate all inputs
             ValidationService.validateMessages(messages);
             ValidationService.validateModel(model, PROVIDERS);
@@ -45,42 +46,48 @@ function createServer() {
               stream: stream,
               cache: cache
             });
-            _context.next = 11;
+            _context.next = 12;
             break;
-          case 8:
-            _context.prev = 8;
-            _context.t0 = _context["catch"](2);
+          case 9:
+            _context.prev = 9;
+            _context.t0 = _context["catch"](3);
             return _context.abrupt("return", res.status(400).json({
               error: _context.t0.message,
               code: _context.t0.code,
               details: _context.t0.details
             }));
-          case 11:
+          case 12:
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               'Connection': 'keep-alive'
             });
-            _context.next = 14;
+            _context.next = 15;
             return Stream({
               messages: messages,
               max_tokens: max_tokens,
+              maxTokens: maxTokens,
               temperature: temperature,
+              top_p: top_p,
+              topP: topP,
+              presence_penalty: presence_penalty,
+              presencePenalty: presencePenalty,
+              stop: stop,
               fakeDelay: fakeDelay,
               model: model,
               cache: cache,
               stream: stream == null ? true : stream
             });
-          case 14:
+          case 15:
             theStream = _context.sent;
-            _context.next = 17;
+            _context.next = 18;
             return streamManager.createStream(theStream, res);
-          case 17:
-            _context.next = 24;
+          case 18:
+            _context.next = 25;
             break;
-          case 19:
-            _context.prev = 19;
-            _context.t1 = _context["catch"](0);
+          case 20:
+            _context.prev = 20;
+            _context.t1 = _context["catch"](1);
             console.error('Error in stream request:', _context.t1);
             res.write("event: error\ndata: ".concat(JSON.stringify({
               error: 'Internal server error',
@@ -89,11 +96,11 @@ function createServer() {
               details: _context.t1.details
             }), "\n\n"));
             res.end();
-          case 24:
+          case 25:
           case "end":
             return _context.stop();
         }
-      }, _callee, null, [[0, 19], [2, 8]]);
+      }, _callee, null, [[1, 20], [3, 9]]);
     }));
     return function (_x, _x2) {
       return _ref.apply(this, arguments);

@@ -26,13 +26,20 @@ function createServer(config = {}) {
   console.log('Starting Proxy Server with config', config, 'Port:', port);
 
   app.post('/api/stream', async (req, res) => {
+    console.log('Stream request', req.body);
     try {
       const {
         messages,
         model = ['claude:good', 'openai:good', 'togetherai:good'],
         max_tokens,
+        maxTokens,
         temperature,
+        top_p,
+        topP,
+        presence_penalty,
+        presencePenalty,
         fakeDelay,
+        stop,
         cache,
         stream
       } = req.body;
@@ -64,7 +71,13 @@ function createServer(config = {}) {
       const theStream = await Stream({
         messages,
         max_tokens,
+        maxTokens,
         temperature,
+        top_p,
+        topP,
+        presence_penalty,
+        presencePenalty,
+        stop,
         fakeDelay,
         model,
         cache,

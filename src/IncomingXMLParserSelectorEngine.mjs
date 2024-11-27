@@ -10,7 +10,7 @@ class Node {
     if (o) {
       this.$key = o.key;
       this.$attr = o.attr;
-      this.$text = o.text;
+      this.$text = o.aggregateText;
       this.$closed = o.closed;
       this.$children = o.children || [];
       this.$name = name;
@@ -103,6 +103,7 @@ class IncomingXMLParserSelectorEngine {
   getElementSignature(element, forDeduping = false) {
     const ancestry = [];
     let current = element;
+
     while (current.parent) {
       ancestry.unshift(`${current.name}[${current.parent.children.indexOf(current)}]`);
       current = current.parent;
@@ -123,48 +124,119 @@ class IncomingXMLParserSelectorEngine {
   }
 
   getTextContent(element) {
+    if (element.type === 'text') {
+      return element.data;
+    }
     const tc = (element.children || []).reduce((text, child) => {
       if (child.type === 'text') {
         return text + child.data;
       } else if (child.type === 'tag') {
         return text + this.getTextContent(child);
       }
-      console.error('Unknown child type:', child);
       return text;
     }, '');
     return tc;
   }
 
   select(selector, includeOpenTags = false) {
-    const results = selectAll(selector, this.parsedData).filter(el => includeOpenTags || el.closed);
-    return this.formatResults(results, includeOpenTags);
+    function isClosed(el) {
+      return el.closed || (el.children?.length && el.children.every(isClosed));
+    }
+    const decorateWithAggregateText = (el) => {
+      el.aggregateText = this.getTextContent(el);
+      if (el.children?.length) {
+        el.children.map(decorateWithAggregateText);
+      }
+      return el;
+    }
+    const results = selectAll(selector, this.parsedData).map(decorateWithAggregateText);
+    
+    const filteredResults = results.filter(el => includeOpenTags || isClosed(el));
+    return this.formatResults(filteredResults, includeOpenTags);
   }
 
-  dedupeSelect(selector, includeOpenTags = false) {
-
-    if (!this.returnedElementSignatures.has(selector)) {
-      this.returnedElementSignatures.set(selector, new Map());
-    }
+  dedupeSelect(selector, includeOpenTags = false, doDedupeChildren = true) {
     
     const unfilteredResults = selectAll(selector, this.parsedData);
-    const results = unfilteredResults.filter(el => includeOpenTags || el.closed);
-    
-    const newResults = results.filter(result => {
-      const dedupeSignature = this.getElementSignature(result, true);
-      const fullSignature = this.getElementSignature(result, false);
+    const results = unfilteredResults.filter(el => {
+      if (includeOpenTags) {
+        return true;
+      }
+      return el.closed;
+    });
+
+    const dedupeElement = (el) => {
+      const dedupeSignature = this.getElementSignature(el, true);
+      const fullSignature = this.getElementSignature(el, false);
+
+      el.aggregateText = this.getTextContent(el);
+
+      if (!el.closed) {
+        return el; // if it's open, we don't dedupe it
+      }
+
+      if (el.type !== 'tag') {
+        return el;
+      }
       
-      const existingSignature = this.returnedElementSignatures.get(selector).get(dedupeSignature);
+      const existingSignature = this.returnedElementSignatures.get(dedupeSignature);
+
+      if (el.children?.length) {
+        el.children.map(child => {
+          child.aggregateText = this.getTextContent(child);
+          return child;
+        });
+        
+        el.dedupedChildren = el.children.map(child => {
+
+          child.aggregateText = this.getTextContent(child);
+
+          // If the child has not yet been returned, we can return it:
+          // TODO: the meaning of 'deduped' is confusing now as it's
+          // morphed from normalizaation/canonicalization to actual
+          // removal from result-sets based on existing in previous
+          // result-sets (intentional but still not fitting to the name)
+          const dedupedChild = dedupeElement(child);
+          if (dedupedChild) {
+            // I.e. child has not been returned yet, so:
+            return dedupedChild;
+          }
+          // Also!! If it is open and we're flagged to include open tags,
+          // then we can return it too:
+          if (includeOpenTags && !child.closed) {
+            return child;
+          }
+
+          // Otherwise, we don't return it:
+          return null;
+
+          // If we are not de-duping children, then happily return:
+          // return child;
+        }).filter(Boolean);
+
+        if (doDedupeChildren) {
+          el.children = el.dedupedChildren;
+        }
+      }
       
       if (!existingSignature) {
-        this.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
-        return true;
+        this.returnedElementSignatures.set(dedupeSignature, fullSignature);
+        return el;
       }
       
-      if (!result.closed && existingSignature !== fullSignature) {
-        this.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
-        return true;
+      if (!el.closed && existingSignature !== fullSignature) {
+        this.returnedElementSignatures.set(dedupeSignature, fullSignature);
+        return el;
       }
       
+      return null;
+    }
+
+    const newResults = results.filter(result => {
+      const dedupedElement = dedupeElement(result);
+      if (dedupedElement) {
+        return true;
+      }
       return false;
     });
     
@@ -178,6 +250,8 @@ class IncomingXMLParserSelectorEngine {
   }
 
   formatElement(element, includeOpenTags = false) {
+
+    element.aggregateText = element.aggregateText || this.getTextContent(element);
     // Special case for text nodes
     if (element.type === 'text') {
       return new Node('TEXT_NODE', {
@@ -202,6 +276,7 @@ class IncomingXMLParserSelectorEngine {
     const formatted = new Node(element.name, {
       key: element.key,
       attr: { ...element.attribs },
+      aggregateText: element.aggregateText, //???? NOTE TODO
       text: includeOpenTags ? (
         element.closed ? element.textContent : this.getTextContent(element)
       ) : element.textContent,
@@ -235,7 +310,7 @@ class IncomingXMLParserSelectorEngine {
     return this.mapSelect(mapping, false);
   }
 
-  mapSelect(mapping, includeOpenTags = true) {
+  mapSelect(mapping, includeOpenTags = true, doDedupe = true) {
     // Helper to normalize the new [] syntax to old syntax
     const normalizeSchema = (schema) => {
       // Handle primitives and functions
@@ -255,23 +330,6 @@ class IncomingXMLParserSelectorEngine {
       : normalizeSchema(mapping);
 
     const applyMapping = (element, map) => {
-
-      // Only handle as array notation if explicitly marked
-      // if (typeof map === 'object' && map.__isArrayNotation__) {
-      //   return (element.item || []).map(item => {
-      //     const transformation = map.item;
-      //     if (typeof transformation === 'string') {
-      //       return String(item.$text);
-      //     }
-      //     if (typeof transformation === 'function') {
-      //       if (transformation === String || transformation === Number || transformation === Boolean) {
-      //         return transformation(item.$text);
-      //       }
-      //       return transformation(item.$text);
-      //     }
-      //     return applyMapping(item, transformation);
-      //   });
-      // }
 
       if (Array.isArray(map)) {
         if (map.length !== 1) {
@@ -335,17 +393,21 @@ class IncomingXMLParserSelectorEngine {
 
     if (isArrayMapping) {
       const rootSelector = Object.keys(normalizedMapping[0])[0];
-      return this.dedupeSelect(rootSelector, includeOpenTags)
-        .map(element => ({
-          [rootSelector]: applyMapping(element, normalizedMapping[0][rootSelector])
-        }));
+      return (doDedupe
+        ? this.dedupeSelect(rootSelector, includeOpenTags)
+        : this.select(rootSelector, includeOpenTags)
+      ).map(element => ({
+        [rootSelector]: applyMapping(element, normalizedMapping[0][rootSelector])
+      }));
     }
 
     const rootSelectors = Object.keys(normalizedMapping);
     const results = {};
 
     rootSelectors.forEach(selector => {
-      const elements = this.dedupeSelect(selector, includeOpenTags);
+      const elements = doDedupe
+        ? this.dedupeSelect(selector, includeOpenTags)
+        : this.select(selector, includeOpenTags);
 
       // If no elements found, just return/skip
       if (!elements?.length) return;

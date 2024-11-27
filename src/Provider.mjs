@@ -501,9 +501,6 @@ class Provider {
         content: truncated
       }
     }).reverse().filter(Boolean);
-    logger.dev('m12 done');
-
-    logger.dev('deriving model specific payload');
 
     const modelSpecificPayload = this.payloader({
       system,

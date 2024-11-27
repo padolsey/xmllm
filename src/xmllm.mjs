@@ -125,6 +125,14 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         system,
         model,
         cache,
+        max_tokens,
+        maxTokens,
+        temperature,
+        top_p,
+        topP,
+        presence_penalty,
+        presencePenalty,
+        stop,
         messages
       } = transformedConfig;
 
@@ -133,9 +141,12 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       }
 
       const stream = await (llmStream)({
-        max_tokens: transformedConfig.max_tokens || 4000,
-        temperature: transformedConfig.temperature == null ? DEFAULT_TEMPERATURE : transformedConfig.temperature,
+        max_tokens: max_tokens || maxTokens || 4000,
+        temperature: temperature == null ? DEFAULT_TEMPERATURE : temperature,
         fakeDelay: transformedConfig.fakeDelay,
+        top_p: top_p || topP,
+        presence_penalty: presence_penalty || presencePenalty,
+        stop: stop,
         messages: [
           {
             role: 'system',
@@ -199,6 +210,19 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     messages = (messages || []).slice();
 
     let prompt = '';
+
+    console.log('xmlReq', {
+      messages,
+      system,
+      model,
+      max_tokens,
+      temperature,
+      top_p,
+      topP,
+      presence_penalty,
+      presencePenalty,
+      stop
+    });
 
     if (messages?.length) {
       if (messages[messages.length - 1]?.role !== 'user') {
@@ -460,13 +484,13 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           messages,
           model,
           max_tokens,
-          stop,
           maxTokens,
           top_p,
           topP,
           presence_penalty,
           presencePenalty,
           temperature,
+          stop,
         });
       }
 
@@ -567,7 +591,11 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         return;
       }
 
-      let selection = currentParser.mapSelect(schema);
+      console.log('mapSelect()', {
+        schema,
+        doDedupe: false
+      });
+      let selection = currentParser.mapSelect(schema, true, false);
       if (selection && Object.keys(selection).length) {
         yield selection;
       }

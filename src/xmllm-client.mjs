@@ -16,6 +16,8 @@ class ClientProvider {
 
   async createStream(payload) {
 
+    console.log('Client createStream payload', payload);
+
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: {
@@ -104,9 +106,9 @@ function stream(promptOrConfig, options = {}) {
 
   const { prompt, schema, system, closed, onChunk, ...restOptions } = config;
 
-  console.log('Client all config', config);
+  console.log('Client all config', restOptions);
   // If schema is provided, use schema-style config
-  if (schema) {
+  // if (schema) {
     return new XMLStream([
       ['req', {
         messages: [{
@@ -123,15 +125,24 @@ function stream(promptOrConfig, options = {}) {
       ...restOptions,
       llmStream
     });
-  }
+  // }
 
   // Basic prompt
-  return new XMLStream([
-    ['req', prompt]
-  ], {
-    ...restOptions,
-    llmStream
-  });
+  // return new XMLStream([
+  //   ['req', {
+  //     messages: [{
+  //       role: 'user',
+  //       content: prompt
+  //     }],
+  //     system,
+  //     onChunk,
+  //     doMapSelectClosed: closed,
+  //     ...restOptions
+  //   }]
+  // ], {
+  //   ...restOptions,
+  //   llmStream
+  // });
 }
 
 export async function simple(prompt, schema, options = {}) {

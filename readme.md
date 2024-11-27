@@ -1,20 +1,22 @@
 # xmllm
 
-xmllm is a provider-agnostic JavaScript library that lets AI language models communicate naturally while still giving you structured data back. Instead of forcing AIs to return strict JSON through brittle function-calling APIs, xmllm lets them respond in XML/HTML - formats they deeply understand from training data.
+### **Get structured data AND streaming updates from AI in a single shot**
+
+xmllm solves a core problem with AI APIs: you shouldn't have to choose between getting structured data OR real-time updates. Instead of wrestling with JSON function calls or parsing text deltas, xmllm lets AI models communicate naturally using markup - giving you both structure and streaming at once.
+
+It is provider-agnostic and uses a flexible HTML parser to extract structured data, making it more resilient and less brittle than JSON. It also follows a core premise:
+
+> *XML allows LLMs to communicate naturally with the best merits of 'free prose'  while still giving you structured data back. The norm deriving JSON from LLMs, even if valid, is biased to more "_robotic_" completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value.*
+
+---
+
+Here's an example of a UI being progressively populated by a streaming LLM 'alien species' generator:
 
 ![XMLLM Demo](https://j11y.io/public_images/xmllm1.gif)
 
-**Why does this matter?** Most LLM function-calling APIs force models to return JSON, which:
-1. Often fails due to strict grammar requirements
-2. Typically doesn't support streaming responses
-3. Forces models away from their strength: natural language
+---
 
-xmllm takes a different approach:
-- Let AIs respond in semantically-rich XML/HTML according to schemas
-- Stream partial results as they're generated
-- Query a DOM-like structure using CSS selectors if you like
-- Transform & filter responses into custom structured data
-- Work with any AI provider (Anthropic, OpenAI, etc.)
+**Quick example:** 
 
 ```javascript
 // Instead of praying for valid JSON:
@@ -31,8 +33,11 @@ const analysis = await stream(
     }
   }
 ).value();
+```
 
-/* The AI can respond naturally with XML:
+Producting a response like:
+
+```xml
 <analysis>
   <sentiment>Positive! This tweet shows excitement and achievement.</sentiment>
   <topics>
@@ -47,8 +52,11 @@ const analysis = await stream(
     </suggestion>
   </suggestions>
 </analysis>
+```
 
 Which transforms into structured data:
+
+```json
 {
   sentiment: "Positive! This tweet shows excitement and achievement.",
   topics: ["Career Growth", "Technology Industry"],
@@ -58,19 +66,6 @@ Which transforms into structured data:
   }]
 } */
 ```
-
-## Why XML?
-
-Traditional function-calling APIs have limitations:
-- **Rigid JSON Grammar**: Function calls often fail due to strict requirements
-- **No Streaming**: Most don't support real-time updates
-- **Unnatural Responses**: JSON format constrains natural language
-
-xmllm solves these by using 'loose' XML (akin to HTML), which:
-- Allows natural language within structure
-- Streams responses in real-time
-- Recovers gracefully from errors
-- Preserves semantic meaning
 
 ## Quick Start
 
@@ -85,7 +80,7 @@ export OPENAI_API_KEY=your_key       # For GPT-4
 
 ### Simplest Usage
 
-The `simple()` function provides the easiest way to get structured data from AI:
+The `simple()` function provides the easiest way to get structured data from AI, but lacks streaming. It is still a good starting point.
 
 ```javascript
 import { simple } from 'xmllm';
@@ -112,15 +107,19 @@ console.log(result);
 
 ### Streaming Usage
 
-For more control over the response stream, use the `stream()` API:
+The `stream()` API offers a simple interface for streaming with or without a schema:
 
 ```javascript
 import { stream } from 'xmllm';
 
 // 1. Simple Streaming
-const thoughts = stream('Share three deep thoughts about programming')
+const thoughts = stream(`
+  Share three deep thoughts about programming. Use a structure like:
+  <thought>...</thought>
+  <thought>...</thought> etc.
+`)
   .select('thought')  // Select <thought> elements
-  .text();           // Extract text content
+  .text();            // Extract text content
 
 for await (const thought of thoughts) {
   console.log('AI is thinking:', thought); // See thoughts as they arrive
@@ -135,7 +134,7 @@ const result = await stream('What is 2+2?', {
     }
   }
 })
-.complete()  // Wait for complete response
+.complete()
 .value();
 ```
 

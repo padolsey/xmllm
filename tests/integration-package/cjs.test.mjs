@@ -35,7 +35,6 @@ describe('CommonJS Imports', () => {
     ]);
     
     const value = (await result.next()).value;
-    console.log(77777, value)
     expect(value).toBeNode({ $key: 1, $attr: {}, $text: 'Test', $closed: true });
   });
 });

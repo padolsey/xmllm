@@ -26,96 +26,139 @@ const goodSchema = {
 ```
 
 ### Arrays and Plural Elements
-When defining arrays in schemas, use the singular form of the element name. This matches how the XML will be structured:
+
+When defining arrays in schemas, use a plural container element with singular child elements. This matches XML's natural structure and ensures consistent parsing:
 
 ```javascript
-// ❌ Intuitive but incorrect
-const incorrectSchema = {
-  stories: [String],     // Seems natural but doesn't match XML
-  user_reviews: [{       // Same issue
+// ❌ Common but incorrect approach
+const badSchema = {
+  topics: [String],     // Seems intuitive but doesn't match XML structure
+  comments: [{          // Same issue
     rating: Number,
-    comments: [String]   // Again, plural doesn't match XML
-  }]
-};
-```
-
-This would make XMLLM tell the LLM to produce XML like this:
-
-```
-<stories>First story</stories>
-<stories>Second story</stories>
-<user_reviews>
-  <rating>5</rating>
-  <comments>Great!</comments>
-  <comments>Would recommend!</comments>
-</user_reviews>
-```
-
-Do you see the issue? All of the plural items are itemized using the name you provide. This most likely is not what you want. Instead, use singular forms:
-
-```javascript
-// ✅ Correct way - use singular forms
-const correctSchema = {
-  story: [String],      // Will match <story>...</story><story>...</story>
-  user_review: [{       // Will match <user_review>...</user_review>
-    rating: Number,
-    comment: [String]   // Will match <comment>...</comment>
+    text: String
   }]
 };
 
-// The resulting XML will look like:
-/*
-<story>First story</story>
-<story>Second story</story>
-<user_review>
-  <rating>5</rating>
-  <comment>Great!</comment>
-  <comment>Would recommend!</comment>
-</user_review>
-*/
-
-// When you get the data back, it's structured as arrays:
-const result = {
-  story: ['First story', 'Second story'],
-  user_review: [{
-    rating: 5,
-    comment: ['Great!', 'Would recommend!']
-  }]
-};
-```
-
-To make things more sensible and intuitive, you can also add a plurally-named container, e.g.
-
-```javascript
-const correctSchema = {
-  stories: {
-    story: [String]
+// ✅ Correct approach
+const goodSchema = {
+  topics: {             // Plural container
+    topic: [String]     // Singular elements
   },
-  user_reviews: {
-    user_review: [{
+  comments: {           // Plural container
+    comment: [{         // Singular elements
       rating: Number,
-      comment: [String]
+      text: String
     }]
   }
 };
-
-// The resulting XML will look like:
-/*
-<stories>
-  <story>First story</story>
-  <story>Second story</story>
-</stories>
-<user_reviews>
-  <user_review>
-    <rating>5</rating>
-    <comment>Great!</comment>
-    <comment>Would recommend!</comment>
-  </user_review>
-</user_reviews>
-*/
 ```
 
-All this fuss about singular/plural naming for Arrays might seem counterintuitive at first, but it's worth remembering.
+This structure produces clean, semantic XML:
+
+```xml
+<topics>
+  <topic>AI</topic>
+  <topic>Machine Learning</topic>
+</topics>
+<comments>
+  <comment>
+    <rating>5</rating>
+    <text>Great article!</text>
+  </comment>
+  <comment>
+    <rating>4</rating>
+    <text>Very informative</text>
+  </comment>
+</comments>
+```
+
+### Why This Matters
+
+1. **XML Structure**: XML naturally represents repeated elements using the same tag name, not an array-like structure
+2. **Semantic Clarity**: The container/item relationship is explicit
+3. **Consistent Parsing**: The LLM is more likely to produce consistent output
+4. **Transform Simplicity**: Transforms become more predictable:
+   ```javascript
+   // Transform for the correct structure
+   ({topics, comments}) => ({
+     topics: topics.topic,           // Array of strings
+     comments: comments.comment      // Array of objects
+   })
+   ```
+
+### Common Patterns
+
+```javascript
+// Lists
+{
+  "items": {
+    "item": [String]
+  }
+}
+
+// Complex Lists
+{
+  "search_results": {
+    "result": [{
+      "title": String,
+      "tags": {
+        "tag": [String]
+      }
+    }]
+  }
+}
+
+// Nested Arrays
+{
+  "chapters": {
+    "chapter": [{
+      "title": String,
+      "sections": {
+        "section": [{
+          "heading": String,
+          "paragraphs": {
+            "paragraph": [String]
+          }
+        }]
+      }
+    }]
+  }
+}
+```
+
+Remember: The container element (plural) holds multiple instances of the item element (singular). This pattern should be consistent throughout your schema.
+
+### Array Notation
+
+Arrays can be written in two equivalent ways:
+
+```javascript
+// Both are valid and mean the same thing:
+{
+  "topics": {
+    "topic": [String]         // Array literal syntax
+    // OR
+    "topic": Array(String)    // Constructor syntax - some find this clearer
+  }
+}
+
+// Same for complex types:
+{
+  "comments": {
+    "comment": [{ text: String }]      // Array literal
+    // OR
+    "comment": Array({ text: String }) // Constructor
+  }
+}
+```
+
+Both produce identical XML:
+```xml
+<topics>
+  <topic>First</topic>
+  <topic>Second</topic>
+</topics>
+```
 
 ## Element Properties
 

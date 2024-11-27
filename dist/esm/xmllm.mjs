@@ -133,14 +133,18 @@ function _xmllmGen() {
                       logger.warn('No active parser found for mapSelect()');
                       return _context9.abrupt("return");
                     case 4:
-                      selection = currentParser.mapSelect(schema);
+                      console.log('mapSelect()', {
+                        schema: schema,
+                        doDedupe: false
+                      });
+                      selection = currentParser.mapSelect(schema, true, false);
                       if (!(selection && Object.keys(selection).length)) {
-                        _context9.next = 8;
+                        _context9.next = 9;
                         break;
                       }
-                      _context9.next = 8;
+                      _context9.next = 9;
                       return selection;
-                    case 8:
+                    case 9:
                     case "end":
                       return _context9.stop();
                   }
@@ -194,13 +198,13 @@ function _xmllmGen() {
                           messages: messages,
                           model: model,
                           max_tokens: max_tokens,
-                          stop: stop,
                           maxTokens: maxTokens,
                           top_p: top_p,
                           topP: topP,
                           presence_penalty: presence_penalty,
                           presencePenalty: presencePenalty,
-                          temperature: temperature
+                          temperature: temperature,
+                          stop: stop
                         }));
                       case 8:
                         reqPipeline = [/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
@@ -595,6 +599,18 @@ function _xmllmGen() {
                 onChunk = _ref8.onChunk;
               messages = (messages || []).slice();
               var prompt = '';
+              console.log('xmlReq', {
+                messages: messages,
+                system: system,
+                model: model,
+                max_tokens: max_tokens,
+                temperature: temperature,
+                top_p: top_p,
+                topP: topP,
+                presence_penalty: presence_penalty,
+                presencePenalty: presencePenalty,
+                stop: stop
+              });
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
                 var _messages2;
                 if (((_messages2 = messages[messages.length - 1]) === null || _messages2 === void 0 ? void 0 : _messages2.role) !== 'user') {
@@ -723,7 +739,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
-                  var parser, transformedConfig, _transformedConfig, system, model, cache, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
+                  var parser, transformedConfig, _transformedConfig, system, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
@@ -741,7 +757,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, cache = _transformedConfig.cache, messages = _transformedConfig.messages;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
                         if (messages.length) {
                           _context2.next = 7;
                           break;
@@ -750,9 +766,12 @@ function _xmllmGen() {
                       case 7:
                         _context2.next = 9;
                         return _awaitAsyncGenerator(llmStream({
-                          max_tokens: transformedConfig.max_tokens || 4000,
-                          temperature: transformedConfig.temperature == null ? DEFAULT_TEMPERATURE : transformedConfig.temperature,
+                          max_tokens: max_tokens || maxTokens || 4000,
+                          temperature: temperature == null ? DEFAULT_TEMPERATURE : temperature,
                           fakeDelay: transformedConfig.fakeDelay,
+                          top_p: top_p || topP,
+                          presence_penalty: presence_penalty || presencePenalty,
+                          stop: stop,
                           messages: [{
                             role: 'system',
                             content: system || ''

@@ -26,7 +26,7 @@ var Node = /*#__PURE__*/_createClass(function Node(name, o) {
   if (o) {
     this.$key = o.key;
     this.$attr = o.attr;
-    this.$text = o.text;
+    this.$text = o.aggregateText;
     this.$closed = o.closed;
     this.$children = o.children || [];
     this.$name = name;
@@ -141,13 +141,15 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
     key: "getTextContent",
     value: function getTextContent(element) {
       var _this2 = this;
+      if (element.type === 'text') {
+        return element.data;
+      }
       var tc = (element.children || []).reduce(function (text, child) {
         if (child.type === 'text') {
           return text + child.data;
         } else if (child.type === 'tag') {
           return text + _this2.getTextContent(child);
         }
-        console.error('Unknown child type:', child);
         return text;
       }, '');
       return tc;
@@ -155,34 +157,98 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "select",
     value: function select(selector) {
+      var _this3 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-      var results = selectAll(selector, this.parsedData).filter(function (el) {
-        return includeOpenTags || el.closed;
+      function isClosed(el) {
+        var _el$children;
+        return el.closed || ((_el$children = el.children) === null || _el$children === void 0 ? void 0 : _el$children.length) && el.children.every(isClosed);
+      }
+      var _decorateWithAggregateText = function decorateWithAggregateText(el) {
+        var _el$children2;
+        el.aggregateText = _this3.getTextContent(el);
+        if ((_el$children2 = el.children) !== null && _el$children2 !== void 0 && _el$children2.length) {
+          el.children.map(_decorateWithAggregateText);
+        }
+        return el;
+      };
+      var results = selectAll(selector, this.parsedData).map(_decorateWithAggregateText);
+      var filteredResults = results.filter(function (el) {
+        return includeOpenTags || isClosed(el);
       });
-      return this.formatResults(results, includeOpenTags);
+      return this.formatResults(filteredResults, includeOpenTags);
     }
   }, {
     key: "dedupeSelect",
     value: function dedupeSelect(selector) {
-      var _this3 = this;
+      var _this4 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-      if (!this.returnedElementSignatures.has(selector)) {
-        this.returnedElementSignatures.set(selector, new Map());
-      }
+      var doDedupeChildren = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
       var unfilteredResults = selectAll(selector, this.parsedData);
       var results = unfilteredResults.filter(function (el) {
-        return includeOpenTags || el.closed;
-      });
-      var newResults = results.filter(function (result) {
-        var dedupeSignature = _this3.getElementSignature(result, true);
-        var fullSignature = _this3.getElementSignature(result, false);
-        var existingSignature = _this3.returnedElementSignatures.get(selector).get(dedupeSignature);
-        if (!existingSignature) {
-          _this3.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
+        if (includeOpenTags) {
           return true;
         }
-        if (!result.closed && existingSignature !== fullSignature) {
-          _this3.returnedElementSignatures.get(selector).set(dedupeSignature, fullSignature);
+        return el.closed;
+      });
+      var _dedupeElement = function dedupeElement(el) {
+        var _el$children3;
+        var dedupeSignature = _this4.getElementSignature(el, true);
+        var fullSignature = _this4.getElementSignature(el, false);
+        el.aggregateText = _this4.getTextContent(el);
+        if (!el.closed) {
+          return el; // if it's open, we don't dedupe it
+        }
+        if (el.type !== 'tag') {
+          return el;
+        }
+        var existingSignature = _this4.returnedElementSignatures.get(dedupeSignature);
+        if ((_el$children3 = el.children) !== null && _el$children3 !== void 0 && _el$children3.length) {
+          el.children.map(function (child) {
+            child.aggregateText = _this4.getTextContent(child);
+            return child;
+          });
+          el.dedupedChildren = el.children.map(function (child) {
+            child.aggregateText = _this4.getTextContent(child);
+
+            // If the child has not yet been returned, we can return it:
+            // TODO: the meaning of 'deduped' is confusing now as it's
+            // morphed from normalizaation/canonicalization to actual
+            // removal from result-sets based on existing in previous
+            // result-sets (intentional but still not fitting to the name)
+            var dedupedChild = _dedupeElement(child);
+            if (dedupedChild) {
+              // I.e. child has not been returned yet, so:
+              return dedupedChild;
+            }
+            // Also!! If it is open and we're flagged to include open tags,
+            // then we can return it too:
+            if (includeOpenTags && !child.closed) {
+              return child;
+            }
+
+            // Otherwise, we don't return it:
+            return null;
+
+            // If we are not de-duping children, then happily return:
+            // return child;
+          }).filter(Boolean);
+          if (doDedupeChildren) {
+            el.children = el.dedupedChildren;
+          }
+        }
+        if (!existingSignature) {
+          _this4.returnedElementSignatures.set(dedupeSignature, fullSignature);
+          return el;
+        }
+        if (!el.closed && existingSignature !== fullSignature) {
+          _this4.returnedElementSignatures.set(dedupeSignature, fullSignature);
+          return el;
+        }
+        return null;
+      };
+      var newResults = results.filter(function (result) {
+        var dedupedElement = _dedupeElement(result);
+        if (dedupedElement) {
           return true;
         }
         return false;
@@ -192,19 +258,20 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "formatResults",
     value: function formatResults(results) {
-      var _this4 = this;
+      var _this5 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       return results.map(function (r) {
-        return _this4.formatElement(r, includeOpenTags);
+        return _this5.formatElement(r, includeOpenTags);
       });
     }
   }, {
     key: "formatElement",
     value: function formatElement(element) {
       var _element$children,
-        _this5 = this,
+        _this6 = this,
         _element$children2;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+      element.aggregateText = element.aggregateText || this.getTextContent(element);
       // Special case for text nodes
       if (element.type === 'text') {
         return new Node('TEXT_NODE', {
@@ -225,12 +292,14 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
 
       // First format all children recursively
       var formattedChildren = ((_element$children = element.children) === null || _element$children === void 0 ? void 0 : _element$children.map(function (child) {
-        return _this5.formatElement(child, includeOpenTags);
+        return _this6.formatElement(child, includeOpenTags);
       }).filter(Boolean)) || []; // Filter out null results from skipped nodes
 
       var formatted = new Node(element.name, {
         key: element.key,
         attr: _objectSpread({}, element.attribs),
+        aggregateText: element.aggregateText,
+        //???? NOTE TODO
         text: includeOpenTags ? element.closed ? element.textContent : this.getTextContent(element) : element.textContent,
         closed: element.closed,
         children: formattedChildren
@@ -245,7 +314,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             if (!Array.isArray(formatted[child.name])) {
               formatted[child.name] = [formatted[child.name]];
             }
-            var formattedChild = _this5.formatElement(child, includeOpenTags);
+            var formattedChild = _this6.formatElement(child, includeOpenTags);
             if (formattedChild) {
               formatted[child.name].push(formattedChild);
             }
@@ -262,8 +331,9 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "mapSelect",
     value: function mapSelect(mapping) {
-      var _this6 = this;
+      var _this7 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+      var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
       // Helper to normalize the new [] syntax to old syntax
       var _normalizeSchema = function normalizeSchema(schema) {
         // Handle primitives and functions
@@ -283,23 +353,6 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         return _normalizeSchema(m);
       }) : _normalizeSchema(mapping);
       var _applyMapping = function applyMapping(element, map) {
-        // Only handle as array notation if explicitly marked
-        // if (typeof map === 'object' && map.__isArrayNotation__) {
-        //   return (element.item || []).map(item => {
-        //     const transformation = map.item;
-        //     if (typeof transformation === 'string') {
-        //       return String(item.$text);
-        //     }
-        //     if (typeof transformation === 'function') {
-        //       if (transformation === String || transformation === Number || transformation === Boolean) {
-        //         return transformation(item.$text);
-        //       }
-        //       return transformation(item.$text);
-        //     }
-        //     return applyMapping(item, transformation);
-        //   });
-        // }
-
         if (Array.isArray(map)) {
           if (map.length !== 1) {
             throw new Error('A map array must only have one element');
@@ -353,14 +406,14 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var isArrayMapping = Array.isArray(normalizedMapping);
       if (isArrayMapping) {
         var rootSelector = Object.keys(normalizedMapping[0])[0];
-        return this.dedupeSelect(rootSelector, includeOpenTags).map(function (element) {
+        return (doDedupe ? this.dedupeSelect(rootSelector, includeOpenTags) : this.select(rootSelector, includeOpenTags)).map(function (element) {
           return _defineProperty({}, rootSelector, _applyMapping(element, normalizedMapping[0][rootSelector]));
         });
       }
       var rootSelectors = Object.keys(normalizedMapping);
       var results = {};
       rootSelectors.forEach(function (selector) {
-        var elements = _this6.dedupeSelect(selector, includeOpenTags);
+        var elements = doDedupe ? _this7.dedupeSelect(selector, includeOpenTags) : _this7.select(selector, includeOpenTags);
 
         // If no elements found, just return/skip
         if (!(elements !== null && elements !== void 0 && elements.length)) return;

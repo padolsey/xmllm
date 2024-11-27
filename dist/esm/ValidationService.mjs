@@ -139,7 +139,6 @@ var ValidationService = /*#__PURE__*/function () {
             rpmLimit: constraints.rpmLimit
           });
         }
-        console.log('Validated rpmLimit:', constraints.rpmLimit);
       }
       return true;
     }

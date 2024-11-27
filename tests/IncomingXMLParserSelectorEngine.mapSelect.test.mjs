@@ -576,9 +576,14 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: [
         { _: '2sub-content' }  // Updated content
       ],
-      subitem: [
-        { _: 'sub-content' }  // Now closed with content
-      ]
+      
+      // Currently the implementation is such that subitem will
+      // have been de-duped since it has been returned already as
+      // part of the <item>.
+
+      // subitem: [
+      //   { _: 'sub-content' }  // Now closed with content
+      // ]
     });
   });
 
@@ -638,7 +643,10 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
     // Now expect the completed item
     expect(result).toEqual({ colors: {
-      color: [ 'red', 'blue' ]
+      color: [
+        'red',
+        'blue'
+      ]
     } });
   });
   

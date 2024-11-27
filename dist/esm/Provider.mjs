@@ -669,8 +669,6 @@ var Provider = /*#__PURE__*/function () {
           content: truncated
         };
       }).reverse().filter(Boolean);
-      logger.dev('m12 done');
-      logger.dev('deriving model specific payload');
       var modelSpecificPayload = this.payloader(_objectSpread(_objectSpread({
         system: system,
         max_tokens: customPayload.max_tokens || customPayload.maxTokens || DEFAULT_RESPONSE_TOKEN_LENGTH

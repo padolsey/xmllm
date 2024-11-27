@@ -129,8 +129,7 @@ describe('Common xmllm Scenarios', () => {
         },
         llmStream: TestStream
       })
-        .merge()
-        .value();
+        .last();
 
       expect(analysis).toEqual({
         sentiment: 'Positive',
@@ -277,4 +276,144 @@ describe('Common xmllm Scenarios', () => {
       ]);
     });
   });
-}); 
+
+  describe('Text Analysis Schema', () => {
+    it('should analyze text using the standard analysis schema', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          '<analysis>',
+          '<sentiment>Positive and enthusiastic</sentiment>',
+          '<topics>',
+          '<topic>Career Development</topic>',
+          '<topic>Technology Industry</topic>',
+          '<topic>Personal Achievement</topic>',
+          '</topics>',
+          '<key_points>',
+          '<key_point>',
+          '<point>Career milestone reached</point>',
+          '<relevance>0.9</relevance>',
+          '</key_point>',
+          '<key_point>',
+          '<point>Entry into tech industry</point>',
+          '<relevance>0.8</relevance>',
+          '</key_point>',
+          '</key_points>',
+          '<summary>A significant career achievement marking entry into the tech industry.</summary>',
+          '</analysis>'
+        ])
+      }));
+
+      const result = await stream(
+        'Analyze this tweet: "Just landed my first dev job! 🚀"',
+        {
+          schema: {
+            analysis: {
+              sentiment: String,
+              topics: {
+                topic: Array(String)
+              },
+              key_points: {
+                key_point: Array({
+                  point: String,
+                  relevance: Number
+                })
+              },
+              summary: String
+            }
+          },
+          llmStream: TestStream
+        }
+      )
+      // .closedOnly()
+      // .merge()
+      .last();
+
+      expect(result).toEqual({
+        analysis: {
+          sentiment: 'Positive and enthusiastic',
+          topics: {
+            topic: [
+              'Career Development',
+              'Technology Industry',
+              'Personal Achievement'
+            ]
+          },
+          key_points: {
+            key_point: [
+              {
+                point: 'Career milestone reached',
+                relevance: 0.9
+              },
+              {
+                point: 'Entry into tech industry',
+                relevance: 0.8
+              }
+            ]
+          },
+          summary: 'A significant career achievement marking entry into the tech industry.'
+        }
+      });
+    });
+  });
+
+  describe('Simple Array Schema', () => {
+    it('should handle multiple top-level elements with array schema', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          '<p',
+          'oem>Roses ',
+          'are red</poem>',
+          '<poem>Violets are bl',
+          'ue</poem>', //broken up
+          '<poem>Sugar is sweet</poem>',
+          '<poem>And so are you</poem>'
+        ])
+      }));
+
+      const result = await stream(
+        'Write me a simple poem',
+        {
+          schema: {
+            poem: Array(String)
+          },
+          llmStream: TestStream
+        }
+      );
+
+      const poemArrayStates = [];
+      for await (const {poem} of result) {
+        poemArrayStates.push(poem);
+      }
+
+      expect(poemArrayStates).toEqual([
+        // I.e. like looking at slices in time:
+        [
+          'Roses '
+        ],
+        [
+          'Roses are red',  
+        ],
+        [
+          'Roses are red',
+          'Violets are bl'
+        ],
+        [
+          'Roses are red',
+          'Violets are blue',
+        ],
+        [
+          'Roses are red',
+          'Violets are blue',
+          'Sugar is sweet'
+        ],
+        [
+          'Roses are red',
+          'Violets are blue',
+          'Sugar is sweet',
+          'And so are you'
+        ]
+      ]);
+    });
+  });
+
+});

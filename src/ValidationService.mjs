@@ -130,7 +130,6 @@ class ValidationService {
         );
       }
 
-      console.log('Validated rpmLimit:', constraints.rpmLimit);
     }
 
     return true;

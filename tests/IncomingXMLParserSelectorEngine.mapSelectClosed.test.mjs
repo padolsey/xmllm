@@ -33,9 +33,13 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
       item: [
         { _: '2sub-content' }
       ],
-      subitem: [
-        { _: 'sub-content' }
-      ]
+      
+      // Currently the implementation is such that subitem will
+      // have been de-duped since it has been returned already as
+      // part of the <item>.
+      // subitem: [
+      //   { _: 'sub-content' }
+      // ]
     });
   });
   

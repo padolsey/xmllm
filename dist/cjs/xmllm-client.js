@@ -44,7 +44,8 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
-              _context2.next = 2;
+              console.log('Client createStream payload', payload);
+              _context2.next = 3;
               return fetch(this.endpoint, {
                 method: 'POST',
                 headers: {
@@ -52,7 +53,7 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
                 },
                 body: JSON.stringify(payload)
               });
-            case 2:
+            case 3:
               response = _context2.sent;
               return _context2.abrupt("return", new ReadableStream({
                 start: function start(controller) {
@@ -113,7 +114,7 @@ var ClientProvider = exports.ClientProvider = /*#__PURE__*/function () {
                   }))();
                 }
               }));
-            case 4:
+            case 5:
             case "end":
               return _context2.stop();
           }
@@ -173,27 +174,39 @@ function stream(promptOrConfig) {
     closed = _config.closed,
     onChunk = _config.onChunk,
     restOptions = _objectWithoutProperties(_config, _excluded);
-  console.log('Client all config', config);
+  console.log('Client all config', restOptions);
   // If schema is provided, use schema-style config
-  if (schema) {
-    return new _XMLStream["default"]([['req', _objectSpread({
-      messages: [{
-        role: 'user',
-        content: prompt
-      }],
-      schema: schema,
-      system: system,
-      onChunk: onChunk,
-      doMapSelectClosed: closed
-    }, restOptions)]], _objectSpread(_objectSpread({}, restOptions), {}, {
-      llmStream: llmStream
-    }));
-  }
-
-  // Basic prompt
-  return new _XMLStream["default"]([['req', prompt]], _objectSpread(_objectSpread({}, restOptions), {}, {
+  // if (schema) {
+  return new _XMLStream["default"]([['req', _objectSpread({
+    messages: [{
+      role: 'user',
+      content: prompt
+    }],
+    schema: schema,
+    system: system,
+    onChunk: onChunk,
+    doMapSelectClosed: closed
+  }, restOptions)]], _objectSpread(_objectSpread({}, restOptions), {}, {
     llmStream: llmStream
   }));
+  // }
+
+  // Basic prompt
+  // return new XMLStream([
+  //   ['req', {
+  //     messages: [{
+  //       role: 'user',
+  //       content: prompt
+  //     }],
+  //     system,
+  //     onChunk,
+  //     doMapSelectClosed: closed,
+  //     ...restOptions
+  //   }]
+  // ], {
+  //   ...restOptions,
+  //   llmStream
+  // });
 }
 function simple(_x3, _x4) {
   return _simple.apply(this, arguments);
