@@ -24,6 +24,6 @@ describe('ESM Imports', () => {
       select('item')
     ]);
     
-    expect((await result.next()).value).toBeNode({ $key: 1, $attr: {}, $text: 'Test', $closed: true });
+    expect((await result.next()).value).toBeNode({ $tagkey: 1, $attr: {}, $text: 'Test', $tagclosed: true });
   });
 });

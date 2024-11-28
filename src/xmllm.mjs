@@ -1,6 +1,7 @@
 import createStreaming from 'streamops';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
+import { generateSystemPrompt as defaultSystemPrompt, generateUserPrompt as defaultUserPrompt } from './prompts.mjs';
 
 const logger = new Logger('xmllm');
 
@@ -8,11 +9,16 @@ const DEFAULT_TEMPERATURE = 0.72;
 
 const text = (fn) => ({ $text }) => fn ? fn($text) : $text;
 const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
-const whenClosed = (fn) => (el) => el.$closed ? fn(el) : undefined;
+const whenClosed = (fn) => (el) => el.$tagclosed ? fn(el) : undefined;
 
 const parserStack = new WeakMap();
 
-async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
+async function* xmllmGen(pipelineFn, {
+  timeout, 
+  llmStream,
+  generateSystemPrompt = defaultSystemPrompt,
+  generateUserPrompt = defaultUserPrompt
+} = {}) {
 
   const streamops = createStreaming({
     timeout: timeout || 1e6
@@ -186,7 +192,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
 
   function xmlReq({
     schema, 
-    system, 
+    hints,
+    system,
     messages, 
     max_tokens, 
     maxTokens, 
@@ -204,25 +211,14 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     retryMax,
     retryStartDelay,
     retryBackoffMultiplier,
-    onChunk
+    onChunk,
+    generateSystemPrompt: localSystemPrompt,
+    generateUserPrompt: localUserPrompt
   }) {
 
     messages = (messages || []).slice();
 
     let prompt = '';
-
-    console.log('xmlReq', {
-      messages,
-      system,
-      model,
-      max_tokens,
-      temperature,
-      top_p,
-      topP,
-      presence_penalty,
-      presencePenalty,
-      stop
-    });
 
     if (messages?.length) {
       if (messages[messages.length - 1]?.role !== 'user') {
@@ -234,6 +230,9 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       prompt = messages.pop().content;
     }
 
+    const useSystemPrompt = localSystemPrompt || generateSystemPrompt;
+    const useUserPrompt = localUserPrompt || generateUserPrompt;
+
     return async function*(thing) {
       const parser = pushNewParser();
 
@@ -242,53 +241,17 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       const mapSelectionSchemaScaffold =
         schema &&
         IncomingXMLParserSelectorEngine
-          .makeMapSelectXMLScaffold(schema);
+          .makeMapSelectXMLScaffold(schema, hints);
 
       if (typeof transformedPrompt == 'function') {
         transformedPrompt = transformedPrompt(thing);
       }
 
       if (mapSelectionSchemaScaffold) {
-        transformedPrompt = `
-    FYI: The data you return should be approximately like this:
-    \`\`\`
-    ${mapSelectionSchemaScaffold}
-    \`\`\`
-
-    Prompt:
-    ==== BEGIN PROMPT ====
-    ${transformedPrompt}
-    ==== END PROMPT ====
-
-    (if there is no meaningful prompt, respond to the user with a message like "I'm sorry, I didn't catch that; what can I help you with?")
-
-    Finally, remember: The data you return should be approximately like this:
-    \`\`\`
-    ${mapSelectionSchemaScaffold}
-    \`\`\`
-        `;
+        transformedPrompt = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt);
       }
 
-      const systemPrompt = `
-    META & OUTPUT STRUCTURE RULES:
-    ===
-
-    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it.
-
-    You can output multiple results if you like.
-
-    E.g. if asked for several names, you could just return:
-    <name>sarah</name> <name>james</name>
-    etc.
-
-    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>
-
-    All outputs should begin with the XML structure you have been given. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.
-      
-    HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:
-    (you must follow these religiously)
-    ===
-    ${system || 'you are an ai assistant and respond to the request.'}`;
+      const systemPrompt = useSystemPrompt(system);
 
       if (typeof transformedPrompt !== 'string') {
         throw new Error('transformedPrompt must be a string');
@@ -437,6 +400,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
       const {
         messages,
         schema,
+        hints,
         mapper,
         system,
         max_tokens,
@@ -449,6 +413,8 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         temperature,
         fakeResponse,
         doMapSelectClosed = false,
+        includeOpenTags = true,
+        doDedupe = false,
         model,
         fakeDelay,
         waitMessageString,
@@ -457,20 +423,10 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         onChunk,
         retryStartDelay,
         retryBackoffMultiplier,
-        cache
+        cache,
+        generateSystemPrompt,
+        generateUserPrompt
       } = config;
-
-      console.log('promptComplex()', {
-        messages,
-        schema,
-        mapper,
-        system,
-        model,
-        fakeResponse,
-        max_tokens,
-        temperature,
-        cache
-      }, config);
 
       if (
         mapper && !schema 
@@ -483,6 +439,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           system: system,
           messages,
           model,
+          hints,
           max_tokens,
           maxTokens,
           top_p,
@@ -491,6 +448,9 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
           presencePenalty,
           temperature,
           stop,
+          schema,
+          generateSystemPrompt,
+          generateUserPrompt
         });
       }
 
@@ -524,6 +484,7 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             messages: messages,
             max_tokens: max_tokens || maxTokens,
             schema: schema,
+            hints,
             model,
             fakeDelay,
             waitMessageString,
@@ -538,14 +499,19 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
             onChunk,
             retryStartDelay,
             retryBackoffMultiplier,
-            cache
+            cache,
+            generateSystemPrompt,
+            generateUserPrompt
           }),
 
         // function*(x) {
         //   yield x;
         // },
 
-        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema),
+        // doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema),
+        doMapSelectClosed ? 
+          mapSelectClosed(schema) : 
+          mapSelect(schema, includeOpenTags, doDedupe),
 
         // function*(x) {
         //   yield x;
@@ -583,7 +549,12 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
     };
   }
 
-  function mapSelect(schema) {
+  /**
+   * Creates a pipeline operator for state-mode selection.
+   * Yields growing state including partial elements.
+   * @see IncomingXMLParserSelectorEngine.mapSelect
+   */
+  function mapSelect(schema, includeOpenTags = true, doDedupe = false) {
     return function* (chunk) {
       const currentParser = getCurrentParser();
       if (!currentParser) {
@@ -591,17 +562,18 @@ async function* xmllmGen(pipelineFn, {timeout, llmStream} = {}) {
         return;
       }
 
-      console.log('mapSelect()', {
-        schema,
-        doDedupe: false
-      });
-      let selection = currentParser.mapSelect(schema, true, false);
+      let selection = currentParser.mapSelect(schema, includeOpenTags, doDedupe);
       if (selection && Object.keys(selection).length) {
         yield selection;
       }
     }
   }
 
+  /**
+   * Creates a pipeline operator for delta-mode selection.
+   * Yields only newly completed elements.
+   * @see IncomingXMLParserSelectorEngine.mapSelectClosed
+   */
   function mapSelectClosed(schema) {
     return function* (chunk) {
       const currentParser = getCurrentParser();

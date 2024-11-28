@@ -43,18 +43,20 @@ export default function FluidDemo() {
     
     const runStream = async () => {
       if (useRealLLM) {
+
         const theStream = stream({
+          model: ['togetherai:fast', 'claude:fast', 'openai:fast'],
           prompt: currentDemo.prompt,
           schema: currentDemo.schema,
           temperature: currentDemo.temperature,
           max_tokens: currentDemo.maxTokens,
-          onChunk: (rawChunk) => {
+          onChunk: (rawChunk: string) => {
             setXmlContent(prev => prev + rawChunk)
           },
           system: currentDemo.system
         }, {
           clientProvider
-        }).map(chunk => {
+        }).map((chunk: any) => {
           const rootKey = Object.keys(currentDemo.schema)[0]
           const data = chunk[rootKey]
           return currentDemo.transform(data)

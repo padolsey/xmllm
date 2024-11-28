@@ -15,7 +15,7 @@ export function xmllm<T = any>(
   options?: Omit<XmllmOptions, 'clientProvider'>
 ): AsyncGenerator<T>;
 
-export function stream(
+export function stream<T = Record<string, any>>(
   promptOrConfig: string | { 
     prompt: string;
     schema?: SchemaType;
@@ -24,7 +24,7 @@ export function stream(
   },
   clientProvider: ClientProvider | string,
   options?: StreamOptions
-): XMLStream;
+): XMLStream<T>;
 
 export function simple<T = any>(
   prompt: string,

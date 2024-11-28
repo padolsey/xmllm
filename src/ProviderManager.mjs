@@ -1,10 +1,11 @@
 import PROVIDERS, { createCustomModel } from './PROVIDERS.mjs';
 import Provider from './Provider.mjs';
 import Logger from './Logger.mjs';
+import {
+  ProviderAuthenticationError
+} from './errors/ProviderErrors.mjs';
 
 const logger = new Logger('ProviderManager');
-const DEFAULT_MODEL_TYPE = 'fast';
-
 // Default preferred providers list (only used if payload.model is not provided)
 const DEFAULT_PREFERRED_PROVIDERS = [
   'claude:good',
@@ -114,7 +115,7 @@ class ProviderManager {
                 ? Math.min(retryDelay, 5000) // Cap delay at 5s if it's our only option
                 : retryDelay;
                 
-              logger.info(`Retrying ${provider.name} in ${currentDelay}ms... (${isOnlyProvider ? 'no fallbacks available' : 'has fallbacks'})`);
+              logger.log(`Retrying ${provider.name} in ${currentDelay}ms... (${isOnlyProvider ? 'no fallbacks available' : 'has fallbacks'})`);
               await new Promise(resolve => setTimeout(resolve, currentDelay));
               retryDelay *= backoffMultiplier;
             }

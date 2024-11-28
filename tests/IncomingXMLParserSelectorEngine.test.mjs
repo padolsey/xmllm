@@ -10,8 +10,8 @@ expect.extend({
     }
     
     const pass = this.equals(
-      {$attr: received.$attr, $text: received.$text, $closed: received.$closed, $key: received.$key},
-      {$attr: expected.$attr, $text: expected.$text, $closed: expected.$closed, $key: expected.$key}
+      {$attr: received.$attr, $text: received.$text, $tagclosed: received.$tagclosed, $tagkey: received.$tagkey},
+      {$attr: expected.$attr, $text: expected.$text, $tagclosed: expected.$tagclosed, $tagkey: expected.$tagkey}
     );
 
     return {
@@ -22,15 +22,15 @@ expect.extend({
   
   toMatchNodeData(received, expected) {
     const nodeData = received instanceof Node ? 
-      {$attr: received.$attr, $text: received.$text, $key: received.$key} :
+      {$attr: received.$attr, $text: received.$text, $tagkey: received.$tagkey} :
       received;
       
     return {
       // Individually check the properties we care about:
       pass: this.equals(nodeData.$attr, expected.$attr) &&
             this.equals(nodeData.$text, expected.$text) &&
-            this.equals(nodeData.$key, expected.$key) &&
-            this.equals(nodeData.$closed, expected.$closed),
+            this.equals(nodeData.$tagkey, expected.$tagkey) &&
+            this.equals(nodeData.$tagclosed, expected.$tagclosed),
 
       message: () => `Expected node data ${JSON.stringify(nodeData)} to match ${JSON.stringify(expected)}`
     };
@@ -55,8 +55,8 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(complexResult[0]).toBeNode({
       $attr: {},
       $text: '<not>parsed</not>',
-      $closed: true,
-      $key: 0
+      $tagclosed: true,
+      $tagkey: 0
     });
 
     const mathResult = engine.select('math');
@@ -64,8 +64,8 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(mathResult[0]).toBeNode({
       $attr: {},
       $text: '2 < 3 && 5 > 4',
-      $closed: true,
-      $key: 1
+      $tagclosed: true,
+      $tagkey: 1
     });
   });
 
@@ -75,36 +75,36 @@ describe('IncomingXMLParserSelectorEngine', () => {
     
     engine.add('<item>Item 1</item>');
     expect(engine.select('item')[0]).toBeNode({
-      $key: 1,
+      $tagkey: 1,
       $attr: {},
       $text: 'Item 1',
-      $closed: true
+      $tagclosed: true
     });
     
     engine.add('<item>Item 2</item>');
     expect(engine.select('item')[1]).toBeNode({
-      $key: 2,
+      $tagkey: 2,
       $attr: {},
       $text: 'Item 2',
-      $closed: true
+      $tagclosed: true
     });
     
     engine.add('</root>');
     const root = engine.select('root')[0];
     expect(root).toMatchNodeData({
-      $key: 0,
+      $tagkey: 0,
       $attr: {},
       $text: 'Item 1Item 2'
     });
 
     expect(root.item[0]).toMatchNodeData({
-      $key: 1,
+      $tagkey: 1,
       $attr: {},
       $text: 'Item 1'
     });
 
     expect(root.item[1]).toMatchNodeData({
-      $key: 2,
+      $tagkey: 2,
       $attr: {},
       $text: 'Item 2'
     });
@@ -119,14 +119,14 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const messageResult = engine.select('message');
     expect(messageResult).toHaveLength(1);
     expect(messageResult[0]).toMatchNodeData({
-      $key: 0,
+      $tagkey: 0,
       $attr: { type: 'greeting' },
       $text: 'Hello, John!'
     });
 
     expect(messageResult[0].name[0]).toMatchNodeData(
       {
-        $key: 1,
+        $tagkey: 1,
         $attr: { id: 'user1' },
         $text: 'John'
       }
@@ -135,7 +135,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const nameResult = engine.select('name');
     expect(nameResult).toHaveLength(1);
     expect(nameResult[0]).toMatchNodeData({
-      $key: 1,
+      $tagkey: 1,
       $attr: { id: 'user1' },
       $text: 'John'
     });
@@ -147,24 +147,24 @@ describe('IncomingXMLParserSelectorEngine', () => {
     
     engine.add(' 1 </item><item>Item 2</it');
     expect(engine.select('item')[0]).toBeNode({
-      $key: 1,
+      $tagkey: 1,
       $attr: {},
       $text: ' Item 1 ',
-      $closed: true
+      $tagclosed: true
     });
     
     engine.add('em></root>');
     expect(engine.select('item')[0]).toBeNode({
-      $key: 1,
+      $tagkey: 1,
       $attr: {},
       $text: ' Item 1 ',
-      $closed: true
+      $tagclosed: true
     });
     expect(engine.select('item')[1]).toBeNode({
-      $key: 2,
+      $tagkey: 2,
       $attr: {},
       $text: 'Item 2',
-      $closed: true
+      $tagclosed: true
     });
   });
 
@@ -176,34 +176,34 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(emptyResult).toHaveLength(1);
     expect(emptyResult[0]).toBeNode({
       $attr: {},
-      $closed: true,
+      $tagclosed: true,
       $text: '',
-      $key: 1
+      $tagkey: 1
     });
-    expect(typeof emptyResult[0].$key).toBe('number');
+    expect(typeof emptyResult[0].$tagkey).toBe('number');
 
     const selfClosingResult = engine.select('self-closing');
     expect(selfClosingResult).toHaveLength(1);
     expect(selfClosingResult[0]).toBeNode({
       $attr: {},
-      $closed: true,
+      $tagclosed: true,
       $text: '',
-      $key: 2
+      $tagkey: 2
     });
-    expect(typeof selfClosingResult[0].$key).toBe('number');
+    expect(typeof selfClosingResult[0].$tagkey).toBe('number');
 
     const emptyWithAttrResult = engine.select('empty-with-attr');
     expect(emptyWithAttrResult).toHaveLength(1);
     expect(emptyWithAttrResult[0]).toBeNode({
       $attr: { attr: 'value' },
-      $closed: true,
-      $key: 3,
+      $tagclosed: true,
+      $tagkey: 3,
       $text: ''
     });
-    expect(typeof emptyWithAttrResult[0].$key).toBe('number');
+    expect(typeof emptyWithAttrResult[0].$tagkey).toBe('number');
 
     // Ensure keys are unique
-    const allKeys = [...emptyResult, ...selfClosingResult, ...emptyWithAttrResult].map(el => el.$key);
+    const allKeys = [...emptyResult, ...selfClosingResult, ...emptyWithAttrResult].map(el => el.$tagkey);
     expect(new Set(allKeys).size).toBe(allKeys.length);
   });
 
@@ -214,7 +214,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const level3Result = engine.select('level3');
     expect(level3Result).toHaveLength(1);
     expect(level3Result[0]).toMatchNodeData({ 
-      $key: 3, 
+      $tagkey: 3, 
       $attr: {}, 
       $text: 'Deep' 
     });
@@ -222,7 +222,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const rootLevel3Result = engine.select('root level3');
     expect(rootLevel3Result).toHaveLength(1);
     expect(rootLevel3Result[0]).toMatchNodeData({ 
-      $key: 3, 
+      $tagkey: 3, 
       $attr: {}, 
       $text: 'Deep' 
     });
@@ -235,7 +235,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const items = engine.select('item');
     items.forEach((item, i) => {
       expect(item).toMatchNodeData({
-        $key: i + 1,
+        $tagkey: i + 1,
         $attr: { id: `${i + 1}` },
         $text: ['First', 'Second', 'Third'][i]
       });
@@ -248,11 +248,11 @@ describe('IncomingXMLParserSelectorEngine', () => {
     
     const root = engine.select('root')[0];
     expect(root).toMatchNodeData({
-      $key: 0,
+      $tagkey: 0,
       $attr: {},
       $text: 'Text emphasized and strong.',
-      em: [{ $key: 1, $attr: {}, $text: 'emphasized' }],
-      strong: [{ $key: 2, $attr: {}, $text: 'strong' }]
+      em: [{ $tagkey: 1, $attr: {}, $text: 'emphasized' }],
+      strong: [{ $tagkey: 2, $attr: {}, $text: 'strong' }]
     });
   });
 
@@ -264,7 +264,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     
     const root = engine.select('root')[0];
     expect(root).toMatchNodeData({
-      $key: 0,
+      $tagkey: 0,
       $attr: {},
       $text: 'Content'
     });
@@ -276,7 +276,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     
     const root = engine.select('root')[0];
     expect(root).toMatchNodeData({
-      $key: 0,
+      $tagkey: 0,
       $attr: {},
       $text: 'This is <not> parsed & preserved'
     });
@@ -290,17 +290,17 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(items).toHaveLength(3);
     
     expect(items[0]).toMatchNodeData({ 
-      $key: 1, 
+      $tagkey: 1, 
       $attr: {}, 
       $text: '<Tag>' 
     });
     expect(items[1]).toMatchNodeData({ 
-      $key: 2, 
+      $tagkey: 2, 
       $attr: {}, 
       $text: 'AT&T' 
     });
     expect(items[2]).toMatchNodeData({ 
-      $key: 3, 
+      $tagkey: 3, 
       $attr: {}, 
       $text: '😀' 
     });
@@ -313,7 +313,7 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const items = engine.select('ns\\:item');
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchNodeData({ 
-      $key: 1, 
+      $tagkey: 1, 
       $attr: {}, 
       $text: 'Namespaced' 
     });
@@ -342,8 +342,8 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(strongResult).toHaveLength(1);
     expect(strongResult[0]).toBeNode({
       $attr: {},
-      $closed: true,
-      $key: 1,
+      $tagclosed: true,
+      $tagkey: 1,
       $text: 'ok??'
     });
 
@@ -352,8 +352,8 @@ describe('IncomingXMLParserSelectorEngine', () => {
     const xResult = engine.select('data > x');
     expect(xResult).toHaveLength(1);
     expect(xResult[0]).toBeNode({
-      $closed: true,
-      $key: 3,
+      $tagclosed: true,
+      $tagkey: 3,
       $attr: {},
       $text: 'hi'
     });
@@ -366,8 +366,8 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(dataResult[0]).toBeNode({
       $attr: {},
       $text: 'hiBoop!',
-      $closed: true,
-      $key: 2,
+      $tagclosed: true,
+      $tagkey: 2,
     });
 
     const x = dataResult[0].x;
@@ -375,8 +375,8 @@ describe('IncomingXMLParserSelectorEngine', () => {
     expect(x[0]).toBeNode({
       $attr: {},
       $text: 'hi',
-      $key: 3,
-      $closed: true
+      $tagkey: 3,
+      $tagclosed: true
     });
 
     // Close root element

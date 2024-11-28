@@ -68,6 +68,14 @@ class ValidationService {
   }
 
   static validateSingleModel(model, availableModels, index = null) {
+
+    if (typeof model !== 'string') {
+      if (!model?.name) {
+        throw new ModelValidationError('Custom model must me object with a name', { model, index });
+      }
+      return true;
+    }
+
     const [provider, type] = (model || '').split(':');
     
     if (!provider || !type) {
@@ -185,6 +193,20 @@ class ValidationService {
     }
 
     return true;
+  }
+
+  static validateConfig(config) {
+    // ... existing validation ...
+
+    // Hints requires schema
+    if (config.hints && !config.schema) {
+      throw new Error('Cannot provide hints without a schema');
+    }
+
+    // If both provided, validate hints against schema
+    if (config.hints && config.schema) {
+      IncomingXMLParserSelectorEngine.validateHints(config.schema, config.hints);
+    }
   }
 }
 

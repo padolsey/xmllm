@@ -154,8 +154,7 @@ export function UserProfileDemo({ clientProvider }: { clientProvider: ClientProv
         
         parse(),
         select('user_profile'),
-        map(profile => {
-          console.log('>>>111 profile', profile);
+        map((profile: any) => {
           return {
             name: profile?.name?.[0]?.$text,
             bio: profile?.bio?.[0]?.$text,
@@ -219,13 +218,13 @@ export function UserProfileDemo({ clientProvider }: { clientProvider: ClientProv
         schema,
         temperature: 0.7,
         max_tokens: 1000,
-        onChunk: (rawChunk) => {
+        onChunk: (rawChunk: string) => {
           setXmlContent(prev => prev + rawChunk)
         },
         system: "You are a profile generator. Create engaging user profiles with colorful details. Do not over-focus on locale in determinising interests. Do not over-focus on job in determining hobbies."
       }, {
         clientProvider
-      }).map(chunk => chunk.user_profile).map(profile => {
+      }).map((chunk: any) => chunk.user_profile).map((profile: any) => {
         profile.details = {
           ...(profile.details || {}),
           favoriteColor: {
@@ -233,11 +232,11 @@ export function UserProfileDemo({ clientProvider }: { clientProvider: ClientProv
             hex: profile?.details?.favorite_color?.$hex
           }
         };
-        profile.hobbies = profile.hobbies?.hobby?.map(h => ({
+        profile.hobbies = profile.hobbies?.hobby?.map((h: any) => ({
           activity: h.$text,
           category: h.$category
         })) || [];
-        profile.skills = profile.skills?.skill?.map(s => ({
+        profile.skills = profile.skills?.skill?.map((s: any) => ({
           name: s.$text,
           level: s.$level
         })) || [];

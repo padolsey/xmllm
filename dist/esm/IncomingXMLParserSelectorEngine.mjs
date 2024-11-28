@@ -1,4 +1,7 @@
 var _excluded = ["key", "attr", "text", "closed", "children"];
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -6,9 +9,6 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
@@ -24,12 +24,12 @@ var Node = /*#__PURE__*/_createClass(function Node(name, o) {
   this.length = 0;
   this.__isNodeObj__ = true;
   if (o) {
-    this.$key = o.key;
+    this.$tagkey = o.key;
     this.$attr = o.attr;
     this.$text = o.aggregateText;
-    this.$closed = o.closed;
+    this.$tagclosed = o.closed;
     this.$children = o.children || [];
-    this.$name = name;
+    this.$tagname = name;
     var key = o.key,
       attr = o.attr,
       text = o.text,
@@ -101,8 +101,43 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
     }, {
       xmlMode: true
     });
+
+    // Add cache for normalized schemas
+    this.normalizedSchemaCache = new WeakMap();
   }
+
+  // Helper to normalize and cache schemas
   return _createClass(IncomingXMLParserSelectorEngine, [{
+    key: "normalizeSchemaWithCache",
+    value: function normalizeSchemaWithCache(schema) {
+      // Check cache first
+      var cached = this.normalizedSchemaCache.get(schema);
+      if (cached) return cached;
+
+      // Helper to normalize the new [] syntax to old syntax
+      var _normalizeSchema = function normalizeSchema(schema) {
+        // Handle primitives and functions
+        if (_typeof(schema) !== 'object' || schema === null) return schema;
+        if (typeof schema === 'function') return schema;
+        if (Array.isArray(schema)) return schema.map(_normalizeSchema);
+        var result = {};
+        for (var _i = 0, _Object$entries = Object.entries(schema); _i < _Object$entries.length; _i++) {
+          var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
+            key = _Object$entries$_i[0],
+            value = _Object$entries$_i[1];
+          result[key] = _normalizeSchema(value);
+        }
+        return result;
+      };
+
+      // Normalize and cache result
+      var normalized = Array.isArray(schema) ? schema.map(function (m) {
+        return _normalizeSchema(m);
+      }) : _normalizeSchema(schema);
+      this.normalizedSchemaCache.set(schema, normalized);
+      return normalized;
+    }
+  }, {
     key: "updateTextContent",
     value: function updateTextContent(element) {
       element.textContent = this.getTextContent(element);
@@ -323,35 +358,31 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       }
       return formatted;
     }
+
+    /**
+     * Maps schema to elements, yielding only newly completed elements.
+     * This is "delta mode" - you only see elements once, when they complete.
+     */
   }, {
     key: "mapSelectClosed",
-    value: function mapSelectClosed(mapping) {
-      return this.mapSelect(mapping, false);
+    value: function mapSelectClosed(schema) {
+      // Add JSDoc to clarify this is "delta mode"
+      return this.mapSelect(schema, false, true); // includeOpen=false, dedupe=true
     }
+
+    /**
+     * Maps schema to elements. Can operate in different modes:
+     * - State mode: (includeOpen=true, dedupe=false) - Shows growing state including partials
+     * - Delta mode: (includeOpen=false, dedupe=true) - Shows only new complete elements
+     * - Snapshot mode: (includeOpen=false, dedupe=false) - Shows current complete state
+     */
   }, {
     key: "mapSelect",
     value: function mapSelect(mapping) {
       var _this7 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
       var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-      // Helper to normalize the new [] syntax to old syntax
-      var _normalizeSchema = function normalizeSchema(schema) {
-        // Handle primitives and functions
-        if (_typeof(schema) !== 'object' || schema === null) return schema;
-        if (typeof schema === 'function') return schema;
-        if (Array.isArray(schema)) return schema.map(_normalizeSchema);
-        var result = {};
-        for (var _i = 0, _Object$entries = Object.entries(schema); _i < _Object$entries.length; _i++) {
-          var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
-            key = _Object$entries$_i[0],
-            value = _Object$entries$_i[1];
-          result[key] = _normalizeSchema(value);
-        }
-        return result;
-      };
-      var normalizedMapping = Array.isArray(mapping) ? mapping.map(function (m) {
-        return _normalizeSchema(m);
-      }) : _normalizeSchema(mapping);
+      var normalizedMapping = this.normalizeSchemaWithCache(mapping);
       var _applyMapping = function applyMapping(element, map) {
         if (Array.isArray(map)) {
           if (map.length !== 1) {
@@ -361,19 +392,31 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             return _applyMapping(e, map[0]);
           }) : [_applyMapping(element, map[0])];
         }
+        if (!(element !== null && element !== void 0 && element.__isNodeObj__) && element != null) {
+          // Treat it as a plain value:
+          if (typeof map === 'function') {
+            return map(element);
+          } else {
+            return element;
+          }
+        }
 
         // Add handling for string literals - treat them as String type
         if (typeof map === 'string') {
-          return element.length ? element.map(function (e) {
-            return String(e);
-          }) : String(element.$text);
+          map = String;
         }
         if (typeof map === 'function') {
           // Handle built-in constructors specially
-          if (map === String || map === Number || map === Boolean) {
-            return map(element.$text);
+          if (map === Number) {
+            var _element$$text, _element$$text$trim;
+            // Use parseFloat for more robust number parsing
+            // Trim whitespace and handle edge cases
+            return parseFloat(((_element$$text = element.$text) === null || _element$$text === void 0 || (_element$$text$trim = _element$$text.trim) === null || _element$$text$trim === void 0 ? void 0 : _element$$text$trim.call(_element$$text)) || '');
           }
-          // Pass full element to custom functions
+          if (map === String) {
+            return String(element.$text);
+          }
+          // Pass full element to custom functions (including Boolean)
           return map(element);
         }
         if (_typeof(map) !== 'object') {
@@ -381,24 +424,22 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         }
         var out = {};
         for (var k in map) {
-          var resultKey = k.replace(/\[\](?=\s+|$)/g, ''); // TODO: remove
           var mapItem = map[k];
-          var isItemMapping = resultKey !== k;
-          if (k.startsWith('$')) {
+          if (k === '_' || k === '$text') {
+            // Handle text content
+            out[k] = _applyMapping(element.$text, mapItem);
+          } else if (k.startsWith('$')) {
             // Handle attributes
             var attrName = k.slice(1);
-            if (element.$attr && element.$attr[attrName] !== undefined) {
-              out[resultKey] = mapItem(element.$attr[attrName]);
+            if (element.$attr && element.$attr[attrName] != null) {
+              out[k] = _applyMapping(element.$attr[attrName], mapItem);
             }
-          } else if (k === '_' || k === '$text') {
-            // Handle text content
-            out[resultKey] = mapItem(element.$text);
-          } else if (!element[resultKey]) {
-            out[resultKey] = Array.isArray(mapItem) ? [] : undefined;
+          } else if (!element[k]) {
+            out[k] = Array.isArray(mapItem) ? [] : undefined;
           } else if (Array.isArray(mapItem)) {
-            out[resultKey] = _applyMapping(element[resultKey], mapItem);
+            out[k] = _applyMapping(element[k], mapItem);
           } else {
-            out[resultKey] = _applyMapping(Array.isArray(element[resultKey]) ? element[resultKey][0] : element[resultKey], mapItem);
+            out[k] = _applyMapping(Array.isArray(element[k]) ? element[k][0] : element[k], mapItem);
           }
         }
         return out;
@@ -431,71 +472,132 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       return results;
     }
   }], [{
+    key: "validateHints",
+    value: function validateHints(schema, hints) {
+      function validateStructure(schemaObj, hintsObj) {
+        var path = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+        if (!hintsObj) return; // Hints are optional
+
+        // Handle primitives in schema
+        if (_typeof(schemaObj) !== 'object' || schemaObj === null) {
+          return;
+        }
+
+        // Handle arrays
+        if (Array.isArray(schemaObj)) {
+          if (schemaObj.length !== 1) {
+            throw new Error("Schema array at ".concat(path, " must have exactly one element"));
+          }
+          if (hintsObj && !Array.isArray(hintsObj) && typeof hintsObj !== 'string') {
+            throw new Error("Hints at ".concat(path, " must be array or string for array schema"));
+          }
+          validateStructure(schemaObj[0], Array.isArray(hintsObj) ? hintsObj[0] : hintsObj, "".concat(path, "[]"));
+          return;
+        }
+
+        // Check each hint has corresponding schema definition
+        for (var key in hintsObj) {
+          if (!schemaObj.hasOwnProperty(key)) {
+            throw new Error("Hint \"".concat(key, "\" has no corresponding schema definition at ").concat(path));
+          }
+          validateStructure(schemaObj[key], hintsObj[key], path ? "".concat(path, ".").concat(key) : key);
+        }
+      }
+      validateStructure(schema, hints);
+    }
+  }, {
     key: "makeMapSelectXMLScaffold",
     value: function makeMapSelectXMLScaffold(schema) {
-      var indent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 2;
+      var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      var indent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
       function processObject(obj) {
-        var level = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+        var hintObj = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+        var level = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
         var xml = '';
         var indentation = ' '.repeat(level * indent);
         for (var key in obj) {
           var value = obj[key];
-          if (key === '_') continue;
-          if (key.startsWith('$')) continue;
-          var attrs = getAttributes(obj[key]);
+          var hint = hintObj[key];
 
-          // Handle string literals as explanation hints
-          if (typeof value === 'string') {
-            xml += "".concat(indentation, "<").concat(key).concat(attrs, ">").concat(value, "</").concat(key, ">\n");
-          } else if (typeof value === 'function' || value === String || value === Number || value === Boolean) {
-            xml += "".concat(indentation, "<").concat(key).concat(attrs, ">...text content...</").concat(key, ">\n");
-          } else if (Array.isArray(value)) {
-            var item = value[0];
-            if (typeof item === 'string') {
-              xml += "".concat(indentation, "<").concat(key, ">").concat(item, "</").concat(key, ">\n");
-              xml += "".concat(indentation, "<").concat(key, ">").concat(item, "</").concat(key, ">\n");
-              xml += "".concat(indentation, "/*etc.*/\n");
-            } else if (typeof item === 'function' || item === String || item === Number || item === Boolean) {
-              xml += "".concat(indentation, "<").concat(key, ">...text content...</").concat(key, ">\n");
-              xml += "".concat(indentation, "<").concat(key, ">...text content...</").concat(key, ">\n");
-              xml += "".concat(indentation, "/*etc.*/\n");
-            } else {
-              xml += "".concat(indentation, "<").concat(key).concat(getAttributes(item), ">\n");
-              xml += processObject(item, level + 1);
-              if ('_' in item) {
-                xml += "".concat(indentation, "  ...text content...\n");
+          // Skip attribute markers
+          if (key.startsWith('$')) continue;
+
+          // Handle string literals and functions (including primitives)
+          if (typeof value === 'string' || typeof value === 'function') {
+            // If there's an explicit hint, use it
+            // Otherwise if it's a string literal in schema, use that as hint
+            // Otherwise use generic placeholder
+            var content = hint || (typeof value === 'string' ? value : '...text content...');
+            xml += "".concat(indentation, "<").concat(key, ">").concat(content, "</").concat(key, ">\n");
+            continue;
+          }
+
+          // Handle arrays
+          if (Array.isArray(value)) {
+            var itemValue = value[0];
+            var itemHint = Array.isArray(hint) ? hint[0] : hint;
+
+            // Show two examples for arrays
+            for (var i = 0; i < 2; i++) {
+              xml += "".concat(indentation, "<").concat(key).concat(getAttributeString(itemValue, itemHint), ">\n");
+
+              // Handle text content for array items
+              if (_typeof(itemValue) !== 'object') {
+                // For primitive arrays, use the hint directly if it's a string
+                var _content = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : '...text content...';
+                xml += "".concat(indentation, "  ").concat(_content, "\n");
+              } else {
+                // Handle text content from $text in object
+                if (itemValue.$text !== undefined || itemHint !== null && itemHint !== void 0 && itemHint.$text) {
+                  var textHint = (itemHint === null || itemHint === void 0 ? void 0 : itemHint.$text) || (typeof itemValue.$text === 'string' ? itemValue.$text : '...text content...');
+                  xml += "".concat(indentation, "  ").concat(textHint, "\n");
+                }
+                xml += processObject(itemValue, itemHint, level + 1);
               }
               xml += "".concat(indentation, "</").concat(key, ">\n");
-              xml += "".concat(indentation, "<").concat(key).concat(getAttributes(item), ">\n");
-              xml += processObject(item, level + 1);
-              if ('_' in item) {
-                xml += "".concat(indentation, "  ...text content...\n");
-              }
-              xml += "".concat(indentation, "</").concat(key, ">\n");
-              xml += "".concat(indentation, "/*etc.*/\n");
             }
-          } else if (_typeof(value) === 'object') {
+            xml += "".concat(indentation, "/*etc.*/\n");
+            continue;
+          }
+
+          // Handle objects
+          if (_typeof(value) === 'object' && value !== null) {
+            var attrs = getAttributeString(value, hint);
             xml += "".concat(indentation, "<").concat(key).concat(attrs, ">\n");
-            if ('_' in value) {
-              xml += "".concat(indentation, "  ...text content...\n");
+
+            // Handle text content
+            if (value.$text !== undefined || hint !== null && hint !== void 0 && hint.$text) {
+              var _textHint = (hint === null || hint === void 0 ? void 0 : hint.$text) || (typeof value.$text === 'string' ? value.$text : '...text content...');
+              xml += "".concat(indentation, "  ").concat(_textHint, "\n");
             }
-            xml += processObject(value, level + 1);
+            xml += processObject(value, hint || {}, level + 1);
             xml += "".concat(indentation, "</").concat(key, ">\n");
           }
         }
         return xml;
       }
-      function getAttributes(obj) {
+      function getAttributeString(obj) {
+        var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         if (_typeof(obj) !== 'object' || obj === null) return '';
         var attrs = '';
         for (var key in obj) {
-          if (key.startsWith('$')) {
-            attrs += " ".concat(key.slice(1), "=\"...\"");
+          if (key.startsWith('$') && key !== '$text') {
+            var attrName = key.slice(1);
+            // First check explicit hints object
+            // Then check if it's a string literal in schema (it's a hint)
+            // Otherwise use placeholder
+            var hint = (hints === null || hints === void 0 ? void 0 : hints[key]) || (typeof obj[key] === 'string' ? obj[key] : '...');
+            attrs += " ".concat(attrName, "=\"").concat(hint, "\"");
           }
         }
         return attrs;
       }
-      return processObject(schema);
+
+      // Validate hints against schema if provided
+      if (Object.keys(hints).length > 0) {
+        IncomingXMLParserSelectorEngine.validateHints(schema, hints);
+      }
+      return processObject(schema, hints);
     }
   }]);
 }();

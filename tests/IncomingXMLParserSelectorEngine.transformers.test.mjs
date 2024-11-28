@@ -216,4 +216,86 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
       }
     });
   });
+
+  test('Number transformer should handle various numeric formats', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <numbers>
+        <num>42</num>
+        <num>  3.14159  </num>
+        <num>-123.45</num>
+        <num>5e-9</num>
+        <num>  +0.123  </num>
+        <num>
+          42
+        </num>
+        <num>1.23e+4</num>
+        <num>0xFF</num>
+        <num>invalid</num>
+        <num></num>
+      </numbers>
+    `);
+
+    const result = engine.mapSelect({
+      numbers: {
+        num: [Number]  // Use Number transformer
+      }
+    });
+
+    expect(result).toEqual({
+      numbers: {
+        num: [
+          42,         // Integer
+          3.14159,    // Decimal with whitespace
+          -123.45,    // Negative
+          5e-9,       // Scientific notation
+          0.123,      // Leading plus and whitespace
+          42,         // Multiline whitespace
+          12300,      // Scientific notation with plus
+          0,          // Hex not supported by parseFloat
+          NaN,        // Invalid number
+          NaN         // Empty string
+        ]
+      }
+    });
+  });
+
+  test('Boolean should be treated as regular transformer', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <flags>
+        <flag>true</flag>
+        <flag>false</flag>
+        <flag>1</flag>
+        <flag>0</flag>
+      </flags>
+    `);
+
+    const result = engine.mapSelect({
+      flags: {
+        flag: [Boolean]  // Boolean is just a regular transformer now
+      }
+    }, false, false);
+
+    // Which will mean its always true since Boolean(Element Object) is true:
+    expect(result).toEqual({
+      flags: {
+        flag: [true, true, true, true]
+      }
+    });
+
+    // Boolean constructor has its own rules which might not be what we want
+    // Better to use explicit transformer:
+    const betterResult = engine.mapSelect({
+      flags: {
+        flag: [({$text}) => $text.trim().toLowerCase() === 'true']
+      }
+    }, false, false);
+
+    expect(betterResult).toEqual({
+      flags: {
+        flag: [true, false, false, false]
+      }
+    });
+  });
 }); 

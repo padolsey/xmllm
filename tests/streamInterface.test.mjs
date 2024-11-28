@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { stream } from '../src/xmllm-main.mjs';
+import { stream, simple } from '../src/xmllm-main.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -391,21 +391,21 @@ describe('Stream Chaining Convenience API', () => {
     it('should combine schema and closed mode', async () => {
       const TestStream = jest.fn().mockImplementation(() => ({
         getReader: () => createMockReader([
-          '<thinking><result><score>8</score></result><result><sc',
-          'ore>9</score></result></thinking>'
+          '<thinking>',
+          '<result><score>8</score></result>',
+          '<result><score>9</score></result>',  // Make sure mock provides different value
+          '</thinking>'
         ])
       }));
 
-      const scoreStream = stream({
-        prompt: 'Give me scores',
+      const scoreStream = stream('Rate these poems', {
+        llmStream: TestStream,
         schema: {
           result: {
             score: Number
           }
         },
-        closed: true
-      }, {
-        llmStream: TestStream
+        mode: 'delta'  // Use new mode param instead of closed
       });
 
       const results = await scoreStream.last(2);
@@ -583,16 +583,16 @@ describe('Stream Chaining Convenience API', () => {
       })
         .select('stats, tag')
         .map(el => {
-          if (el.$name === 'stats') {
+          if (el.$tagname === 'stats') {
             const child = el.$children[0];
             console.log('>>>child', child);
             return { 
               stats: {
-                [child.$name]: Number(child.$text)
+                [child.$tagname]: Number(child.$text)
               }
             };
           }
-          if (el.$name === 'tag') {
+          if (el.$tagname === 'tag') {
             return {
               tags: [el.$text]
             };
@@ -808,5 +808,176 @@ describe('Stream to Provider Parameter Passing', () => {
       max_tokens: 4000,      // Default max tokens
       temperature: 0.72,     // Default temperature
     });
+  });
+});
+
+describe('Stream Mode Support', () => {
+  it('should handle state mode (default)', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<colors>',
+        '<color>re',
+        'd</color>',
+        '<color>blu',
+        'e</color>',
+        '</colors>'
+      ])
+    }));
+
+    const updates = [];
+    const colorStream = stream('List colors', {
+      llmStream: TestStream,
+      schema: {
+        color: Array(String)
+      }
+      // mode: 'state' is default
+    });
+
+    for await (const update of colorStream) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual([
+      { color: ['re'] },            // Partial
+      { color: ['red'] },           // Complete
+      { color: ['red', 'blu'] },    // Complete + Partial
+      { color: ['red', 'blue'] },   // Both Complete
+      { color: ['red', 'blue'] }    // Final state on container close
+    ]);
+  });
+
+  it('should handle delta mode', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<colors>',
+        '<color>re',
+        'd</color>',
+        '<color>blu',
+        'e</color>',
+        '</colors>'
+      ])
+    }));
+
+    const updates = [];
+    const colorStream = stream('List colors', {
+      llmStream: TestStream,
+      schema: {
+        color: Array(String)
+      },
+      mode: 'delta'
+    });
+
+    for await (const update of colorStream) {
+      updates.push(update);
+    }
+
+    // Should only get complete elements
+    expect(updates).toEqual([
+      { color: ['red'] },     // First complete
+      { color: ['blue'] }     // Second complete
+    ]);
+  });
+
+  it('should handle snapshot mode', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<colors>',
+        '<color>re',
+        'd</color>',
+        '<color>blu',
+        'e</color>',
+        '</colors>'
+      ])
+    }));
+
+    const updates = [];
+    const colorStream = stream('List colors', {
+      llmStream: TestStream,
+      schema: {
+        color: Array(String)
+      },
+      mode: 'snapshot'
+    });
+
+    for await (const update of colorStream) {
+      updates.push(update);
+    }
+
+    // Should show complete state at each point
+    expect(updates).toEqual([
+      { color: ['red'] },           // First complete element
+      { color: ['red'] },           // No change
+      { color: ['red', 'blue'] },   // Both complete
+      { color: ['red', 'blue'] }    // Final state
+    ]);
+  });
+
+  it('should validate mode parameter', async () => {
+    expect(() => {
+      stream('List colors', {
+        schema: { color: Array(String) },
+        mode: 'invalid'
+      });
+    }).toThrow('Invalid mode. Must be one of: state, delta, snapshot, realtime');
+  });
+
+  it('should handle mode in simple() function', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<colors><color>red</color><color>blue</color></colors>'
+      ])
+    }));
+
+    // simple() defaults to delta mode
+    const result = await simple(
+      'List colors',
+      { color: Array(String) },
+      { llmStream: TestStream }
+    );
+
+    expect(result).toEqual({
+      color: ['red', 'blue']
+    });
+
+    // Can override to state mode
+    const stateResult = await simple(
+      'List colors',
+      { color: Array(String) },
+      { 
+        llmStream: TestStream,
+        mode: 'state'
+      }
+    );
+
+    expect(stateResult).toEqual({
+      color: ['red', 'blue']
+    });
+  });
+
+  it('should support legacy closed parameter', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<colors><color>red</color><color>blue</color></colors>'
+      ])
+    }));
+
+    // Using legacy closed: true
+    const updates = [];
+    const colorStream = stream('List colors', {
+      llmStream: TestStream,
+      schema: { color: Array(String) },
+      closed: true  // Legacy parameter
+    });
+
+    for await (const update of colorStream) {
+      updates.push(update);
+    }
+
+    // Should behave like delta mode
+    expect(updates).toEqual([
+      {
+        color: ['red', 'blue']
+      }
+    ]);
   });
 }); 

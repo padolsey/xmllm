@@ -2,8 +2,8 @@
 export interface XMLElement {
   $text: string;
   $attr: Record<string, string>;
-  $key: number;
-  $closed: boolean;
+  $tagkey: number;
+  $tagclosed: boolean;
 }
 
 export interface Message {
@@ -78,6 +78,8 @@ export interface PipelineHelpers {
   value: ValueFn;
   withAttrs: WithAttrsFn;
   whenClosed: WhenClosedFn;
+  parse: () => PipelineFunction;
+  select: (selector: string) => PipelineFunction;
 }
 
 // Model types
@@ -166,6 +168,7 @@ export interface PromptConfig {
     rpmLimit?: number;
   };
   schema?: SchemaType;
+  hints?: Record<string, any>;
 }
 
 // Add back error types
@@ -257,6 +260,7 @@ export interface CacheService {
 // Add these interfaces
 export interface StreamOptions extends XmllmOptions {
   schema?: SchemaType;
+  hints?: Record<string, any>;
   system?: string;
   closed?: boolean;
   model?: ModelPreference;
@@ -285,10 +289,15 @@ export interface XMLStream<T = any> {
 }
 
 // Add these function declarations
-export function stream(
-  promptOrConfig: string | StreamConfig,
+export function stream<T = Record<string, any>>(
+  promptOrConfig: string | { 
+    prompt: string;
+    schema?: SchemaType;
+    system?: string;
+    closed?: boolean;
+  },
   options?: StreamOptions
-): XMLStream;
+): XMLStream<T>;
 
 export function simple<T = any>(
   prompt: string,

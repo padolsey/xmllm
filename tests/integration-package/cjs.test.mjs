@@ -35,6 +35,6 @@ describe('CommonJS Imports', () => {
     ]);
     
     const value = (await result.next()).value;
-    expect(value).toBeNode({ $key: 1, $attr: {}, $text: 'Test', $closed: true });
+    expect(value).toBeNode({ $tagkey: 1, $attr: {}, $text: 'Test', $tagclosed: true });
   });
 });

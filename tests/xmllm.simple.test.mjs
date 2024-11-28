@@ -278,8 +278,7 @@ describe('xmllm simple()', () => {
       { llmStream: TestStream }
     );
 
-    // Note: empty object as produced by internal merge()
-    expect(result).toEqual({});
+    expect(result).toEqual(undefined);
   });
 
   it('should support system prompts and additional options', async () => {

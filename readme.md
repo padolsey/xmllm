@@ -1,71 +1,79 @@
 # xmllm
 
-### **Get structured data AND streaming updates from AI in a single shot**
+xmllm solves a core problem with AI APIs: you shouldn't have to choose between getting structured data OR real-time updates.
 
-xmllm solves a core problem with AI APIs: you shouldn't have to choose between getting structured data OR real-time updates. Instead of wrestling with JSON function calls or parsing text deltas, xmllm lets AI models communicate naturally using markup - giving you both structure and streaming at once.
+> *XML allows LLMs to communicate naturally with the best merits of 'free prose' while still giving you structured data back. The norm of deriving JSON from LLMs, even if valid, is biased to more "robotic" completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value.*
 
-It is provider-agnostic and uses a flexible HTML parser to extract structured data, making it more resilient and less brittle than JSON. It also follows a core premise:
+Instead of wrestling with JSON function calls or parsing text deltas, xmllm lets AI models communicate naturally using markup - giving you both structure and streaming at once. It is provider-agnostic and uses a flexible HTML parser to extract structured data, making it more resilient and less brittle than JSON.
 
-> *XML allows LLMs to communicate naturally with the best merits of 'free prose'  while still giving you structured data back. The norm deriving JSON from LLMs, even if valid, is biased to more "_robotic_" completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value.*
-
----
-
-Here's an example of a UI being progressively populated by a streaming LLM 'alien species' generator:
-
-![XMLLM Demo](https://j11y.io/public_images/xmllm1.gif)
-
----
-
-**Quick example:** 
+Here's an example:
 
 ```javascript
-// Instead of praying for valid JSON:
 const analysis = await stream(
-  'Analyze this tweet: "Just landed my first dev job! 🚀"',
+  `
+    How many Rs are in the word strawberry?
+    Count the letters prior to your answer.
+  `,
   {
     schema: {
-      sentiment: String,
-      topics: [String],
-      suggestions: [{
-        title: String,
-        description: "A helpful suggestion for the new developer"
-      }]
+      approach: 'the approach you will use',
+      letter: ['each letter'],
+      philosophical_arguments_on_strawberry_math: {
+        argument: [{
+          $text: 'the argument',
+          $lang: 'the language of the argument'
+        }]
+      },
+      final_answer: String
     }
   }
 ).value();
 ```
 
-Producting a response like:
-
+The AI responds naturally with XML:
 ```xml
-<analysis>
-  <sentiment>Positive! This tweet shows excitement and achievement.</sentiment>
-  <topics>
-    <topic>Career Growth</topic>
-    <topic>Technology Industry</topic>
-  </topics>
-  <suggestions>
-    <suggestion>
-      <title>Join Dev Communities</title>
-      <description>Connect with other developers to share your 
-      journey and learn from their experiences...</description>
-    </suggestion>
-  </suggestions>
-</analysis>
+<approach>To solve this problem, I will first count the number of 'R' letters 
+in the word 'strawberry'. Then, I will provide some abstract and philosophical
+reflections...</approach>
+<letter>s</letter>
+<letter>t</letter>
+<letter>r</letter>
+<!-- ... more letters ... -->
+<philosophical_arguments_on_strawberry_math>
+  <argument lang="Existential">
+    The letters that make up the word 'strawberry' are more than just symbols...
+  </argument>
+  <!-- more arguments... -->
+</philosophical_arguments_on_strawberry_math>
+<final_answer>There are 3 Rs in the word 'strawberry'.</final_answer>
 ```
 
 Which transforms into structured data:
-
-```json
+```javascript
 {
-  sentiment: "Positive! This tweet shows excitement and achievement.",
-  topics: ["Career Growth", "Technology Industry"],
-  suggestions: [{
-    title: "Join Dev Communities",
-    description: "Connect with other developers to share your journey..."
-  }]
-} */
+  approach: "To solve this problem, I will first count...",
+  letter: ["s", "t", "r", "a", "w", "b", "e", "r", "r", "y"],
+  philosophical_arguments_on_strawberry_math: {
+    argument: [{
+      text: "The letters that make up the word 'strawberry'...",
+      lang: "Existential"
+    },
+    // more arguments...
+    ]
+  },
+  final_answer: "There are 3 Rs in the word 'strawberry'."
+}
 ```
+
+## How does it work?
+
+TLDR: `Schema-guided prompt`→`Stream XML`→`HTML parser`→`Data`
+
+Under the hood, xmllm uses a specialized system prompt and a seeded-user prompt ([see prompts.mjs](./src/prompts.mjs)) that tells the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, from Claude Haiku to Qwen2.5-7B. Once the stream starts coming in, xmllm uses a streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in realtime or you can wait until the stream completes and then get the final value.
+
+## Frailty & Errors:
+
+LLMs are unquestionably _very_ liberal in what output they give you, despite our best efforts to constrain. Therefore xmllm follows the latter of Postel's Law: "Be liberal in what you accept". Whatever data exists in the shape specified by your schema will be given to you, and it is up to you what to do with it.
 
 ## Quick Start
 
@@ -112,7 +120,7 @@ The `stream()` API offers a simple interface for streaming with or without a sch
 ```javascript
 import { stream } from 'xmllm';
 
-// 1. Simple Streaming
+// 1. NO SCHEMA: Use CSS selectors to manually extract things:
 const thoughts = stream(`
   Share three deep thoughts about programming. Use a structure like:
   <thought>...</thought>
@@ -125,7 +133,7 @@ for await (const thought of thoughts) {
   console.log('AI is thinking:', thought); // See thoughts as they arrive
 }
 
-// 2. Structured Data
+// 2. SCHEMA: Structured Data:
 const result = await stream('What is 2+2?', {
   schema: {
     answer: {
@@ -133,29 +141,50 @@ const result = await stream('What is 2+2?', {
       explanation: String
     }
   }
-})
-.complete()
-.value();
+}).last(); // wait until the stream completes
 ```
 
 ## Core Features
 
-🔄 **Streaming First**
+**Streaming First**
 - Process AI responses as they arrive
 - Show real-time progress
 - Handle partial updates
 
 ```javascript
 // See updates in real-time:
-for await (const color of stream('List colors').select('color')) {
-  console.log(color.$text);    // "re", "red", "blu", "blue"
-  console.log(color.$closed);  // false, true, false, true
+for await (const color of stream('List colors as <color>...</color>').select('color')) {
+  console.log(color.$text);       // "re", "red", "blu", "blue"
+  console.log(color.$tagclosed);  // false, true, false, true
+}
+```
+
+A more thorough example that uses a custom model and schema:
+
+```javascript
+const colors = [];
+for await (
+  const {color} of
+    stream('List colors as <color>...</color>', {
+      clientProvider: client,
+      model: {
+        inherit: 'togetherai',
+        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
+        endpoint: 'https://api.together.xyz/v1/chat/completions',
+        key: process.env.TOGETHER_API_KEY
+      },
+      schema: {
+        color: Array(String)
+      }
+    }).closedOnly() // ensure tags are closed
+) {
+  colors = 
 }
 ```
 
 See more details in the [Streaming Guide](./docs/streaming.md).
 
-🔧 **Schema-Based**
+**Schema-Based**
 - Transform XML into structured data
 - Type conversion & validation
 - Flexible mapping options
@@ -164,10 +193,10 @@ See more details in the [Streaming Guide](./docs/streaming.md).
 const schema = {
   analysis: {
     score: Number,
-    tags: [String],
+    tag: [String],
     details: {
       $lang: String,    // Attribute
-      _: String         // Text content
+      $text: String     // Text content
     }
   }
 };
@@ -214,9 +243,10 @@ const client = new ClientProvider('http://localhost:3124/api/stream');
 
 const result = await stream('Query', {
   schema: { answer: String }
-}, client)
-.complete()
-.value();
+}, client).last()
+
+// last() is a shortcut for getting the very final value
+// i.e. the completed stream
 ```
 
 ## Advanced Pipeline API
@@ -262,25 +292,12 @@ See the [Pipeline Guide](./docs/pipelines.md) for more advanced usage like paral
 
 ## In-Depth Documentation
 
-[Schema Guide](./docs/schemas.md)
-- Define how XML transforms into data
-- Type conversion & validation
-- Complex transformations
-
-[Provider Setup](./docs/providers.md)
-- Configure AI providers
-- Model selection
-- Rate limiting & caching
-
-[Streaming Guide](./docs/streaming.md)
-- Handle real-time updates
-- Progress indicators
-- Error recovery
-
-[Advanced Pipeline Guide](./docs/pipelines.md)
-- Chain multiple prompts
-- Process in parallel
-- Stateful transformations
+* [Schema Guide](./docs/schemas.md)
+* [Provider Setup](./docs/providers.md)
+* [Streaming Guide](./docs/streaming.md)
+* [Advanced Pipeline Guide](./docs/pipelines.md)
+* [Complete API Reference](./docs/api.md)
+* [TypeScript Types Guide](./docs/typescript.md)
 
 ## License
 

@@ -247,9 +247,9 @@ var XMLStream = /*#__PURE__*/function () {
       var label = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
       logger.log('Instigate debug() with label', label);
       return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['map', function (value) {
-        logger.debug("=== Debug ".concat(label ? "(".concat(label, ")") : '', " ==="));
-        logger.debug(value);
-        logger.debug('===================');
+        console.log("=== Debug ".concat(label ? "(".concat(label, ")") : '', " ==="));
+        console.log(value);
+        console.log('===================');
         return value;
       }]]), this.options);
     }
@@ -348,7 +348,8 @@ var XMLStream = /*#__PURE__*/function () {
                   return _context5.finish(4);
                 case 7:
                   return _context5.abrupt("return", {
-                    done: true
+                    done: true,
+                    value: undefined
                   });
                 case 8:
                 case "end":
@@ -362,10 +363,13 @@ var XMLStream = /*#__PURE__*/function () {
   }, {
     key: "closedOnly",
     value: function closedOnly() {
+      // TODO: this will not work if is south of any element derivations e.g.
+      // after stream()'d schema, it may already be too late because the data
+      // is strings thus not a "node". Hmmmmmmmmmmm TODO
       return new XMLStream([].concat(_toConsumableArray(this.pipeline), [
       // Only let elements pass through if they're closed
       ['filter', function (el) {
-        return el !== null && el !== void 0 && el.__isNodeObj__ ? !!el.$closed : true;
+        return el !== null && el !== void 0 && el.__isNodeObj__ ? !!el.$tagclosed : true;
       }]]), this.options);
     }
 

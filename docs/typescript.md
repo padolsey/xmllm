@@ -179,3 +179,33 @@ const fallbacks: ModelPreference = [
   { inherit: 'anthropic', name: 'custom-model' }
 ];
 ```
+
+## Using Hints with Schemas
+
+Hints can be provided alongside schemas to guide the AI:
+
+```typescript
+const schema = {
+  user: {
+    name: String,
+    age: Number
+  }
+};
+
+const hints = {
+  user: {
+    name: "User's full name",
+    age: "Age in years (must be > 0)"
+  }
+};
+
+const result = await simple(
+  "Get user info",
+  schema,
+  {
+    hints
+  }
+);
+```
+
+Hints must match the schema structure but are optional. They help guide the AI's output format.

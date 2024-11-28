@@ -30,13 +30,13 @@ expectError<Message>(invalidMessage2);
 const validElement: XMLElement = {
   $text: 'content',
   $attr: { class: 'test' },
-  $key: 1,
-  $closed: true
+  $tagkey: 1,
+  $tagclosed: true
 };
 expectType<XMLElement>(validElement);
 
 // Negative test - missing required XMLElement properties
-// @ts-expect-error - XMLElement requires $attr, $key, and $closed properties
+// @ts-expect-error - XMLElement requires $attr, $tagkey, and $tagclosed properties
 const invalidElement: XMLElement = {
   $text: 'content' // Missing required properties should trigger error
 };
@@ -236,8 +236,8 @@ const streamValue = stream("Test")
 // This should error because value() returns Promise<T>, not XMLStream<T>
 expectError(streamValue.map());
 
-// Test string literals as explanation hints
-const schemaWithHints = {
+// First one - testing string literals as hints in schema
+const schemaWithLiteralHints = {
   user: {
     name: "The user's full name",  // String literal as hint
     age: Number,
@@ -261,7 +261,7 @@ type HintSchema = {
 
 const hintResult = await simple<HintSchema>(
   "Get user info",
-  schemaWithHints
+  schemaWithLiteralHints
 );
 expectType<HintSchema>(hintResult);
 
@@ -289,3 +289,38 @@ expectType<SchemaType>(validSchemas.topLevel);
 expectType<SchemaType>(validSchemas.user);
 expectType<SchemaType>(validSchemas.items);
 expectType<SchemaType>(validSchemas.mixed);
+
+// Second one - testing separate hints object
+const schemaWithHints = {
+  user: {
+    name: String,
+    age: Number
+  }
+};
+
+const hints = {
+  user: {
+    name: "User's full name",
+    age: "User's age in years"
+  }
+};
+
+// Should work with both schema and hints
+const resultWithHints = await simple<{
+  user: { name: string; age: number }
+}>(
+  "Get user info",
+  schemaWithHints,
+  {
+    hints
+  }
+);
+
+// Should error when hints provided without schema
+expectError(simple(
+  "Get user info",
+  undefined,
+  {
+    hints  // Should error - hints requires schema
+  }
+));

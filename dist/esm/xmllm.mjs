@@ -27,6 +27,7 @@ function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r
 import createStreaming from 'streamops';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
+import { generateSystemPrompt as defaultSystemPrompt, generateUserPrompt as defaultUserPrompt } from './prompts.mjs';
 var logger = new Logger('xmllm');
 var DEFAULT_TEMPERATURE = 0.72;
 var text = function text(fn) {
@@ -44,7 +45,7 @@ var withAttrs = function withAttrs(fn) {
 };
 var whenClosed = function whenClosed(fn) {
   return function (el) {
-    return el.$closed ? fn(el) : undefined;
+    return el.$tagclosed ? fn(el) : undefined;
   };
 };
 var parserStack = new WeakMap();
@@ -55,7 +56,11 @@ function _xmllmGen() {
   _xmllmGen = _wrapAsyncGenerator(function (pipelineFn) {
     var _ref7 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
       timeout = _ref7.timeout,
-      llmStream = _ref7.llmStream;
+      llmStream = _ref7.llmStream,
+      _ref7$generateSystemP = _ref7.generateSystemPrompt,
+      generateSystemPrompt = _ref7$generateSystemP === void 0 ? defaultSystemPrompt : _ref7$generateSystemP,
+      _ref7$generateUserPro = _ref7.generateUserPrompt,
+      generateUserPrompt = _ref7$generateUserPro === void 0 ? defaultUserPrompt : _ref7$generateUserPro;
     return /*#__PURE__*/_regeneratorRuntime().mark(function _callee12() {
       var streamops, context, xmlps, pipeline, stream, getCurrentParser, pushNewParser, req, xmlReq, promptClosed, promptStream, promptComplex, mapSelect, mapSelectClosed, select;
       return _regeneratorRuntime().wrap(function _callee12$(_context12) {
@@ -120,6 +125,8 @@ function _xmllmGen() {
               });
             };
             mapSelect = function _mapSelect(schema) {
+              var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+              var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
               return /*#__PURE__*/_regeneratorRuntime().mark(function _callee9(chunk) {
                 var currentParser, selection;
                 return _regeneratorRuntime().wrap(function _callee9$(_context9) {
@@ -133,18 +140,14 @@ function _xmllmGen() {
                       logger.warn('No active parser found for mapSelect()');
                       return _context9.abrupt("return");
                     case 4:
-                      console.log('mapSelect()', {
-                        schema: schema,
-                        doDedupe: false
-                      });
-                      selection = currentParser.mapSelect(schema, true, false);
+                      selection = currentParser.mapSelect(schema, includeOpenTags, doDedupe);
                       if (!(selection && Object.keys(selection).length)) {
-                        _context9.next = 9;
+                        _context9.next = 8;
                         break;
                       }
-                      _context9.next = 9;
+                      _context9.next = 8;
                       return selection;
-                    case 9:
+                    case 8:
                     case "end":
                       return _context9.stop();
                   }
@@ -155,7 +158,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(input) {
-                  var _config, messages, schema, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
+                  var _config, messages, schema, hints, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
                   return _regeneratorRuntime().wrap(function _callee8$(_context8) {
                     while (1) switch (_context8.prev = _context8.next) {
                       case 0:
@@ -171,32 +174,22 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache;
-                        console.log('promptComplex()', {
-                          messages: messages,
-                          schema: schema,
-                          mapper: mapper,
-                          system: system,
-                          model: model,
-                          fakeResponse: fakeResponse,
-                          max_tokens: max_tokens,
-                          temperature: temperature,
-                          cache: cache
-                        }, config);
+                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt;
                         if (!(mapper && !schema)) {
-                          _context8.next = 6;
+                          _context8.next = 5;
                           break;
                         }
                         throw new Error('You cannot have a schema with a mapper; it makes no sense.');
-                      case 6:
+                      case 5:
                         if (schema) {
-                          _context8.next = 8;
+                          _context8.next = 7;
                           break;
                         }
                         return _context8.abrupt("return", xmlReq({
                           system: system,
                           messages: messages,
                           model: model,
+                          hints: hints,
                           max_tokens: max_tokens,
                           maxTokens: maxTokens,
                           top_p: top_p,
@@ -204,9 +197,12 @@ function _xmllmGen() {
                           presence_penalty: presence_penalty,
                           presencePenalty: presencePenalty,
                           temperature: temperature,
-                          stop: stop
+                          stop: stop,
+                          schema: schema,
+                          generateSystemPrompt: generateSystemPrompt,
+                          generateUserPrompt: generateUserPrompt
                         }));
-                      case 8:
+                      case 7:
                         reqPipeline = [/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
                           return _regeneratorRuntime().wrap(function _callee4$(_context4) {
                             while (1) switch (_context4.prev = _context4.next) {
@@ -257,6 +253,7 @@ function _xmllmGen() {
                           messages: messages,
                           max_tokens: max_tokens || maxTokens,
                           schema: schema,
+                          hints: hints,
                           model: model,
                           fakeDelay: fakeDelay,
                           waitMessageString: waitMessageString,
@@ -271,13 +268,16 @@ function _xmllmGen() {
                           onChunk: onChunk,
                           retryStartDelay: retryStartDelay,
                           retryBackoffMultiplier: retryBackoffMultiplier,
-                          cache: cache
+                          cache: cache,
+                          generateSystemPrompt: generateSystemPrompt,
+                          generateUserPrompt: generateUserPrompt
                         }),
                         // function*(x) {
                         //   yield x;
                         // },
 
-                        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema)
+                        // doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema),
+                        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema, includeOpenTags, doDedupe)
 
                         // function*(x) {
                         //   yield x;
@@ -471,60 +471,60 @@ function _xmllmGen() {
                         }())];
                         _iteratorAbruptCompletion4 = false;
                         _didIteratorError4 = false;
-                        _context8.prev = 12;
+                        _context8.prev = 11;
                         _iterator4 = _asyncIterator(xmllmGen(function () {
                           return pipeline;
                         }, {
                           llmStream: llmStream
                         }));
-                      case 14:
-                        _context8.next = 16;
+                      case 13:
+                        _context8.next = 15;
                         return _awaitAsyncGenerator(_iterator4.next());
-                      case 16:
+                      case 15:
                         if (!(_iteratorAbruptCompletion4 = !(_step4 = _context8.sent).done)) {
-                          _context8.next = 23;
+                          _context8.next = 22;
                           break;
                         }
                         item = _step4.value;
-                        _context8.next = 20;
+                        _context8.next = 19;
                         return item;
-                      case 20:
+                      case 19:
                         _iteratorAbruptCompletion4 = false;
-                        _context8.next = 14;
+                        _context8.next = 13;
                         break;
-                      case 23:
-                        _context8.next = 29;
+                      case 22:
+                        _context8.next = 28;
                         break;
-                      case 25:
-                        _context8.prev = 25;
-                        _context8.t0 = _context8["catch"](12);
+                      case 24:
+                        _context8.prev = 24;
+                        _context8.t0 = _context8["catch"](11);
                         _didIteratorError4 = true;
                         _iteratorError4 = _context8.t0;
-                      case 29:
+                      case 28:
+                        _context8.prev = 28;
                         _context8.prev = 29;
-                        _context8.prev = 30;
                         if (!(_iteratorAbruptCompletion4 && _iterator4["return"] != null)) {
-                          _context8.next = 34;
+                          _context8.next = 33;
                           break;
                         }
-                        _context8.next = 34;
+                        _context8.next = 33;
                         return _awaitAsyncGenerator(_iterator4["return"]());
-                      case 34:
-                        _context8.prev = 34;
+                      case 33:
+                        _context8.prev = 33;
                         if (!_didIteratorError4) {
-                          _context8.next = 37;
+                          _context8.next = 36;
                           break;
                         }
                         throw _iteratorError4;
+                      case 36:
+                        return _context8.finish(33);
                       case 37:
-                        return _context8.finish(34);
+                        return _context8.finish(28);
                       case 38:
-                        return _context8.finish(29);
-                      case 39:
                       case "end":
                         return _context8.stop();
                     }
-                  }, _callee8, null, [[12, 25, 29, 39], [30,, 34, 38]]);
+                  }, _callee8, null, [[11, 24, 28, 38], [29,, 33, 37]]);
                 }));
                 return function (_x4) {
                   return _ref3.apply(this, arguments);
@@ -578,6 +578,7 @@ function _xmllmGen() {
             xmlReq = function _xmlReq(_ref8) {
               var _messages;
               var schema = _ref8.schema,
+                hints = _ref8.hints,
                 system = _ref8.system,
                 messages = _ref8.messages,
                 max_tokens = _ref8.max_tokens,
@@ -596,21 +597,11 @@ function _xmllmGen() {
                 retryMax = _ref8.retryMax,
                 retryStartDelay = _ref8.retryStartDelay,
                 retryBackoffMultiplier = _ref8.retryBackoffMultiplier,
-                onChunk = _ref8.onChunk;
+                onChunk = _ref8.onChunk,
+                localSystemPrompt = _ref8.generateSystemPrompt,
+                localUserPrompt = _ref8.generateUserPrompt;
               messages = (messages || []).slice();
               var prompt = '';
-              console.log('xmlReq', {
-                messages: messages,
-                system: system,
-                model: model,
-                max_tokens: max_tokens,
-                temperature: temperature,
-                top_p: top_p,
-                topP: topP,
-                presence_penalty: presence_penalty,
-                presencePenalty: presencePenalty,
-                stop: stop
-              });
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
                 var _messages2;
                 if (((_messages2 = messages[messages.length - 1]) === null || _messages2 === void 0 ? void 0 : _messages2.role) !== 'user') {
@@ -621,6 +612,8 @@ function _xmllmGen() {
                 }
                 prompt = messages.pop().content;
               }
+              var useSystemPrompt = localSystemPrompt || generateSystemPrompt;
+              var useUserPrompt = localUserPrompt || generateUserPrompt;
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(thing) {
                   var _messages3;
@@ -630,14 +623,14 @@ function _xmllmGen() {
                       case 0:
                         parser = pushNewParser();
                         transformedPrompt = prompt;
-                        mapSelectionSchemaScaffold = schema && IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+                        mapSelectionSchemaScaffold = schema && IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
                         if (typeof transformedPrompt == 'function') {
                           transformedPrompt = transformedPrompt(thing);
                         }
                         if (mapSelectionSchemaScaffold) {
-                          transformedPrompt = "\n    FYI: The data you return should be approximately like this:\n    ```\n    ".concat(mapSelectionSchemaScaffold, "\n    ```\n\n    Prompt:\n    ==== BEGIN PROMPT ====\n    ").concat(transformedPrompt, "\n    ==== END PROMPT ====\n\n    (if there is no meaningful prompt, respond to the user with a message like \"I'm sorry, I didn't catch that; what can I help you with?\")\n\n    Finally, remember: The data you return should be approximately like this:\n    ```\n    ").concat(mapSelectionSchemaScaffold, "\n    ```\n        ");
+                          transformedPrompt = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt);
                         }
-                        systemPrompt = "\n    META & OUTPUT STRUCTURE RULES:\n    ===\n\n    You are an AI that only outputs XML. You accept an instruction just like normal and do your best to fulfil it.\n\n    You can output multiple results if you like.\n\n    E.g. if asked for several names, you could just return:\n    <name>sarah</name> <name>james</name>\n    etc.\n\n    Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within an <html> tag, then you would do it like this: <html>&lt;div&gt;etc.&lt;/div&gt;</html>\n\n    All outputs should begin with the XML structure you have been given. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content over attributes.\n      \n    HIGHLY SPECIFIC RULES RELATED TO YOUR FUNCTIONS:\n    (you must follow these religiously)\n    ===\n    ".concat(system || 'you are an ai assistant and respond to the request.');
+                        systemPrompt = useSystemPrompt(system);
                         if (!(typeof transformedPrompt !== 'string')) {
                           _context3.next = 8;
                           break;

@@ -85,6 +85,15 @@ var ValidationService = /*#__PURE__*/function () {
     key: "validateSingleModel",
     value: function validateSingleModel(model, availableModels) {
       var index = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
+      if (typeof model !== 'string') {
+        if (!(model !== null && model !== void 0 && model.name)) {
+          throw new _ValidationErrors.ModelValidationError('Custom model must me object with a name', {
+            model: model,
+            index: index
+          });
+        }
+        return true;
+      }
       var _split = (model || '').split(':'),
         _split2 = _slicedToArray(_split, 2),
         provider = _split2[0],
@@ -184,6 +193,21 @@ var ValidationService = /*#__PURE__*/function () {
         this.validateConstraints(params.constraints);
       }
       return true;
+    }
+  }, {
+    key: "validateConfig",
+    value: function validateConfig(config) {
+      // ... existing validation ...
+
+      // Hints requires schema
+      if (config.hints && !config.schema) {
+        throw new Error('Cannot provide hints without a schema');
+      }
+
+      // If both provided, validate hints against schema
+      if (config.hints && config.schema) {
+        IncomingXMLParserSelectorEngine.validateHints(config.schema, config.hints);
+      }
     }
   }]);
 }();

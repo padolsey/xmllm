@@ -268,7 +268,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: {
         $id: Number,
         $category: String,
-        _: String
+        $text: String
       }
     });
 
@@ -276,7 +276,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: {
         $id: 123,
         $category: 'book',
-        _: 'The Great Gatsby'
+        $text: 'The Great Gatsby'
       }
     });
   });
@@ -299,11 +299,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         $sku: String,
         name: {
           $lang: String,
-          _: String
+          $text: String
         },
         price: {
           $currency: String,
-          _: Number
+          $text: Number
         },
         tags: {
           tag: [String]
@@ -316,11 +316,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         $sku: 'ABC123',
         name: {
           $lang: 'en',
-          _: 'Laptop'
+          $text: 'Laptop'
         },
         price: {
           $currency: 'USD',
-          _: 999.99
+          $text: 999.99
         },
         tags: {
           tag: ['electronics', 'computer']
@@ -388,7 +388,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       root: {
         simple: String,
         complex: {
-          _: String,
+          $text: String,
           $attr: String
         }
       }
@@ -398,7 +398,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       root: {
         simple: "Just text",
         complex: {
-          _: "Text and attribute",
+          $text: "Text and attribute",
           $attr: "value"
         }
       }
@@ -413,7 +413,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         age: Number,
         address: {
           $type: String,
-          _: String
+          $text: String
         }
       }
     };
@@ -490,20 +490,20 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       book: {
         $id: Number,
         title: {
-          _: String,
+          $text: String,
           $lang: String
         },
         author: String,
         reviews: {
           review: [{
-            _: String,
+            $text: String,
             $rating: Number
           }]
         },
         isbn: [
           {
             $type: String,
-            _: n => 'ISBN: ' + n
+            $text: n => 'ISBN: ' + n
           }
         ]
       }
@@ -544,20 +544,20 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     
     let result = engine.mapSelect({
       item: [{
-        _: String
+        $text: String
       }],
       subitem: [{
-        _: String
+        $text: String
       }]
     });
 
     expect(result).toEqual({
       item: [
-        { _: '1' },
-        { _: '2' }
+        { $text: '1' },
+        { $text: '2' }
       ],
       subitem: [
-        { _: '' }  // Open tag with no content yet
+        { $text: '' }  // Open tag with no content yet
       ]
     });
 
@@ -565,24 +565,24 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     
     result = engine.mapSelect({
       item: [{
-        _: String
+        $text: String
       }],
       subitem: [{
-        _: String
+        $text: String
       }]
     });
 
     expect(result).toEqual({
       item: [
-        { _: '2sub-content' }  // Updated content
+        { $text: '2sub-content' }  // Updated content
       ],
-      
+
       // Currently the implementation is such that subitem will
       // have been de-duped since it has been returned already as
       // part of the <item>.
 
       // subitem: [
-      //   { _: 'sub-content' }  // Now closed with content
+      //   { $text: 'sub-content' }  // Now closed with content
       // ]
     });
   });
@@ -695,7 +695,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     expect(normalized).toContain(`<name>The person's full name</name>`);
     expect(normalized).toContain(`<age>...text content...</age>`);
     expect(normalized).toContain(`<occupation>The person's current job title</occupation>`);
-    expect(normalized).toContain(`<hobby>A hobby</hobby>`);
+    expect(normalized).toContain(`<hobby> A hobby </hobby>`);
   });
 
   test('mapSelect should handle transformations #2', () => {

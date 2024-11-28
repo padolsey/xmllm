@@ -1,5 +1,6 @@
 import { LiveProfile } from '../../components/LiveProfile'
 import { xmllm } from '../../../../src/xmllm-client.mjs'
+import type { PipelineHelpers } from '../../../../index'
 import type { DemoConfig } from '../../types/demos'
 
 function* generateChunks(text: string, chunkSize: number) {
@@ -11,6 +12,43 @@ function* generateChunks(text: string, chunkSize: number) {
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Add this interface to describe the parsed XML structure
+interface ParsedUserProfile {
+  name?: [{
+    $text: string;
+  }];
+  bio?: [{
+    $text: string;
+  }];
+  details?: [{
+    location?: [{
+      $text: string;
+    }];
+    favorite_color?: [{
+      $text: string;
+      $attr: {
+        hex: string;
+      };
+    }];
+  }];
+  hobbies?: [{
+    hobby?: Array<{
+      $text: string;
+      $attr: {
+        category: string;
+      };
+    }>;
+  }];
+  skills?: [{
+    skill?: Array<{
+      $text: string;
+      $attr: {
+        level: string;
+      };
+    }>;
+  }];
+}
 
 export const userProfileDemo: DemoConfig = {
   id: 'user-profile',
@@ -73,11 +111,11 @@ export const userProfileDemo: DemoConfig = {
         hex: data.details?.favorite_color?.$hex
       }
     },
-    hobbies: data.hobbies?.hobby?.map(h => ({
+    hobbies: data.hobbies?.hobby?.map((h: any) => ({
       activity: h.$text,
       category: h.$category
     })) || [],
-    skills: data.skills?.skill?.map(s => ({
+    skills: data.skills?.skill?.map((s: any) => ({
       name: s.$text,
       level: s.$level
     })) || []
@@ -85,7 +123,7 @@ export const userProfileDemo: DemoConfig = {
   simulateStream: async ({ chunkSize, speed, onChunk, onResult, signal }) => {
     console.log('Starting simulated stream')
     
-    const stream = xmllm(({ parse, select, map }) => [
+    const stream = xmllm(({ parse, select, map }: PipelineHelpers) => [
       async function*() {
         for (const chunk of generateChunks(userProfileDemo.simulatedXml, chunkSize)) {
           if (signal.aborted) return
@@ -96,7 +134,7 @@ export const userProfileDemo: DemoConfig = {
       },
       parse(),
       select('user_profile'),
-      map(data => {
+      map((data: ParsedUserProfile) => {
         console.log('Raw data before transform:', data)
         const transformed = userProfileDemo.transform({
           name: data?.name?.[0]?.$text,

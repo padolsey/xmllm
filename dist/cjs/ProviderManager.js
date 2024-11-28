@@ -7,6 +7,7 @@ exports["default"] = void 0;
 var _PROVIDERS = _interopRequireWildcard(require("./PROVIDERS.js"));
 var _Provider = _interopRequireDefault(require("./Provider.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
+var _ProviderErrors = require("./errors/ProviderErrors.js");
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(e) { return e ? t : r; })(e); }
 function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != _typeof(e) && "function" != typeof e) return { "default": e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && {}.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n["default"] = e, t && t.set(e, n), n; }
@@ -30,8 +31,6 @@ function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), 
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var logger = new _Logger["default"]('ProviderManager');
-var DEFAULT_MODEL_TYPE = 'fast';
-
 // Default preferred providers list (only used if payload.model is not provided)
 var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 var ProviderManager = /*#__PURE__*/function () {
@@ -134,7 +133,7 @@ var ProviderManager = /*#__PURE__*/function () {
                       lastError = _context.t1;
 
                       // Don't retry auth errors regardless of fallback availability
-                      if (!(_context.t1 instanceof ProviderAuthenticationError)) {
+                      if (!(_context.t1 instanceof _ProviderErrors.ProviderAuthenticationError)) {
                         _context.next = 14;
                         break;
                       }
@@ -180,7 +179,7 @@ var ProviderManager = /*#__PURE__*/function () {
                       }
                       currentDelay = isOnlyProvider ? Math.min(retryDelay, 5000) // Cap delay at 5s if it's our only option
                       : retryDelay;
-                      logger.info("Retrying ".concat(provider.name, " in ").concat(currentDelay, "ms... (").concat(isOnlyProvider ? 'no fallbacks available' : 'has fallbacks', ")"));
+                      logger.log("Retrying ".concat(provider.name, " in ").concat(currentDelay, "ms... (").concat(isOnlyProvider ? 'no fallbacks available' : 'has fallbacks', ")"));
                       _context.next = 33;
                       return new Promise(function (resolve) {
                         return setTimeout(resolve, currentDelay);

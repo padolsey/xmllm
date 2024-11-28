@@ -10,8 +10,8 @@ expect.extend({
     }
     
     const pass = this.equals(
-      {$attr: received.$attr, $text: received.$text, $closed: received.$closed, $key: received.$key},
-      {$attr: expected.$attr, $text: expected.$text, $closed: expected.$closed, $key: expected.$key}
+      {$attr: received.$attr, $text: received.$text, $tagclosed: received.$tagclosed, $tagkey: received.$tagkey},
+      {$attr: expected.$attr, $text: expected.$text, $tagclosed: expected.$tagclosed, $tagkey: expected.$tagkey}
     );
 
     return {
@@ -22,7 +22,7 @@ expect.extend({
   
   toMatchNodeData(received, expected) {
     const nodeData = received instanceof Node ? 
-      {$attr: received.$attr, $text: received.$text, $key: received.$key} :
+      {$attr: received.$attr, $text: received.$text, $tagkey: received.$tagkey} :
       received;
       
     return {

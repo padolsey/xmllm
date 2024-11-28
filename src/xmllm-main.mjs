@@ -19,32 +19,62 @@ function xmllm(pipelineFn, options = {}) {
   });
 }
 
-// Enhanced stream function with flexible config
+// Enhanced stream function with mode support
 export function stream(promptOrConfig, options = {}) {
   let config = {};
   
-  // Handle different argument patterns
   if (typeof promptOrConfig === 'string') {
     config = {
       prompt: promptOrConfig,
       ...options
     };
-  } else if (typeof promptOrConfig === 'object') {
+  } else {
     config = {
       ...promptOrConfig,
       ...options
     };
   }
 
-  const { prompt, schema, system, closed, onChunk, ...restOptions } = config;
+  const { 
+    prompt, 
+    schema, 
+    system, 
+    mode = 'state',  // Default to state mode
+    onChunk, 
+    ...restOptions 
+  } = config;
 
-  console.log('Calling XMLStream req with', {
-    prompt,
-    schema,
-    system
-  });
+  // Validate mode
+  if (!['state', 'delta', 'snapshot', 'realtime'].includes(mode)) {
+    throw new Error('Invalid mode. Must be one of: state, delta, snapshot, realtime');
+  }
 
-  // If schema is provided, use promptComplex style config
+  // Convert mode to low-level parameters
+  const modeParams = {
+    // State mode: Show growing state including partials
+    state: {
+      includeOpenTags: true,
+      doDedupe: false
+    },
+    // Delta mode: Only show new complete elements
+    delta: {
+      includeOpenTags: false,
+      doDedupe: true
+    },
+    // Snapshot mode: Show current complete state
+    snapshot: {
+      includeOpenTags: false,
+      doDedupe: false
+    },
+    // Realtime mode: Show everything including empty tags
+    realtime: {
+      includeOpenTags: true,
+      doDedupe: false,
+      includeEmpty: true
+    }
+  }[mode];
+
+  // If schema is provided, use schema-based configuration
   if (schema) {
     return new XMLStream([
       ['req', {
@@ -53,43 +83,36 @@ export function stream(promptOrConfig, options = {}) {
           content: prompt
         }],
         schema,
-        onChunk,
         system,
-        doMapSelectClosed: closed,
+        onChunk,
+        ...modeParams,  // Apply mode parameters
         ...restOptions
       }]
     ], {
-      llmStream: restOptions.llmStream || null
+      llmStream: restOptions.llmStream || Stream
     });
   }
 
-  // Basic prompt
+  // Basic prompt without schema
   return new XMLStream([
     ['req', prompt]
   ], {
     ...restOptions,
-    doMapSelectClosed: closed
+    ...modeParams  // Apply mode parameters
   });
 }
 
+// Simple function also gets mode support
 export async function simple(prompt, schema, options = {}) {
+  const { mode = 'delta', ...restOptions } = options;
 
-  const theStream = await stream(prompt, {
-    ...options,
+  const result = await stream(prompt, {
+    ...restOptions,
     schema,
-    closed: true
-  });
-
-  const result = await theStream.merge().last();
+    mode
+  }).last();
 
   return result;
-
-  // return result;
-  //   mergeAggregate(),
-  //   function*(result) {
-  //     yield result;
-  //   }
-  // ], options);
 }
 
 export default xmllm;

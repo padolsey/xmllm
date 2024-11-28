@@ -35,7 +35,7 @@ function createServer() {
           case 0:
             console.log('Stream request', req.body);
             _context.prev = 1;
-            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good'] : _req$body$model, max_tokens = _req$body.max_tokens, maxTokens = _req$body.maxTokens, temperature = _req$body.temperature, top_p = _req$body.top_p, topP = _req$body.topP, presence_penalty = _req$body.presence_penalty, presencePenalty = _req$body.presencePenalty, fakeDelay = _req$body.fakeDelay, stop = _req$body.stop, cache = _req$body.cache, stream = _req$body.stream;
+            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good', 'claude:fast', 'openai:fast', 'togetherai:fast'] : _req$body$model, max_tokens = _req$body.max_tokens, maxTokens = _req$body.maxTokens, temperature = _req$body.temperature, top_p = _req$body.top_p, topP = _req$body.topP, presence_penalty = _req$body.presence_penalty, presencePenalty = _req$body.presencePenalty, fakeDelay = _req$body.fakeDelay, stop = _req$body.stop, cache = _req$body.cache, stream = _req$body.stream;
             _context.prev = 3;
             // Validate all inputs
             ValidationService.validateMessages(messages);

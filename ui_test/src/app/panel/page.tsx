@@ -8,12 +8,15 @@ const clientProvider = new ClientProvider('http://localhost:3124/api/stream')
 
 // Available models configuration
 const MODEL_OPTIONS = [
+  { id: 'all', name: 'All Models' },
   { id: 'claude:superfast', name: 'Claude Haiku (Super Fast)' },
   { id: 'claude:fast', name: 'Claude Haiku (Fast)' },
   { id: 'claude:good', name: 'Claude Sonnet (Good)' },
   { id: 'openai:superfast', name: 'GPT-4 Mini (Super Fast)' },
   { id: 'openai:fast', name: 'GPT-4 Mini (Fast)' },
   { id: 'openai:good', name: 'GPT-4 (Good)' },
+  { id: 'togetherai:fast', name: 'Together AI (Fast)' },
+  { id: 'togetherai:good', name: 'Together AI (Good)' },
 ]
 
 interface Message {
@@ -53,7 +56,22 @@ const DEFAULT_CONFIG: PanelConfig = {
   }
 }
 
-const SCHEMA_TEMPLATES = {
+// Add the ALL_MODELS constant
+const ALL_MODELS = [
+  'claude:good', 
+  'openai:good', 
+  'togetherai:good', 
+  'claude:fast', 
+  'openai:fast', 
+  'togetherai:fast'
+]
+
+// Fix type error for SCHEMA_TEMPLATES indexing
+interface SchemaTemplates {
+  [key: string]: { schema: string }
+}
+
+const SCHEMA_TEMPLATES: SchemaTemplates = {
   analysis: {
     schema: `{
   analysis: {
@@ -91,6 +109,7 @@ const SCHEMA_TEMPLATES = {
 export default function Panel() {
   const { theme } = useTheme()
   const [output, setOutput] = useState('')
+  const [rawOutput, setRawOutput] = useState('')
   const [loading, setLoading] = useState(false)
   const [config, setConfig] = useState<PanelConfig>(DEFAULT_CONFIG)
 
@@ -176,7 +195,13 @@ export default function Panel() {
     topics: {
       topic: Array(String)
     },
-    score: Number
+    key_points: {
+      key_point: Array({
+        point: String,
+        relevance: Number
+      })
+    },
+    summary: String
   }
 }`}
       />
@@ -225,49 +250,71 @@ export default function Panel() {
           schemaConfig = {
             schema: eval(`(${config.schema.schema})`)
           };
-        } catch (e) {
-          setOutput('Error: Invalid schema\n' + e.message);
+        } catch (e: unknown) {
+          if (e instanceof Error) {
+            setOutput('Error: Invalid schema\n' + e.message);
+          } else {
+            setOutput('Error: Invalid schema\n' + String(e));
+          }
           return;
         }
       }
 
-      const theStream = stream(
-        {
-          messages: config.messages,
-          system: config.systemPrompt,
-          model: config.model,
-          temperature: config.temperature,
-          max_tokens: config.maxTokens,
-          top_p: config.topP,
-          presence_penalty: config.presencePenalty,
-          stop: config.stop ? config.stop.split(',').map(s => s.trim()) : undefined,
-          ...(schemaConfig && { schema: schemaConfig.schema })
-        }, 
-        { clientProvider }
-      )
+      function onChunk(chunk: string) {
+        setRawOutput(prev => prev + chunk);
+      }
 
-      if (config.schema.enabled) {
-        // For schema-based responses, wait for complete result and format
-        for await (const chunk of theStream) {
-          setOutput(JSON.stringify(chunk, null, 2))
+      // Handle 'all' model selection
+      const models = config.model === 'all' ? ALL_MODELS : [config.model];
+      
+      for (const model of models) {
+        if (models.length > 1) {
+          setOutput(prev => prev + `\n\n=== Using ${model} ===\n`);
         }
-      } else {
-        // For raw responses, stream as before
-        let isFirstChunk = true
-        for await (const chunk of theStream.raw()) {
-          if (isFirstChunk) {
-            setOutput(chunk)
-            isFirstChunk = false
-          } else {
-            setOutput(prev => prev + chunk)
+
+        const theStream = stream(
+          {
+            messages: config.messages,
+            system: config.systemPrompt,
+            model: model,
+            temperature: config.temperature,
+            max_tokens: config.maxTokens,
+            top_p: config.topP,
+            onChunk,
+            presence_penalty: config.presencePenalty,
+            stop: config.stop ? config.stop.split(',').map(s => s.trim()) : undefined,
+            ...(schemaConfig && { schema: schemaConfig.schema })
+          }, 
+          { clientProvider }
+        )
+
+        if (config.schema.enabled) {
+          // For schema-based responses, wait for complete result and format
+          for await (const chunk of theStream) {
+            setOutput(JSON.stringify(chunk, null, 2))
+          }
+        } else {
+          // For raw responses, stream as before
+          let isFirstChunk = true
+          for await (const chunk of theStream.raw()) {
+            if (isFirstChunk) {
+              setOutput(chunk)
+              isFirstChunk = false
+            } else {
+              setOutput(prev => prev + chunk)
+            }
           }
         }
       }
-    } catch (error) {
-      console.error('Stream error:', error)
-      setOutput(prev => prev + `\nError: ${error.message}`)
+    } catch (error: unknown) {
+      console.error('Stream error:', error);
+      if (error instanceof Error) {
+        setOutput(prev => prev + `\nError: ${error.message}`);
+      } else {
+        setOutput(prev => prev + `\nError: ${String(error)}`);
+      }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -583,6 +630,24 @@ export default function Panel() {
               </div>
               <div className="bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap rounded-b-lg max-h-[300px] overflow-y-auto">
                 {output || 'Output will appear here...'}
+              </div>
+            </div>
+
+            {/* Raw Output Panel [for debugging] - Slate tint */}
+            <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-border/60 rounded-lg">
+              <div className="p-2.5 border-b border-border/40 bg-card/30 flex items-center justify-between">
+                <h2 className="text-base font-medium">Raw Output</h2>
+                {rawOutput && (
+                  <button
+                    onClick={() => setRawOutput('')}
+                    className="text-xs text-muted-foreground/70 hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap rounded-b-lg max-h-[300px] overflow-y-auto">
+                {rawOutput || 'Raw output will appear here...'}
               </div>
             </div>
           </div>

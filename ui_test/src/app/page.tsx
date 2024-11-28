@@ -89,7 +89,7 @@ setOutput(JSON.stringify(analysis, null, 2));`
 // Get all books
 const allBooks = await baseStream
   .select('book')
-  .filter(b => b.title?.[0].$closed && b.author?.[0].$closed)
+  .filter(b => b.title?.[0].$tagclosed && b.author?.[0].$tagclosed)
   .map(({title, author}) => {
     return {title: title[0].$text, author: author[0].$text}
   })
@@ -98,7 +98,7 @@ const allBooks = await baseStream
 // Get fiction books specifically
 const fictionBooks = await baseStream
   .select('shelf[category="fiction"] > book')
-  .filter(b => b.title?.[0].$closed && b.author?.[0].$closed)
+  .filter(b => b.title?.[0].$tagclosed && b.author?.[0].$tagclosed)
   .map(({title, author}) => {
     return {title: title[0].$text, author: author[0].$text}
   })

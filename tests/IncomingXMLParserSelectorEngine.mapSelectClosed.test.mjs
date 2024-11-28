@@ -11,13 +11,13 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
     engine.add('<root><item>1</item><item>2<subitem>');
     
     let result = engine.mapSelectClosed({
-      item: [{ _: String }],
-      subitem: [{ _: String }]
+      item: [{ $text: String }],
+      subitem: [{ $text: String }]
     });
 
     expect(result).toEqual({
       item: [
-        { _: '1' }
+        { $text: '1' }
       ]
       // No subitem or second item, as they're not closed
     });
@@ -25,20 +25,20 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
     engine.add('sub-content</subitem></item>');
     
     result = engine.mapSelectClosed({
-      item: [{ _: String }],
-      subitem: [{ _: String }]
+      item: [{ $text: String }],
+      subitem: [{ $text: String }]
     });
 
     expect(result).toEqual({
       item: [
-        { _: '2sub-content' }
+        { $text: '2sub-content' }
       ],
       
       // Currently the implementation is such that subitem will
       // have been de-duped since it has been returned already as
       // part of the <item>.
       // subitem: [
-      //   { _: 'sub-content' }
+      //   { $text: 'sub-content' }
       // ]
     });
   });
@@ -112,7 +112,7 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
       item: [{
         $id: Number,
         $complete: complete => complete === 'true',
-        _: String
+        $text: String
       }]
     });
 
@@ -121,12 +121,12 @@ describe('IncomingXMLParserSelectorEngine mapSelectClosed', () => {
         {
           $id: 1,
           $complete: false,
-          _: 'In progress'
+          $text: 'In progress'
         },
         {
           $id: 2,
           $complete: true,
-          _: 'Done'
+          $text: 'Done'
         }
       ]
     });

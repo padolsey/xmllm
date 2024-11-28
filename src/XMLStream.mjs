@@ -129,9 +129,9 @@ class XMLStream {
     return new XMLStream([
       ...this.pipeline,
       ['map', value => {
-        logger.debug(`=== Debug ${label ? `(${label})` : ''} ===`);
-        logger.debug(value);
-        logger.debug('===================');
+        console.log(`=== Debug ${label ? `(${label})` : ''} ===`);
+        console.log(value);
+        console.log('===================');
         return value;
       }]
     ], this.options);
@@ -184,16 +184,19 @@ class XMLStream {
         } finally {
           iterator = null;
         }
-        return { done: true };
+        return { done: true, value: undefined };
       }
     };
   }
 
   closedOnly() {
+    // TODO: this will not work if is south of any element derivations e.g.
+    // after stream()'d schema, it may already be too late because the data
+    // is strings thus not a "node". Hmmmmmmmmmmm TODO
     return new XMLStream([
       ...this.pipeline,
       // Only let elements pass through if they're closed
-      ['filter', el => el?.__isNodeObj__ ? !!el.$closed : true]
+      ['filter', el => el?.__isNodeObj__ ? !!el.$tagclosed : true]
     ], this.options);
   }
 

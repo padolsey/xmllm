@@ -24,7 +24,7 @@ export default function SpeciesGeneratorPage() {
         system: speciesDemo.system
       }, {
         clientProvider
-      }).map(chunk => {
+      }).map((chunk: any) => {
         const data = chunk.species
         return speciesDemo.transform(data)
       })

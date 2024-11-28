@@ -66,7 +66,6 @@ describe('Stream Interface Basics', () => {
       yields.push(chunk);
     }
 
-    // Should yield objects, not strings
     expect(yields.every(y => typeof y === 'object')).toBe(true);
   });
 
@@ -93,7 +92,6 @@ describe('Stream Interface Basics', () => {
       yields.push(chunk);
     }
 
-    // Should yield Node objects with __isNodeObj__
     expect(yields.every(y => y?.__isNodeObj__)).toBe(true);
   });
 
@@ -135,7 +133,7 @@ describe('Stream Interface Basics', () => {
       llmStream: TestStream
     })
     .select('book')
-    .text();  // This is where we might see object coercion
+    .text();
 
     for await (const chunk of nestedStream) {
       console.log('Nested text stream yielded:', {
@@ -145,7 +143,6 @@ describe('Stream Interface Basics', () => {
       yields.push(chunk);
     }
 
-    // Should not contain [object Object]
     expect(yields.every(y => !y.includes('[object Object]'))).toBe(true);
   });
 }); 

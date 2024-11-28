@@ -10,7 +10,8 @@ exports.stream = stream;
 exports.xmllm = xmllmClient;
 var _xmllm = require("./xmllm.js");
 var _XMLStream = _interopRequireDefault(require("./XMLStream.js"));
-var _excluded = ["prompt", "schema", "system", "closed", "onChunk"];
+var _excluded = ["clientProvider", "mode"],
+  _excluded2 = ["mode"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
@@ -152,9 +153,14 @@ function xmllmClient(pipelineFn, clientProvider) {
     llmStream: llmStream
   }));
 }
+
+// Enhanced stream function with mode support
 function stream(promptOrConfig) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  var clientProvider = options.clientProvider;
+  var clientProvider = options.clientProvider,
+    _options$mode = options.mode,
+    mode = _options$mode === void 0 ? 'state' : _options$mode,
+    restOptions = _objectWithoutProperties(options, _excluded);
   if (!clientProvider) {
     throw new Error('ClientProvider is required for browser usage. Example: ' + 'stream("prompt", { clientProvider: new ClientProvider("http://your-proxy/api/stream") })');
   }
@@ -162,21 +168,21 @@ function stream(promptOrConfig) {
   var config = {};
   if (typeof promptOrConfig === 'string') {
     config = _objectSpread({
-      prompt: promptOrConfig
-    }, options);
+      prompt: promptOrConfig,
+      mode: mode
+    }, restOptions);
   } else {
-    config = _objectSpread(_objectSpread({}, promptOrConfig), options);
+    config = _objectSpread(_objectSpread({}, promptOrConfig), {}, {
+      mode: promptOrConfig.mode || mode
+    }, restOptions);
   }
   var _config = config,
     prompt = _config.prompt,
     schema = _config.schema,
     system = _config.system,
-    closed = _config.closed,
-    onChunk = _config.onChunk,
-    restOptions = _objectWithoutProperties(_config, _excluded);
-  console.log('Client all config', restOptions);
-  // If schema is provided, use schema-style config
-  // if (schema) {
+    onChunk = _config.onChunk;
+
+  // If schema is provided, use schema-based config
   return new _XMLStream["default"]([['req', _objectSpread({
     messages: [{
       role: 'user',
@@ -184,36 +190,22 @@ function stream(promptOrConfig) {
     }],
     schema: schema,
     system: system,
-    onChunk: onChunk,
-    doMapSelectClosed: closed
-  }, restOptions)]], _objectSpread(_objectSpread({}, restOptions), {}, {
+    onChunk: onChunk
+  }, config)]], _objectSpread(_objectSpread({}, restOptions), {}, {
     llmStream: llmStream
   }));
-  // }
-
-  // Basic prompt
-  // return new XMLStream([
-  //   ['req', {
-  //     messages: [{
-  //       role: 'user',
-  //       content: prompt
-  //     }],
-  //     system,
-  //     onChunk,
-  //     doMapSelectClosed: closed,
-  //     ...restOptions
-  //   }]
-  // ], {
-  //   ...restOptions,
-  //   llmStream
-  // });
 }
+
+// Simple function with mode support
 function simple(_x3, _x4) {
   return _simple.apply(this, arguments);
 }
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4(prompt, schema) {
     var options,
+      _options$mode2,
+      mode,
+      restOptions,
       theStream,
       result,
       _args4 = arguments;
@@ -221,19 +213,20 @@ function _simple() {
       while (1) switch (_context4.prev = _context4.next) {
         case 0:
           options = _args4.length > 2 && _args4[2] !== undefined ? _args4[2] : {};
-          _context4.next = 3;
-          return stream(prompt, _objectSpread(_objectSpread({}, options), {}, {
+          _options$mode2 = options.mode, mode = _options$mode2 === void 0 ? 'delta' : _options$mode2, restOptions = _objectWithoutProperties(options, _excluded2);
+          _context4.next = 4;
+          return stream(prompt, _objectSpread(_objectSpread({}, restOptions), {}, {
             schema: schema,
-            closed: true
+            mode: mode // Pass through mode
           }));
-        case 3:
+        case 4:
           theStream = _context4.sent;
-          _context4.next = 6;
-          return theStream.merge().last();
-        case 6:
+          _context4.next = 7;
+          return theStream.last();
+        case 7:
           result = _context4.sent;
           return _context4.abrupt("return", result);
-        case 8:
+        case 9:
         case "end":
           return _context4.stop();
       }

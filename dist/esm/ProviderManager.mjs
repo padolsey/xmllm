@@ -20,9 +20,8 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 import PROVIDERS, { createCustomModel } from './PROVIDERS.mjs';
 import Provider from './Provider.mjs';
 import Logger from './Logger.mjs';
+import { ProviderAuthenticationError } from './errors/ProviderErrors.mjs';
 var logger = new Logger('ProviderManager');
-var DEFAULT_MODEL_TYPE = 'fast';
-
 // Default preferred providers list (only used if payload.model is not provided)
 var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
 var ProviderManager = /*#__PURE__*/function () {
@@ -171,7 +170,7 @@ var ProviderManager = /*#__PURE__*/function () {
                       }
                       currentDelay = isOnlyProvider ? Math.min(retryDelay, 5000) // Cap delay at 5s if it's our only option
                       : retryDelay;
-                      logger.info("Retrying ".concat(provider.name, " in ").concat(currentDelay, "ms... (").concat(isOnlyProvider ? 'no fallbacks available' : 'has fallbacks', ")"));
+                      logger.log("Retrying ".concat(provider.name, " in ").concat(currentDelay, "ms... (").concat(isOnlyProvider ? 'no fallbacks available' : 'has fallbacks', ")"));
                       _context.next = 33;
                       return new Promise(function (resolve) {
                         return setTimeout(resolve, currentDelay);

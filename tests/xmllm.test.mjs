@@ -80,10 +80,10 @@ describe('xmllm', () => {
       ]);
       
       expect((await results.next()).value).toBeNode({ 
-        $key: 1, 
+        $tagkey: 1, 
         $attr: {}, 
         $text: 'Test',
-        $closed: true
+        $tagclosed: true
       });
     });
   });
@@ -199,8 +199,8 @@ describe('xmllm', () => {
       ]);
 
       expect((await results.next()).value).toBeNode({ 
-        $key: 1, 
-        $closed: true,
+        $tagkey: 1, 
+        $tagclosed: true,
         $attr: {}, 
         $text: 'Test' 
       });

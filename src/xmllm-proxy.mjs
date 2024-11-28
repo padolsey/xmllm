@@ -30,7 +30,14 @@ function createServer(config = {}) {
     try {
       const {
         messages,
-        model = ['claude:good', 'openai:good', 'togetherai:good'],
+        model = [
+          'claude:good',
+          'openai:good',
+          'togetherai:good',
+          'claude:fast',
+          'openai:fast',
+          'togetherai:fast'
+        ],
         max_tokens,
         maxTokens,
         temperature,

@@ -14,13 +14,13 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
 
     expect(engine.mapSelect({
       outer: {
-        _: String,
+        $text: String,
         inner: String
       },
       root: String
     })).toEqual({
       outer: {
-        _: 'Start...Inside...',
+        $text: 'Start...Inside...',
         inner: '...Inside...'
       },
       root: 'Root...Start...Inside...Outside'
@@ -36,7 +36,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
       book: {
         title: String,
         author: { // query author as object.
-          _: String,
+          $text: String,
           pages: Number
         },
 
@@ -52,7 +52,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
       book: {
         title: 'My Book',
         author: {
-          _: 'John Doe100',
+          $text: 'John Doe100',
           pages: 100
         }, // author is still _open_
         pages: undefined // pages is not root level
@@ -77,9 +77,9 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
     
     const result = engine.mapSelect({
       p: {
-        _: String,
+        $text: String,
         b: {
-          _: String,
+          $text: String,
           i: String
         }
       }
@@ -87,9 +87,9 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
 
     expect(result).toEqual({
       p: {
-        _: 'FirstBoldBold-ItalicItalic', // entire textContent
+        $text: 'FirstBoldBold-ItalicItalic', // entire textContent
         b: {
-          _: 'BoldBold-Italic',
+          $text: 'BoldBold-Italic',
           i: 'Bold-Italic'
         }
       }
@@ -135,7 +135,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
 
     const result = engine.mapSelect({
       article: {
-        _: text => text.trim().replace(/\s+/g, ' '),  // Normalize whitespace
+        $text: text => text.trim().replace(/\s+/g, ' '),  // Normalize whitespace
         p: [({ $text }) => $text.trim()]  // Trim each paragraph
       }
     });
@@ -144,7 +144,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
     expect(result).toEqual({
       article: {
         // _ (textContent) is entire aggregated content:
-        _: 'Text before Paragraph Floating text Another More floating Final',
+        $text: 'Text before Paragraph Floating text Another More floating Final',
         p: ['Paragraph', 'Another', 'Final']
       }
     });

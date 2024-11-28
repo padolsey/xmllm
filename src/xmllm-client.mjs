@@ -15,7 +15,6 @@ class ClientProvider {
   }
 
   async createStream(payload) {
-
     console.log('Client createStream payload', payload);
 
     const response = await fetch(this.endpoint, {
@@ -74,8 +73,9 @@ function xmllmClient(pipelineFn, clientProvider, options = {}) {
   return xmllm(pipelineFn, { ...options, llmStream });
 }
 
+// Enhanced stream function with mode support
 function stream(promptOrConfig, options = {}) {
-  const { clientProvider } = options;
+  const { clientProvider, mode = 'state', ...restOptions } = options;
 
   if (!clientProvider) {
     throw new Error(
@@ -95,64 +95,48 @@ function stream(promptOrConfig, options = {}) {
   if (typeof promptOrConfig === 'string') {
     config = {
       prompt: promptOrConfig,
-      ...options
+      mode,  // Pass through mode
+      ...restOptions
     };
   } else {
     config = {
       ...promptOrConfig,
-      ...options
+      mode: promptOrConfig.mode || mode,  // Use provided mode or default
+      ...restOptions
     };
   }
 
-  const { prompt, schema, system, closed, onChunk, ...restOptions } = config;
+  const { prompt, schema, system, onChunk } = config;
 
-  console.log('Client all config', restOptions);
-  // If schema is provided, use schema-style config
-  // if (schema) {
-    return new XMLStream([
-      ['req', {
-        messages: [{
-          role: 'user',
-          content: prompt
-        }],
-        schema,
-        system,
-        onChunk,
-        doMapSelectClosed: closed,
-        ...restOptions
-      }]
-    ], {
-      ...restOptions,
-      llmStream
-    });
-  // }
-
-  // Basic prompt
-  // return new XMLStream([
-  //   ['req', {
-  //     messages: [{
-  //       role: 'user',
-  //       content: prompt
-  //     }],
-  //     system,
-  //     onChunk,
-  //     doMapSelectClosed: closed,
-  //     ...restOptions
-  //   }]
-  // ], {
-  //   ...restOptions,
-  //   llmStream
-  // });
+  // If schema is provided, use schema-based config
+  return new XMLStream([
+    ['req', {
+      messages: [{
+        role: 'user',
+        content: prompt
+      }],
+      schema,
+      system,
+      onChunk,
+      ...config  // Pass all config including mode
+    }]
+  ], {
+    ...restOptions,
+    llmStream
+  });
 }
 
+// Simple function with mode support
 export async function simple(prompt, schema, options = {}) {
+  const { mode = 'delta', ...restOptions } = options;
+  
   const theStream = await stream(prompt, {
-    ...options,
+    ...restOptions,
     schema,
-    closed: true
+    mode  // Pass through mode
   });
   
-  const result = await theStream.merge().last();
+  const result = await theStream.last();
   return result;
 }
 

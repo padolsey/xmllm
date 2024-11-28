@@ -1,7 +1,6 @@
 export type DemoConfig = {
   id: string
   name: string
-  description: string
   schema: any
   simulatedXml: string
   prompt: string

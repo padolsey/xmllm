@@ -1,6 +1,7 @@
 import { SpeciesProfile } from '../../components/SpeciesProfile'
 import { xmllm } from '../../../../src/xmllm-client.mjs'
 import type { DemoConfig } from '../../types/demos'
+import type { PipelineHelpers } from '../../../../index'
 
 function* generateChunks(text: string, chunkSize: number) {
   let index = 0
@@ -48,7 +49,7 @@ export const speciesDemo: DemoConfig = {
         colors: {
           color: [{
             $hex: String,
-            _: String
+            $text: String
           }]
         },
         path: String,
@@ -71,8 +72,8 @@ export const speciesDemo: DemoConfig = {
       technology: data.characteristics?.technology
     },
     flag: {
-      colors: data.flag?.colors?.color?.map(c => ({
-        name: c._,
+      colors: data.flag?.colors?.color?.map((c: any) => ({
+        name: c.$text,
         hex: c.$hex
       })) || [],
       path: data.flag?.path,
@@ -82,7 +83,7 @@ export const speciesDemo: DemoConfig = {
   simulateStream: async ({ chunkSize, speed, onChunk, onResult, signal }) => {
     console.log('Starting species simulation')
     
-    const stream = xmllm(({ parse, select, map }) => [
+    const stream = xmllm(({ parse, select, map }: PipelineHelpers) => [
       async function*() {
         for (const chunk of generateChunks(speciesDemo.simulatedXml, chunkSize)) {
           if (signal.aborted) return
@@ -93,7 +94,7 @@ export const speciesDemo: DemoConfig = {
       },
       parse(),
       select('species'),
-      map(data => {
+      map((data: any) => {
         console.log('Raw species data:', data)
         // Transform for simulated mode
         return {
@@ -106,7 +107,7 @@ export const speciesDemo: DemoConfig = {
             technology: data?.characteristics?.[0]?.technology?.[0]?.$text
           },
           flag: {
-            colors: data?.flag?.[0]?.colors?.[0]?.color?.map(c => ({
+            colors: data?.flag?.[0]?.colors?.[0]?.color?.map((c: any) => ({
               name: c.$text,
               hex: c.$attr.hex
             })) || [],

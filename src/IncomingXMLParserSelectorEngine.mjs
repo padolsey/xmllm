@@ -8,12 +8,12 @@ class Node {
     this.length = 0;
     this.__isNodeObj__ = true;
     if (o) {
-      this.$key = o.key;
+      this.$tagkey = o.key;
       this.$attr = o.attr;
       this.$text = o.aggregateText;
-      this.$closed = o.closed;
+      this.$tagclosed = o.closed;
       this.$children = o.children || [];
-      this.$name = name;
+      this.$tagname = name;
 
       const { key, attr, text, closed, children, ...rest } = o;
       
@@ -85,6 +85,38 @@ class IncomingXMLParserSelectorEngine {
         }
       },
     }, { xmlMode: true });
+    
+    // Add cache for normalized schemas
+    this.normalizedSchemaCache = new WeakMap();
+  }
+
+  // Helper to normalize and cache schemas
+  normalizeSchemaWithCache(schema) {
+    // Check cache first
+    let cached = this.normalizedSchemaCache.get(schema);
+    if (cached) return cached;
+
+    // Helper to normalize the new [] syntax to old syntax
+    const normalizeSchema = (schema) => {
+      // Handle primitives and functions
+      if (typeof schema !== 'object' || schema === null) return schema;
+      if (typeof schema === 'function') return schema;
+      if (Array.isArray(schema)) return schema.map(normalizeSchema);
+
+      const result = {};
+      for (let [key, value] of Object.entries(schema)) {
+        result[key] = normalizeSchema(value);
+      }
+      return result;
+    };
+
+    // Normalize and cache result
+    const normalized = Array.isArray(schema)
+      ? schema.map(m => normalizeSchema(m))
+      : normalizeSchema(schema);
+    
+    this.normalizedSchemaCache.set(schema, normalized);
+    return normalized;
   }
 
   updateTextContent(element) {
@@ -306,29 +338,24 @@ class IncomingXMLParserSelectorEngine {
     return formatted;
   }
 
-  mapSelectClosed(mapping) {
-    return this.mapSelect(mapping, false);
+  /**
+   * Maps schema to elements, yielding only newly completed elements.
+   * This is "delta mode" - you only see elements once, when they complete.
+   */
+  mapSelectClosed(schema) {
+    // Add JSDoc to clarify this is "delta mode"
+    return this.mapSelect(schema, false, true); // includeOpen=false, dedupe=true
   }
 
+  /**
+   * Maps schema to elements. Can operate in different modes:
+   * - State mode: (includeOpen=true, dedupe=false) - Shows growing state including partials
+   * - Delta mode: (includeOpen=false, dedupe=true) - Shows only new complete elements
+   * - Snapshot mode: (includeOpen=false, dedupe=false) - Shows current complete state
+   */
   mapSelect(mapping, includeOpenTags = true, doDedupe = true) {
-    // Helper to normalize the new [] syntax to old syntax
-    const normalizeSchema = (schema) => {
-      // Handle primitives and functions
-      if (typeof schema !== 'object' || schema === null) return schema;
-      if (typeof schema === 'function') return schema;
-      if (Array.isArray(schema)) return schema.map(normalizeSchema);
-
-      const result = {};
-      for (let [key, value] of Object.entries(schema)) {
-        result[key] = normalizeSchema(value);
-      }
-      return result;
-    };
-
-    const normalizedMapping = Array.isArray(mapping)
-      ? mapping.map(m => normalizeSchema(m))
-      : normalizeSchema(mapping);
-
+    const normalizedMapping = this.normalizeSchemaWithCache(mapping);
+    
     const applyMapping = (element, map) => {
 
       if (Array.isArray(map)) {
@@ -340,17 +367,31 @@ class IncomingXMLParserSelectorEngine {
           : [applyMapping(element, map[0])];
       }
 
+      if (!element?.__isNodeObj__ && element != null) {
+        // Treat it as a plain value:
+        if (typeof map === 'function') {
+          return map(element);
+        } else {
+          return element;
+        }
+      }
+
       // Add handling for string literals - treat them as String type
       if (typeof map === 'string') {
-        return element.length ? element.map(e => String(e)) : String(element.$text);
+        map = String;
       }
 
       if (typeof map === 'function') {
         // Handle built-in constructors specially
-        if (map === String || map === Number || map === Boolean) {
-          return map(element.$text);
+        if (map === Number) {
+          // Use parseFloat for more robust number parsing
+          // Trim whitespace and handle edge cases
+          return parseFloat(element.$text?.trim?.() || '');
         }
-        // Pass full element to custom functions
+        if (map === String) {
+          return String(element.$text);
+        }
+        // Pass full element to custom functions (including Boolean)
         return map(element);
       }
 
@@ -362,26 +403,24 @@ class IncomingXMLParserSelectorEngine {
 
       for (const k in map) {
 
-        const resultKey = k.replace(/\[\](?=\s+|$)/g, ''); // TODO: remove
         const mapItem = map[k];
-        const isItemMapping = resultKey !== k;
 
-        if (k.startsWith('$')) {
+        if (k === '_' || k === '$text') {
+          // Handle text content
+          out[k] = applyMapping(element.$text, mapItem);
+        } else if (k.startsWith('$')) {
           // Handle attributes
           const attrName = k.slice(1);
-          if (element.$attr && element.$attr[attrName] !== undefined) {
-            out[resultKey] = mapItem(element.$attr[attrName]);
+          if (element.$attr && element.$attr[attrName] != null) {
+            out[k] = applyMapping(element.$attr[attrName], mapItem);
           }
-        } else if (k === '_' || k === '$text') {
-          // Handle text content
-          out[resultKey] = mapItem(element.$text);
-        } else if (!element[resultKey]) {
-          out[resultKey] = Array.isArray(mapItem) ? [] : undefined;
+        } else if (!element[k]) {
+          out[k] = Array.isArray(mapItem) ? [] : undefined;
         } else if (Array.isArray(mapItem)) {
-          out[resultKey] = applyMapping(element[resultKey], mapItem);
+          out[k] = applyMapping(element[k], mapItem);
         } else {
-          out[resultKey] = applyMapping(
-            Array.isArray(element[resultKey]) ? element[resultKey][0] : element[resultKey],
+          out[k] = applyMapping(
+            Array.isArray(element[k]) ? element[k][0] : element[k],
             mapItem
           );
         }
@@ -429,55 +468,107 @@ class IncomingXMLParserSelectorEngine {
     return results;
   }
 
-  static makeMapSelectXMLScaffold(schema, indent = 2) {
-    function processObject(obj, level = 0) {
+  static validateHints(schema, hints) {
+    function validateStructure(schemaObj, hintsObj, path = '') {
+      if (!hintsObj) return; // Hints are optional
+
+      // Handle primitives in schema
+      if (typeof schemaObj !== 'object' || schemaObj === null) {
+        return;
+      }
+
+      // Handle arrays
+      if (Array.isArray(schemaObj)) {
+        if (schemaObj.length !== 1) {
+          throw new Error(`Schema array at ${path} must have exactly one element`);
+        }
+        if (hintsObj && !Array.isArray(hintsObj) && typeof hintsObj !== 'string') {
+          throw new Error(`Hints at ${path} must be array or string for array schema`);
+        }
+        validateStructure(schemaObj[0], Array.isArray(hintsObj) ? hintsObj[0] : hintsObj, `${path}[]`);
+        return;
+      }
+
+      // Check each hint has corresponding schema definition
+      for (const key in hintsObj) {
+        if (!schemaObj.hasOwnProperty(key)) {
+          throw new Error(`Hint "${key}" has no corresponding schema definition at ${path}`);
+        }
+        validateStructure(schemaObj[key], hintsObj[key], path ? `${path}.${key}` : key);
+      }
+    }
+
+    validateStructure(schema, hints);
+  }
+
+  static makeMapSelectXMLScaffold(schema, hints = {}, indent = 2) {
+    function processObject(obj, hintObj = {}, level = 0) {
       let xml = '';
       const indentation = ' '.repeat(level * indent);
 
       for (let key in obj) {
         const value = obj[key];
+        const hint = hintObj[key];
 
-        if (key === '_') continue;
+        // Skip attribute markers
         if (key.startsWith('$')) continue;
 
-        const attrs = getAttributes(obj[key]);
-        
-        // Handle string literals as explanation hints
-        if (typeof value === 'string') {
-          xml += `${indentation}<${key}${attrs}>${value}</${key}>\n`;
-        } else if (typeof value === 'function' || value === String || value === Number || value === Boolean) {
-          xml += `${indentation}<${key}${attrs}>...text content...</${key}>\n`;
-        } else if (Array.isArray(value)) {
-          const item = value[0];
-          if (typeof item === 'string') {
-            xml += `${indentation}<${key}>${item}</${key}>\n`;
-            xml += `${indentation}<${key}>${item}</${key}>\n`;
-            xml += `${indentation}/*etc.*/\n`;
-          } else if (typeof item === 'function' || item === String || item === Number || item === Boolean) {
-            xml += `${indentation}<${key}>...text content...</${key}>\n`;
-            xml += `${indentation}<${key}>...text content...</${key}>\n`;
-            xml += `${indentation}/*etc.*/\n`;
-          } else {
-            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
-            xml += processObject(item, level + 1);
-            if ('_' in item) {
-              xml += `${indentation}  ...text content...\n`;
+        // Handle string literals and functions (including primitives)
+        if (typeof value === 'string' || typeof value === 'function') {
+          // If there's an explicit hint, use it
+          // Otherwise if it's a string literal in schema, use that as hint
+          // Otherwise use generic placeholder
+          const content = hint || (typeof value === 'string' ? value : '...text content...');
+          xml += `${indentation}<${key}>${content}</${key}>\n`;
+          continue;
+        }
+
+        // Handle arrays
+        if (Array.isArray(value)) {
+          const itemValue = value[0];
+          const itemHint = Array.isArray(hint) ? hint[0] : hint;
+
+          // Show two examples for arrays
+          for (let i = 0; i < 2; i++) {
+            xml += `${indentation}<${key}${getAttributeString(itemValue, itemHint)}>\n`;
+            
+            // Handle text content for array items
+            if (typeof itemValue !== 'object') {
+              // For primitive arrays, use the hint directly if it's a string
+              const content =
+                typeof itemHint === 'string' ? itemHint :
+                typeof itemValue === 'string' ? itemValue :
+                '...text content...';
+              xml += `${indentation}  ${content}\n`;
+            } else {
+              // Handle text content from $text in object
+              if (itemValue.$text !== undefined || itemHint?.$text) {
+                const textHint = itemHint?.$text || 
+                  (typeof itemValue.$text === 'string' ? itemValue.$text : '...text content...');
+                xml += `${indentation}  ${textHint}\n`;
+              }
+              xml += processObject(itemValue, itemHint, level + 1);
             }
+            
             xml += `${indentation}</${key}>\n`;
-            xml += `${indentation}<${key}${getAttributes(item)}>\n`;
-            xml += processObject(item, level + 1);
-            if ('_' in item) {
-              xml += `${indentation}  ...text content...\n`;
-            }
-            xml += `${indentation}</${key}>\n`;
-            xml += `${indentation}/*etc.*/\n`;
           }
-        } else if (typeof value === 'object') {
+          xml += `${indentation}/*etc.*/\n`;
+          continue;
+        }
+
+        // Handle objects
+        if (typeof value === 'object' && value !== null) {
+          const attrs = getAttributeString(value, hint);
           xml += `${indentation}<${key}${attrs}>\n`;
-          if ('_' in value) {
-            xml += `${indentation}  ...text content...\n`;
+          
+          // Handle text content
+          if (value.$text !== undefined || hint?.$text) {
+            const textHint = hint?.$text || 
+              (typeof value.$text === 'string' ? value.$text : '...text content...');
+            xml += `${indentation}  ${textHint}\n`;
           }
-          xml += processObject(value, level + 1);
+          
+          xml += processObject(value, hint || {}, level + 1);
           xml += `${indentation}</${key}>\n`;
         }
       }
@@ -485,18 +576,30 @@ class IncomingXMLParserSelectorEngine {
       return xml;
     }
 
-    function getAttributes(obj) {
+    function getAttributeString(obj, hints = {}) {
       if (typeof obj !== 'object' || obj === null) return '';
+
       let attrs = '';
-      for (let key in obj) {
-        if (key.startsWith('$')) {
-          attrs += ` ${key.slice(1)}="..."`;
+      for (const key in obj) {
+        if (key.startsWith('$') && key !== '$text') {
+          const attrName = key.slice(1);
+          // First check explicit hints object
+          // Then check if it's a string literal in schema (it's a hint)
+          // Otherwise use placeholder
+          const hint = hints?.[key] || 
+            (typeof obj[key] === 'string' ? obj[key] : '...');
+          attrs += ` ${attrName}="${hint}"`;
         }
       }
       return attrs;
     }
 
-    return processObject(schema);
+    // Validate hints against schema if provided
+    if (Object.keys(hints).length > 0) {
+      IncomingXMLParserSelectorEngine.validateHints(schema, hints);
+    }
+
+    return processObject(schema, hints);
   }
 }
 

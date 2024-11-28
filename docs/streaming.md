@@ -1,29 +1,97 @@
 # Streaming Guide
 
-xmllm provides powerful streaming capabilities that let you process AI responses as they arrive. This guide explains how streaming works and common patterns for handling streaming data.
+xmllm provides powerful streaming capabilities that let you process AI responses as they arrive.
 
 ## Core Concepts
+
+### Streaming Modes
+
+xmllm offers four modes for handling streaming data:
+
+```javascript
+// 1. State Mode (default) - See progress as it happens
+const analysis = stream('Analyze text', {
+  schema: { sentiment: String },
+  mode: 'state'  // Shows growing state
+});
+// Yields:
+// { sentiment: 'Pos' }        // Partial
+// { sentiment: 'Positive' }   // Complete
+
+// 2. Delta Mode - Only complete elements
+const items = stream('List items', {
+  schema: { item: Array(String) },
+  mode: 'delta'  // Only complete items
+});
+// Yields:
+// { item: ['first'] }   // When first completes
+// { item: ['second'] }  // When second completes
+
+// 3. Snapshot Mode - Current complete state
+const stats = stream('Get stats', {
+  schema: { users: Number },
+  mode: 'snapshot'  // Complete state at each point
+});
+// Yields:
+// { users: 10 }     // First complete state
+// { users: 10 }     // No change
+// { users: 20 }     // Updated state
+
+// 4. Realtime Mode - Everything (for debugging)
+const debug = stream('Test', {
+  schema: { data: String },
+  mode: 'realtime'  // See all updates
+});
+// Yields:
+// { data: '' }      // Empty tag
+// { data: 'te' }    // Partial
+// { data: 'test' }  // Complete
+```
+
+### Simple vs Streaming
+
+```javascript
+// 1. Simple - Just get final result
+const result = await simple('Analyze text', {
+  analysis: { score: Number }
+});
+// Waits for completion, returns final state
+
+// 2. Streaming - See updates as they arrive
+const progress = stream('Analyze text', {
+  schema: { analysis: { score: Number }},
+  mode: 'state'  // Show progress
+});
+for await (const update of progress) {
+  console.log('Update:', update);
+}
+```
 
 ### Streaming vs Complete Elements
 
 ```javascript
-// 1. Stream Processing - see updates as they arrive
-for await (const update of stream('List colors')
-  .select('color')
-  .text()
-) {
-  console.log('Partial:', update);
-  // Might see: "re", "red", "blu", "blue"
+// 1. Stream Processing - see all updates
+for await (const update of stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'state'  // default mode - shows all updates
+})) {
+  console.log('Update:', update);
+  // Might see:
+  // { color: ['re'] }
+  // { color: ['red'] }
+  // { color: ['red', 'blu'] }
+  // { color: ['red', 'blue'] }
 }
 
-// 2. Complete Elements - only see finished tags
-for await (const color of stream('List colors')
-  .select('color')
-  .complete()  // Wait for </color> tags
-  .text()
-) {
-  console.log('Complete:', color);
-  // Only sees: "red", "blue"
+// 2. Complete Elements Only
+for await (const update of stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'delta'  // only complete elements
+})) {
+  console.log('Complete:', update);
+  // Only sees:
+  // { color: ['red'] }
+  // { color: ['blue'] }
 }
 ```
 
@@ -32,18 +100,21 @@ for await (const color of stream('List colors')
 XML elements can be in different states during streaming:
 
 ```javascript
-stream('Analyze this')
-  .select('analysis')
-  .map(element => ({
-    text: element.$text,     // Current text content
-    isComplete: element.$closed,  // Has closing tag
-    attributes: element.$attr     // Any XML attributes
-  }));
+stream('Analyze this', {
+  schema: { analysis: String },
+  mode: 'state'  // to see all states
+})
+.map(element => ({
+  text: element.analysis,     // Current text content
+  isComplete: true           // Using mode to control what we see
+}));
 
-// Example states:
-// 1. Opening: { text: "", isComplete: false }
-// 2. Partial: { text: "This text is", isComplete: false }
-// 3. Complete: { text: "This text is great", isComplete: true }
+// Example states with state mode:
+// { text: "This text is", isComplete: false }
+// { text: "This text is great", isComplete: true }
+
+// With delta mode, only see complete states:
+// { text: "This text is great", isComplete: true }
 ```
 
 ## Common Patterns
@@ -56,9 +127,9 @@ Show progress as the AI thinks:
 let dots = '';
 const analysis = stream('Analyze this text...')
   .select('thought')
-  .map(({$text, $closed}) => {
+  .map(({$text, $tagclosed}) => {
     // Show typing indicator for partial content
-    if (!$closed) {
+    if (!$tagclosed) {
       dots = dots.length < 3 ? dots + '.' : '';
       return `Thinking${dots}: ${$text}`;
     }
@@ -80,8 +151,8 @@ Collect results while showing progress:
 const colors = [];
 const colorStream = stream('List 5 colors')
   .select('color')
-  .map(({$text, $closed}) => {
-    if ($closed) {
+  .map(({$text, $tagclosed}) => {
+    if ($tagclosed) {
       colors.push($text);
     }
     return {
@@ -106,11 +177,11 @@ Handle potentially invalid data:
 ```javascript
 const numbers = stream('List numbers')
   .select('number')
-  .map(({$text, $closed}) => {
+  .map(({$text, $tagclosed}) => {
     // Try to parse number
     const num = parseInt($text);
     if (isNaN(num)) {
-      if ($closed) {
+      if ($tagclosed) {
         return null; // Skip invalid complete numbers
       }
       return '...'; // Show placeholder for partial content
@@ -155,12 +226,12 @@ Handle errors during streaming:
 try {
   const analysis = stream('Complex analysis')
     .select('point')
-    .map(async ({$text, $closed}) => {
+    .map(async ({$text, $tagclosed}) => {
       try {
         // Attempt processing
         return await processPoint($text);
       } catch (error) {
-        if ($closed) {
+        if ($tagclosed) {
           // Log complete but failed points
           console.error('Failed to process:', $text);
           return null;
@@ -216,7 +287,7 @@ Choose based on your needs:
 ## Best Practices
 
 1. **Consider Partial Content**
-   - Always check `$closed` when processing might fail
+   - Always check `$tagclosed` when processing might fail
    - Provide appropriate feedback for partial updates
    - Use `complete()` when you need full elements
 
@@ -249,9 +320,9 @@ When working with xmllm streams, results arrive in chunks and gradually coalesce
 ```javascript
 const analysis = stream('Analyze this text')
   .select('analysis')
-  .map(({$text, $closed}) => ({
+  .map(({$text, $tagclosed}) => ({
     text: $text,
-    isComplete: $closed
+    isComplete: $tagclosed
   }));
 
 // You might see:
@@ -446,3 +517,150 @@ for await (const color of colors) {
   console.log('Color:', color);
 }
 ```
+
+## Default Behaviors
+
+### stream() Defaults
+```javascript
+// By default, stream() uses 'state' mode:
+const colors = stream('List colors', {
+  schema: { color: Array(String) }
+});
+
+for await (const update of colors) {
+  console.log(update);
+}
+
+// You'll see:
+// { color: ['re'] }               // Partial content
+// { color: ['red'] }              // Complete first
+// { color: ['red', 'blu'] }       // Complete + partial
+// { color: ['red', 'blue'] }      // Both complete
+// { color: ['red', 'blue'] }      // Final state
+```
+
+### simple() Defaults
+```javascript
+// simple() just waits for completion:
+const result = await simple('List colors', {
+  color: Array(String)
+});
+
+console.log(result);
+// You'll get the final complete state:
+// { color: ['red', 'blue'] }
+```
+
+### Real-World Example
+```javascript
+// 1. Streaming UI updates (use stream's state mode)
+const analysis = stream('Analyze text', {
+  schema: {
+    analysis: {
+      sentiment: String,
+      score: Number
+    }
+  }
+});
+
+for await (const update of analysis) {
+  console.log('Progress:', update);
+  // Shows partial updates:
+  // { analysis: { sentiment: 'Pos' } }
+  // { analysis: { sentiment: 'Positive', score: 8 } }
+}
+
+// 2. One-shot API call (use simple)
+const result = await simple('Analyze text', {
+  analysis: {
+    sentiment: String,
+    score: Number
+  }
+});
+
+console.log('Final:', result);
+// Shows complete result:
+// { analysis: { sentiment: 'Positive', score: 8 } }
+```
+
+The defaults are chosen to match common use cases:
+- `stream()` → state mode for real-time UI feedback
+- `simple()` → just waits for complete result
+
+## Streaming Modes
+
+The `mode` option controls how and when you receive updates from the stream:
+
+### Available Modes
+
+```javascript
+// 1. State Mode (default)
+stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'state'
+});
+// Shows growing/accumulating state including partials
+// Yields:
+// { color: ['re'] }               // Partial content
+// { color: ['red'] }              // Complete first
+// { color: ['red', 'blu'] }       // Complete + partial
+// { color: ['red', 'blue'] }      // Both complete
+
+// 2. Delta Mode
+stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'delta'
+});
+// Only yields when elements complete
+// Yields:
+// { color: ['red'] }              // First complete
+// { color: ['blue'] }             // Second complete
+
+// 3. Snapshot Mode
+stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'snapshot'
+});
+// Shows current complete state at each point
+// Yields:
+// { color: ['red'] }              // After first completes
+// { color: ['red'] }              // No change
+// { color: ['red', 'blue'] }      // After second completes
+
+// 4. Realtime Mode
+stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'realtime'
+});
+// Shows everything including empty tags
+// Yields:
+// { color: [''] }                 // Empty tag
+// { color: ['re'] }               // Partial
+// { color: ['red'] }              // Complete
+// { color: ['red', 'blu'] }       // Partial
+// { color: ['red', 'blue'] }      // Complete
+```
+
+### Choosing a Mode
+
+- Use `state` (default) when:
+  - Building UIs that show progress
+  - Want to see content as it arrives
+  - Need to show growing/accumulating state
+
+- Use `delta` when:
+  - Only want complete elements
+  - Processing items as they finish
+  - Want to avoid partial content
+
+- Use `snapshot` when:
+  - Need point-in-time views of complete state
+  - Want to ignore partial updates
+  - Polling current state
+
+- Use `realtime` when:
+  - Debugging
+  - Need to see everything including empty tags
+  - Want maximum visibility into the stream
+
+Note: The `simple()` function always waits for completion regardless of mode, since it uses `last()` internally.
