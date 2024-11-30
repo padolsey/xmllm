@@ -209,3 +209,75 @@ const result = await simple(
 ```
 
 Hints must match the schema structure but are optional. They help guide the AI's output format.
+
+## Schema Validation
+
+The schema system validates against reserved property names:
+
+```typescript
+// These will cause TypeScript errors
+const invalidSchema: SchemaType = {
+  element: {
+    $attr: String,      // Error: $attr is reserved
+    $tagclosed: Boolean // Error: $tagclosed is reserved
+  }
+};
+
+// Correct way to handle attributes
+const validSchema: SchemaType = {
+  element: {
+    $customAttr: String,  // OK: Custom attributes use $ prefix
+    $score: Number,       // OK: User-defined attributes
+    content: String       // OK: Regular element content
+  }
+};
+```
+
+## Pipeline Helpers
+
+The prompt functions support three calling styles:
+
+```typescript
+const pipeline = (h: PipelineHelpers) => [
+  // 1. Simple string + schema
+  h.prompt('List colors', { 
+    color: [String] 
+  }),
+
+  // 2. Function returning config
+  h.prompt(input => ({
+    messages: [{
+      role: 'user',
+      content: `Analyze ${input}`
+    }],
+    schema: { analysis: String },
+    mapper: (input, output) => ({
+      input,
+      analysis: output.analysis
+    })
+  })),
+
+  // 3. Direct config object
+  h.prompt({
+    messages: [{
+      role: 'user',
+      content: 'List colors'
+    }],
+    schema: { color: [String] },
+    system: 'You are a color expert',
+    temperature: 0.7
+  })
+];
+```
+
+## Configuration Options
+
+Note that some options support both camelCase and snake_case:
+
+```typescript
+const config: PromptConfig = {
+  maxTokens: 1000,    // camelCase
+  max_tokens: 1000,   // snake_case - both are valid
+  temperature: 0.7
+};
+```

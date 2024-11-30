@@ -2,24 +2,25 @@
 
 ## Introduction
 
-A schema in xmllm defines how XML elements from an AI response should be transformed into JavaScript objects. It provides both type conversion and structural validation of the response.
+A schema in xmllm defines both:
+1. The XML structure you want the AI to generate
+2. How that XML should be transformed into JavaScript objects
 
-Here's a basic example:
-
+For example, this schema:
 ```javascript
 const schema = {
-  analysis: {
-    sentiment: String,     // Convert text to string
-    score: Number,         // Convert text to number (uses parseFloat)
-    categories: {          // Container for multiple items
-      category: [String]   // Array of category elements
+  analysis: {                // Tells AI to use <analysis> tag
+    sentiment: String,       // Tells AI to use <sentiment> inside <analysis>
+    score: Number,          // Tells AI to use <score> inside <analysis>
+    categories: {           // Tells AI to use <categories> container
+      category: [String]    // Tells AI to use multiple <category> tags
     }
   }
 };
+```
 
-const result = await stream('Analyze this text', { schema });
-
-// Processes XML like:
+Guides the AI to generate XML like this:
+```xml
 <analysis>
   <sentiment>positive</sentiment>
   <score>0.87</score>
@@ -28,20 +29,27 @@ const result = await stream('Analyze this text', { schema });
     <category>detailed</category>
   </categories>
 </analysis>
+```
 
-// Into structured data:
+And transforms it into this JavaScript object:
+```javascript
 {
   analysis: {
-    sentiment: "positive",
-    score: 0.87,
+    sentiment: "positive", // String conversion
+    score: 0.87,           // Number (parseFloat)conversion
     categories: {
-      category: ["technical", "detailed"]
+      category: [          // Array conversion
+        "technical",
+        "detailed"
+      ]
     }
   }
 }
 ```
 
-### Basic Type Conversion
+The schema structure directly mirrors the XML you want. Each property name becomes a tag name, and the value (String, Number, etc.) defines how to transform its content.
+
+### Basic Type Conversion (String / Number)
 
 The simplest schemas use `String` and `Number` to transform text content:
 
@@ -293,3 +301,28 @@ const hints = {
   }
 };
 ```
+
+## Reserved Properties
+
+Certain properties (prefixed with `$`) are reserved because they represent the internal structure of XML elements that transformers need to access:
+
+```javascript
+// These properties are reserved for transformer access:
+element: ({
+  $text,      // The element's text content
+  $attr,      // The element's attributes
+  $tagclosed, // Whether the element is complete
+  $children,  // The element's child nodes
+  $tagname    // The element's tag name
+}) => ({
+  // Your transformation here
+})
+
+// So in schemas, use:
+element: {
+  $type: String,     // Transform the 'type' attribute
+  content: String    // Transform the text content
+}
+```
+
+This separation ensures transformers can reliably access element properties without them being overwritten by schema transformations.

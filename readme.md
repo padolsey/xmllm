@@ -294,7 +294,9 @@ See the [Pipeline Guide](./docs/pipelines.md) for more advanced usage like paral
 
 * [Schema Guide](./docs/schemas.md)
 * [Provider Setup](./docs/providers.md)
-* [Streaming Guide](./docs/streaming.md)
+* [Stream Interface](./docs/stream.md)
+* [Streaming with a Schema](./docs/schema_streaming.md)
+* [Raw Streaming](./docs/raw_streaming.md)
 * [Advanced Pipeline Guide](./docs/pipelines.md)
 * [Complete API Reference](./docs/api.md)
 * [TypeScript Types Guide](./docs/typescript.md)

@@ -122,7 +122,7 @@ const result = await stream('What is 2+2?', {
 
 ## Client-Side Usage
 
-For browser usage, run the proxy server to handle API requests:
+For browser usage, run the proxy server to handle API requests (necessary in order to avoid having your API keys locally exposed):
 
 1. **Start the Proxy Server**
 ```bash

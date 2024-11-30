@@ -594,4 +594,146 @@ type ModelPreference =
 const result = await stream('Query', {
   model: ['claude:good', 'openai:good', 'claude:fast']  // Will try each in order
 });
-``` 
+```
+
+## Pipeline Functions
+
+### Prompt Functions
+
+The pipeline provides three prompt functions with similar signatures but different streaming behaviors:
+
+#### `prompt()` / `promptStream()` / `promptClosed()`
+
+These functions can be used in three ways:
+
+1. Basic string prompt with schema:
+```javascript
+prompt('List colors', { color: [String] })
+```
+
+2. Function returning config:
+```javascript
+prompt(input => ({
+  messages: [{
+    role: 'user',
+    content: `Analyze ${input}`
+  }],
+  schema: { analysis: String },
+  mapper: (input, output) => ({
+    input,
+    analysis: output.analysis
+  })
+}))
+```
+
+3. Direct config object:
+```javascript
+prompt({
+  messages: [{
+    role: 'user',
+    content: 'List colors'
+  }],
+  schema: { color: [String] },
+  system: 'You are a color expert',
+  mapper: (input, output) => output,
+  temperature: 0.7,
+  model: 'claude:fast'
+})
+```
+
+**Config Options:**
+```typescript
+{
+  messages: Message[];              // Message array
+  schema?: SchemaType;             // Transform schema
+  hints?: SchemaHints;             // Schema hints
+  mapper?: MapperFunction;         // Transform results
+  system?: string;                 // System prompt
+  model?: ModelPreference;         // Model selection
+  temperature?: number;            // 0-2, default 0.7
+  maxTokens?: number;              // Max tokens
+  cache?: boolean;                 // Enable caching
+  fakeResponse?: string;           // Test response
+  waitMessageString?: string;      // Progress message
+  waitMessageDelay?: number;       // Progress delay
+  retryMax?: number;               // Max retries
+  retryStartDelay?: number;        // Initial retry delay
+  retryBackoffMultiplier?: number; // Retry backoff
+  onChunk?: (chunk: string) => void; // Chunk callback
+}
+```
+
+**Key Differences:**
+- `prompt/promptStream`: Shows growing state including partial elements
+- `promptClosed`: Only yields complete elements
+- All functions support the same config options and signatures
+
+**Examples:**
+
+Basic usage:
+```javascript
+// Simple prompt with schema
+const colors = await prompt('List colors', { 
+  color: [String] 
+}).last();
+
+// With options
+const analysis = await promptClosed(
+  'Analyze text',
+  { sentiment: String },
+  { temperature: 0.9 }
+).last();
+
+// Full config object
+const result = await prompt({
+  messages: [{
+    role: 'user',
+    content: 'List colors'
+  }],
+  schema: { color: [String] },
+  temperature: 0.7
+}).last();
+```
+
+## Schema Validation
+
+### Reserved Properties
+
+The schema system validates against using certain reserved property names:
+
+```javascript
+// These will cause errors
+{
+  element: {
+    $attr: String,      // Error: $attr is reserved
+    $tagclosed: Boolean // Error: $tagclosed is reserved
+    $tagkey: Number,    // Error: $tagkey is reserved
+    $children: Array,   // Error: $children is reserved
+    $tagname: String    // Error: $tagname is reserved
+  }
+}
+
+// Correct way to handle attributes
+{
+  element: {
+    $customAttr: String,  // OK: Custom attributes use $ prefix
+    $score: Number,       // OK: User-defined attributes
+    content: String       // OK: Regular element content
+  }
+}
+```
+
+Reserved properties (`$attr`, `$tagclosed`, `$tagkey`, etc.) are used internally by the XML parser and cannot be used in schemas. Instead:
+
+1. Use direct `$` prefixed properties for attributes
+2. Use regular property names for element content
+3. Access reserved properties only in transformer functions:
+
+```javascript
+// In transformers, you can access reserved properties
+element: ({$attr, $text, $tagclosed}) => ({
+  content: $text,
+  attributes: $attr,
+  isComplete: $tagclosed
+})
+```

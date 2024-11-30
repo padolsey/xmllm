@@ -56,12 +56,7 @@ async function* xmllmGen(pipelineFn, {
     // sources.
     parse: (str) => {
       return function*(incoming) {
-        if (str) {
-          getCurrentParser().add(String(str));
-        }
-        if (typeof incoming == 'string' && incoming) {
-          getCurrentParser().add(incoming);
-        }
+        getCurrentParser().add(String(str));
         yield incoming;
       }
     },
@@ -75,6 +70,10 @@ async function* xmllmGen(pipelineFn, {
     mergeAggregate: streamops.mergeAggregate,
     take: streamops.take,
     batch: streamops.batch,
+    // batch: (n, ops) => {
+    //   console.log('xmllm: batch', n, ops);
+    //   return streamops.batch.call(this, n, ops);
+    // },
     skip: streamops.skip,
 
     text,
@@ -361,22 +360,38 @@ async function* xmllmGen(pipelineFn, {
     });
   }
 
-  function promptStream(prompt, schema, mapper, fakeResponse) {
 
-    if (typeof prompt == 'string' || typeof prompt == 'function') {
-      return promptComplex({
-        schema,
-        mapper,
-        fakeResponse,
-        system: '',
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
+
+  function promptStream(prompt, schema, options = {}, fakeResponse = null) {
+    let transformedConfig = prompt;
+    
+    if (typeof transformedConfig == 'function') {
+      return promptComplex(prompt, {
+        doMapSelectClosed: false
       });
     }
 
-    return promptComplex(prompt);
+    if (typeof transformedConfig === 'string') {
+      transformedConfig = {
+        system: '',
+        doMapSelectClosed: false,
+        messages: [
+          {
+            role: 'user',
+            content: transformedConfig
+          }
+        ]
+      }
+    }
+
+
+    return promptComplex({
+      schema,
+      fakeResponse,
+      ...transformedConfig,
+      ...options,
+      doMapSelectClosed: false
+    });
   }
 
   function promptComplex(config, additionalOverrides = {}) {

@@ -202,7 +202,12 @@ const streamResult = stream("Count to 3")
 expectType<XMLStream<number>>(streamResult);
 
 // Test stream() with schema - rename local variable
-const streamWithSchema = stream("Get users", {
+const streamWithSchema = stream<{
+  users: Array<{
+    name: string;
+    age: number;
+  }>
+}>("Get users", {
   schema: {
     users: [{
       name: String,
@@ -210,7 +215,12 @@ const streamWithSchema = stream("Get users", {
     }]
   }
 });
-expectType<XMLStream<any>>(streamWithSchema);
+expectType<XMLStream<{
+  users: Array<{
+    name: string;
+    age: number;
+  }>
+}>>(streamWithSchema);
 
 // Test stream chaining type inference - rename local variable
 const streamChained = stream("Test")
@@ -324,3 +334,60 @@ expectError(simple(
     hints  // Should error - hints requires schema
   }
 ));
+
+// Test prompt function signatures
+const pipeline = (helpers: PipelineHelpers) => [
+  // Test string prompt with schema
+  helpers.prompt('List colors', { color: [String] }),
+
+  // Test function returning config
+  helpers.prompt(input => ({
+    messages: [{
+      role: 'user',
+      content: `Analyze ${input}`
+    }],
+    schema: { analysis: String },
+    mapper: (input, output) => ({
+      input,
+      analysis: output.analysis
+    })
+  })),
+
+  // Test direct config object
+  helpers.prompt({
+    messages: [{
+      role: 'user',
+      content: 'List colors'
+    }],
+    schema: { color: [String] },
+    system: 'You are a color expert',
+    mapper: (input, output) => output,
+    temperature: 0.7,
+    model: 'claude:fast'
+  }),
+
+  // Test with options
+  helpers.prompt(
+    'List colors',
+    { color: [String] },
+    { temperature: 0.9 }
+  )
+];
+
+// Test invalid usages - these SHOULD produce type errors
+const invalidPipeline = (helpers: PipelineHelpers) => [
+  // Should error: Invalid message role
+  expectError(helpers.prompt({
+    messages: [{
+      role: 'invalid' as const,
+      content: 'test'
+    }]
+  })),
+
+  // Should error: Wrong temperature type
+  expectError(helpers.prompt(
+    'test',
+    { color: [String] },
+    { temperature: 'high' as const }
+  ))
+];

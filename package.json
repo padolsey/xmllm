@@ -47,7 +47,7 @@
     "htmlparser2": "^9.1.0",
     "lru-cache": "^11.0.0",
     "p-queue": "^8.0.1",
-    "streamops": "^0.1.16"
+    "streamops": "^0.1.17"
   },
   "devDependencies": {
     "@babel/cli": "^7.25.6",

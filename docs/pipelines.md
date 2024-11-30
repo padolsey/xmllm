@@ -1,11 +1,6 @@
 # Pipeline API
 
-The Pipeline API is xmllm's lower-level interface, giving you direct control over data flow. While `stream()` is great for common cases, pipelines let you:
-
-- Chain multiple prompts together
-- Process results in parallel
-- Transform data with stateful operations
-- Build custom streaming flows
+The Pipeline API is xmllm's lower-level interface, giving you direct control over data flow. While [`stream()`](./stream.md) is great for common cases, pipelines let you chain multiple requests and transformations together, process results in parallel, and build custom streaming flows. Under the surface pipelines are implemented via [streamops](https://github.com/padolsey/streamops).
 
 ## Core Concepts
 
@@ -17,7 +12,7 @@ import { xmllm } from 'xmllm';
 const stream = xmllm(({ prompt, map }) => [
   // 1. Raw Values
   42,                           // Single value
-  ['red', 'blue'],             // Array of values
+  ['red', 'blue'],              // Array of values
   
   // 2. Functions (one input → one output)
   (x) => x.toUpperCase(),      // Transform each value
@@ -31,13 +26,15 @@ const stream = xmllm(({ prompt, map }) => [
   
   // 4. Built-in Operations
   prompt('List colors'),        // AI prompt
-  map(x => x * 2)              // Transform
+  map(x => x * 2)               // Transform
 ]);
 
 for await (const update of stream) {
   console.log(update); // See results as they arrive
 }
 ```
+
+Pipeline operations are passed into the function you pass to `xmllm()`. This is done so we have a concept of a pipeline context where state is maintained between operations.
 
 ## Parallel Processing
 

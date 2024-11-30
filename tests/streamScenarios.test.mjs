@@ -163,8 +163,7 @@ describe('Common xmllm Scenarios', () => {
       // Get all poems
       const poems = await baseStream
         .select('poem')
-        .all()
-        .value();
+        .all();
 
       // Get first haiku
       const firstHaiku = await baseStream
@@ -204,8 +203,7 @@ describe('Common xmllm Scenarios', () => {
             b: parseInt(color.rgb[0].b[0].$text)
           }
         }))
-        .all()
-        .value();
+        .all();
 
       expect(colors).toEqual([
         { name: 'Red', rgb: { r: 255, g: 0, b: 0 } },
@@ -242,21 +240,18 @@ describe('Common xmllm Scenarios', () => {
           author: book.author[0].$text
         }))
         .all()
-        .value();
 
       // Get fiction books specifically
       const fictionBooks = await baseStream
         .select('shelf[category="fiction"] > book')
         .map(book => book.title[0].$text)
         .all()
-        .value();
 
       // Get all authors
       const authors = await baseStream
         .select('author')
         .map(author => author.$text)
-        .all()
-        .value();
+        .all();
 
       expect(allBooks).toEqual([
         { title: 'Dune', author: 'Herbert' },

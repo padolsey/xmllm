@@ -36,7 +36,7 @@ class XMLStream {
   }
 
   // Return new XMLStream that will collect all items
-  all() {
+  accrue() {
     return new XMLStream([
       ...this.pipeline,
       ['accrue'],  // Collect all items into an array
@@ -69,14 +69,14 @@ class XMLStream {
     ], this.options);
   }
 
-  async allValues() {
+  async all() {
     const result = [];
     for await (const value of this) {
       result.push(value);
     }
     return result;
   }
-
+  
   async value() {
     logger.warn('Warning: value() is deprecated. Use first() or last() instead.');
     return this.first();
@@ -117,6 +117,13 @@ class XMLStream {
     ], this.options);
   }
 
+  pipe(genFn) {
+    return new XMLStream([
+      ...this.pipeline,
+      ['pipe', genFn]
+    ], this.options);
+  }
+
   raw() {
     return new XMLStream([
       ...this.pipeline,
@@ -147,8 +154,20 @@ class XMLStream {
       async next() {
         try {
           if (!iterator) {
-            iterator = xmllm(({req, select, mergeAggregate, map, filter, accrue, reduce, promptComplex, take, skip}) => {
-              return pipeline.map(([type, arg]) => {
+            iterator = xmllm(({
+              req,
+              select,
+              mergeAggregate,
+              map,
+              filter,
+              accrue,
+              reduce,
+              promptComplex,
+              take,
+              skip,
+              batch
+            }) => {
+              return pipeline.map(([type, arg, arg2]) => {
                 switch(type) {
                   case 'select': return select.call(this, arg);
                   case 'mergeAggregate': return mergeAggregate.call(this, arg);
@@ -160,6 +179,7 @@ class XMLStream {
                   case 'reduce': return reduce.call(this, arg.reducer, arg.initialValue);
                   case 'skip': return skip.call(this, arg);
                   case 'take': return take.call(this, arg);
+                  case 'batch': return batch.call(this, arg, arg2);
                   case 'req': return arg.schema ? promptComplex.call(this, arg) : req.call(this, arg);
                 }
 
@@ -208,10 +228,11 @@ class XMLStream {
 
   // Convenience method for schema-based collection
   async collect() {
-    return this
-      .all()
-      .reduce((acc, chunk) => ({...acc, ...chunk}), {})
-      .value();
+    const results = [];
+    for await (const item of this) {
+      results.push(item);
+    }
+    return results;
   }
 
   merge() {
@@ -292,9 +313,23 @@ class XMLStream {
       }
     }
   }
+
+  /**
+   * Process stream in batches of specified size
+   * @param {number} size - Size of each batch
+   * @param {Object} options - Batch options
+   * @param {boolean} options.yieldIncomplete - Whether to yield incomplete final batch
+   */
+  batch(size, options = { yieldIncomplete: true }) {
+    return new XMLStream([
+      ...this.pipeline,
+      ['batch', size, options]  // Pass both size and options to existing batch operator
+    ], this.options);
+  }
 }
 
 export default XMLStream;
+
 function parseError(error) {
   // Start with the raw message
   let message = error.message || '';
@@ -331,3 +366,7 @@ function parseError(error) {
   return { type, message };
 }
 
+function isGenerator(fn) {
+  return fn?.constructor?.name === 'GeneratorFunction' || 
+         fn?.constructor?.name === 'AsyncGeneratorFunction';
+}

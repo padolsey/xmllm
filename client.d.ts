@@ -1,4 +1,12 @@
-import type { PipelineHelpers, XmllmOptions, SchemaType, StreamOptions, XMLStream } from './index';
+import type { 
+  PipelineHelpers, 
+  XmllmOptions, 
+  SchemaType, 
+  StreamOptions, 
+  XMLStream,
+  XMLElement,
+  PromptFn
+} from './index';
 
 export interface IClientProvider {
   createStream(payload: any): Promise<ReadableStream>;
@@ -15,27 +23,30 @@ export function xmllm<T = any>(
   options?: Omit<XmllmOptions, 'clientProvider'>
 ): AsyncGenerator<T>;
 
-export function stream<T = Record<string, any>>(
+export function stream<T = XMLElement>(
   promptOrConfig: string | { 
     prompt: string;
     schema?: SchemaType;
     system?: string;
-    closed?: boolean;
+    mode?: 'state' | 'delta' | 'snapshot' | 'realtime';
+    onChunk?: (chunk: string) => void;
+    [key: string]: any;
   },
-  clientProvider: ClientProvider | string,
-  options?: StreamOptions
+  options: StreamOptions & {
+    clientProvider: ClientProvider | string;
+  }
 ): XMLStream<T>;
 
 export function simple<T = any>(
   prompt: string,
   schema: SchemaType,
-  clientProvider: ClientProvider | string,
-  options?: StreamOptions
+  options: Omit<StreamOptions, 'schema'> & {
+    clientProvider: ClientProvider | string;
+  }
 ): Promise<T>;
 
 export { PipelineHelpers };
 
-// Change the default export to use declare
 declare const _default: {
   ClientProvider: typeof ClientProvider;
   xmllm: typeof xmllm;

@@ -1,7 +1,4 @@
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
@@ -89,8 +86,8 @@ var XMLStream = /*#__PURE__*/function () {
 
     // Return new XMLStream that will collect all items
   }, {
-    key: "all",
-    value: function all() {
+    key: "accrue",
+    value: function accrue() {
       return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['accrue'],
       // Collect all items into an array
       // STREAMOPS LIBRARY NOTE:
@@ -121,9 +118,9 @@ var XMLStream = /*#__PURE__*/function () {
       }]]), this.options);
     }
   }, {
-    key: "allValues",
+    key: "all",
     value: function () {
-      var _allValues = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+      var _all = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
         var result, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, value;
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
@@ -183,10 +180,10 @@ var XMLStream = /*#__PURE__*/function () {
           }
         }, _callee2, this, [[3, 15, 19, 29], [20,, 24, 28]]);
       }));
-      function allValues() {
-        return _allValues.apply(this, arguments);
+      function all() {
+        return _all.apply(this, arguments);
       }
-      return allValues;
+      return all;
     }()
   }, {
     key: "value",
@@ -237,6 +234,11 @@ var XMLStream = /*#__PURE__*/function () {
       }]]), this.options);
     }
   }, {
+    key: "pipe",
+    value: function pipe(genFn) {
+      return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['pipe', genFn]]), this.options);
+    }
+  }, {
     key: "raw",
     value: function raw() {
       return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['raw']]), this.options);
@@ -278,11 +280,13 @@ var XMLStream = /*#__PURE__*/function () {
                         reduce = _ref.reduce,
                         promptComplex = _ref.promptComplex,
                         take = _ref.take,
-                        skip = _ref.skip;
+                        skip = _ref.skip,
+                        batch = _ref.batch;
                       return pipeline.map(function (_ref2) {
-                        var _ref3 = _slicedToArray(_ref2, 2),
+                        var _ref3 = _slicedToArray(_ref2, 3),
                           type = _ref3[0],
-                          arg = _ref3[1];
+                          arg = _ref3[1],
+                          arg2 = _ref3[2];
                         switch (type) {
                           case 'select':
                             return select.call(_this, arg);
@@ -309,6 +313,8 @@ var XMLStream = /*#__PURE__*/function () {
                             return skip.call(_this, arg);
                           case 'take':
                             return take.call(_this, arg);
+                          case 'batch':
+                            return batch.call(_this, arg, arg2);
                           case 'req':
                             return arg.schema ? promptComplex.call(_this, arg) : req.call(_this, arg);
                         }
@@ -386,17 +392,64 @@ var XMLStream = /*#__PURE__*/function () {
     key: "collect",
     value: function () {
       var _collect = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee6() {
+        var results, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
         return _regeneratorRuntime().wrap(function _callee6$(_context6) {
           while (1) switch (_context6.prev = _context6.next) {
             case 0:
-              return _context6.abrupt("return", this.all().reduce(function (acc, chunk) {
-                return _objectSpread(_objectSpread({}, acc), chunk);
-              }, {}).value());
-            case 1:
+              results = [];
+              _iteratorAbruptCompletion2 = false;
+              _didIteratorError2 = false;
+              _context6.prev = 3;
+              _iterator2 = _asyncIterator(this);
+            case 5:
+              _context6.next = 7;
+              return _iterator2.next();
+            case 7:
+              if (!(_iteratorAbruptCompletion2 = !(_step2 = _context6.sent).done)) {
+                _context6.next = 13;
+                break;
+              }
+              item = _step2.value;
+              results.push(item);
+            case 10:
+              _iteratorAbruptCompletion2 = false;
+              _context6.next = 5;
+              break;
+            case 13:
+              _context6.next = 19;
+              break;
+            case 15:
+              _context6.prev = 15;
+              _context6.t0 = _context6["catch"](3);
+              _didIteratorError2 = true;
+              _iteratorError2 = _context6.t0;
+            case 19:
+              _context6.prev = 19;
+              _context6.prev = 20;
+              if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
+                _context6.next = 24;
+                break;
+              }
+              _context6.next = 24;
+              return _iterator2["return"]();
+            case 24:
+              _context6.prev = 24;
+              if (!_didIteratorError2) {
+                _context6.next = 27;
+                break;
+              }
+              throw _iteratorError2;
+            case 27:
+              return _context6.finish(24);
+            case 28:
+              return _context6.finish(19);
+            case 29:
+              return _context6.abrupt("return", results);
+            case 30:
             case "end":
               return _context6.stop();
           }
-        }, _callee6, this);
+        }, _callee6, this, [[3, 15, 19, 29], [20,, 24, 28]]);
       }));
       function collect() {
         return _collect.apply(this, arguments);
@@ -448,11 +501,11 @@ var XMLStream = /*#__PURE__*/function () {
       var _last = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7() {
         var n,
           allItems,
-          _iteratorAbruptCompletion2,
-          _didIteratorError2,
-          _iteratorError2,
-          _iterator2,
-          _step2,
+          _iteratorAbruptCompletion3,
+          _didIteratorError3,
+          _iteratorError3,
+          _iterator3,
+          _step3,
           value,
           errorInfo,
           _args7 = arguments;
@@ -468,22 +521,22 @@ var XMLStream = /*#__PURE__*/function () {
               throw new Error('n must be greater than 0');
             case 4:
               allItems = [];
-              _iteratorAbruptCompletion2 = false;
-              _didIteratorError2 = false;
+              _iteratorAbruptCompletion3 = false;
+              _didIteratorError3 = false;
               _context7.prev = 7;
-              _iterator2 = _asyncIterator(this);
+              _iterator3 = _asyncIterator(this);
             case 9:
               _context7.next = 11;
-              return _iterator2.next();
+              return _iterator3.next();
             case 11:
-              if (!(_iteratorAbruptCompletion2 = !(_step2 = _context7.sent).done)) {
+              if (!(_iteratorAbruptCompletion3 = !(_step3 = _context7.sent).done)) {
                 _context7.next = 17;
                 break;
               }
-              value = _step2.value;
+              value = _step3.value;
               allItems.push(value);
             case 14:
-              _iteratorAbruptCompletion2 = false;
+              _iteratorAbruptCompletion3 = false;
               _context7.next = 9;
               break;
             case 17:
@@ -492,24 +545,24 @@ var XMLStream = /*#__PURE__*/function () {
             case 19:
               _context7.prev = 19;
               _context7.t0 = _context7["catch"](7);
-              _didIteratorError2 = true;
-              _iteratorError2 = _context7.t0;
+              _didIteratorError3 = true;
+              _iteratorError3 = _context7.t0;
             case 23:
               _context7.prev = 23;
               _context7.prev = 24;
-              if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
+              if (!(_iteratorAbruptCompletion3 && _iterator3["return"] != null)) {
                 _context7.next = 28;
                 break;
               }
               _context7.next = 28;
-              return _iterator2["return"]();
+              return _iterator3["return"]();
             case 28:
               _context7.prev = 28;
-              if (!_didIteratorError2) {
+              if (!_didIteratorError3) {
                 _context7.next = 31;
                 break;
               }
-              throw _iteratorError2;
+              throw _iteratorError3;
             case 31:
               return _context7.finish(28);
             case 32:
@@ -546,6 +599,21 @@ var XMLStream = /*#__PURE__*/function () {
       }
       return last;
     }()
+    /**
+     * Process stream in batches of specified size
+     * @param {number} size - Size of each batch
+     * @param {Object} options - Batch options
+     * @param {boolean} options.yieldIncomplete - Whether to yield incomplete final batch
+     */
+  }, {
+    key: "batch",
+    value: function batch(size) {
+      var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {
+        yieldIncomplete: true
+      };
+      return new XMLStream([].concat(_toConsumableArray(this.pipeline), [['batch', size, options] // Pass both size and options to existing batch operator
+      ]), this.options);
+    }
   }]);
 }();
 export default XMLStream;
@@ -584,4 +652,8 @@ function parseError(error) {
     type: type,
     message: message
   };
+}
+function isGenerator(fn) {
+  var _fn$constructor, _fn$constructor2;
+  return (fn === null || fn === void 0 || (_fn$constructor = fn.constructor) === null || _fn$constructor === void 0 ? void 0 : _fn$constructor.name) === 'GeneratorFunction' || (fn === null || fn === void 0 || (_fn$constructor2 = fn.constructor) === null || _fn$constructor2 === void 0 ? void 0 : _fn$constructor2.name) === 'AsyncGeneratorFunction';
 }

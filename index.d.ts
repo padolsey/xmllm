@@ -37,9 +37,9 @@ export interface StreamConfig {
 
 // Pipeline helper types
 export type PromptFn = (
-  prompt: string | ((input: any) => string) | PromptConfig,
+  promptOrConfig: string | ((input: any) => PromptConfig) | PromptConfig,
   schema?: SchemaType,
-  mapper?: (input: any, output: any) => any,
+  options?: Partial<PromptConfig>,
   fakeResponse?: string
 ) => AsyncGenerator<any>;
 
@@ -156,19 +156,25 @@ export type StreamFunction = (payload: {
 // Add this with the other interfaces
 export interface PromptConfig {
   messages?: Message[];
+  schema?: SchemaType;
+  hints?: Record<string, any>;
+  mapper?: (input: any, output: any) => any;
   system?: string;
   model?: ModelPreference;
-  max_tokens?: number;
   temperature?: number;
+  maxTokens?: number;
+  max_tokens?: number;
   cache?: boolean;
+  fakeResponse?: string;
+  waitMessageString?: string;
+  waitMessageDelay?: number;
   retryMax?: number;
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
-  constraints?: {
-    rpmLimit?: number;
-  };
-  schema?: SchemaType;
-  hints?: Record<string, any>;
+  onChunk?: (chunk: string) => void;
+  doMapSelectClosed?: boolean;
+  includeOpenTags?: boolean;
+  doDedupe?: boolean;
 }
 
 // Add back error types
@@ -268,8 +274,8 @@ export interface StreamOptions extends XmllmOptions {
   maxTokens?: number;
 }
 
-export interface XMLStream<T = any> {
-  select(selector: string): XMLStream<T>;
+export interface XMLStream<T = XMLElement> {
+  select(selector: string): XMLStream<XMLElement>;
   map<U>(fn: (value: T) => U): XMLStream<U>;
   filter(fn: (value: T) => boolean): XMLStream<T>;
   text(): XMLStream<string>;
@@ -277,24 +283,28 @@ export interface XMLStream<T = any> {
   value(): Promise<T>;
   closedOnly(): XMLStream<T>;
   complete(): XMLStream<T>;  // deprecated
-  all(): XMLStream<T[]>;
+  all(): Promise<T[]>;
   first(): Promise<T>;
+  last(n?: number): Promise<T>;
   take(n: number): XMLStream<T>;
   skip(n: number): XMLStream<T>;
   raw(): XMLStream<string>;
   debug(label?: string): XMLStream<T>;
-  collect(): Promise<T>;
+  collect(): Promise<T[]>;
   reduce<U>(reducer: (acc: U, value: T) => U, initialValue: U): XMLStream<U>;
   mergeAggregate(): XMLStream<T[]>;
+  batch(size: number, options?: { yieldIncomplete?: boolean }): XMLStream<T[]>;
 }
 
 // Add these function declarations
-export function stream<T = Record<string, any>>(
+export function stream<T = XMLElement>(
   promptOrConfig: string | { 
     prompt: string;
     schema?: SchemaType;
     system?: string;
-    closed?: boolean;
+    mode?: 'state' | 'delta' | 'snapshot' | 'realtime';
+    onChunk?: (chunk: string) => void;
+    [key: string]: any;
   },
   options?: StreamOptions
 ): XMLStream<T>;

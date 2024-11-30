@@ -531,20 +531,31 @@ function _xmllmGen() {
                 };
               }();
             };
-            promptStream = function _promptStream(prompt, schema, mapper, fakeResponse) {
-              if (typeof prompt == 'string' || typeof prompt == 'function') {
-                return promptComplex({
-                  schema: schema,
-                  mapper: mapper,
-                  fakeResponse: fakeResponse,
-                  system: '',
-                  messages: [{
-                    role: 'user',
-                    content: prompt
-                  }]
+            promptStream = function _promptStream(prompt, schema) {
+              var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+              var fakeResponse = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+              var transformedConfig = prompt;
+              if (typeof transformedConfig == 'function') {
+                return promptComplex(prompt, {
+                  doMapSelectClosed: false
                 });
               }
-              return promptComplex(prompt);
+              if (typeof transformedConfig === 'string') {
+                transformedConfig = {
+                  system: '',
+                  doMapSelectClosed: false,
+                  messages: [{
+                    role: 'user',
+                    content: transformedConfig
+                  }]
+                };
+              }
+              return promptComplex(_objectSpread(_objectSpread(_objectSpread({
+                schema: schema,
+                fakeResponse: fakeResponse
+              }, transformedConfig), options), {}, {
+                doMapSelectClosed: false
+              }));
             };
             promptClosed = function _promptClosed(prompt, schema) {
               var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
@@ -878,15 +889,10 @@ function _xmllmGen() {
                   return _regeneratorRuntime().wrap(function _callee$(_context) {
                     while (1) switch (_context.prev = _context.next) {
                       case 0:
-                        if (str) {
-                          getCurrentParser().add(String(str));
-                        }
-                        if (typeof incoming == 'string' && incoming) {
-                          getCurrentParser().add(incoming);
-                        }
-                        _context.next = 4;
+                        getCurrentParser().add(String(str));
+                        _context.next = 3;
                         return incoming;
-                      case 4:
+                      case 3:
                       case "end":
                         return _context.stop();
                     }
@@ -902,6 +908,10 @@ function _xmllmGen() {
               mergeAggregate: streamops.mergeAggregate,
               take: streamops.take,
               batch: streamops.batch,
+              // batch: (n, ops) => {
+              //   console.log('xmllm: batch', n, ops);
+              //   return streamops.batch.call(this, n, ops);
+              // },
               skip: streamops.skip,
               text: text,
               val: text,

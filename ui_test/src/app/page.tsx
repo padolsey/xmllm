@@ -8,138 +8,201 @@ import { ClientProvider, xmllm, stream } from '../../../src/xmllm-client.mjs'
 import { useTheme } from './theme-provider'
 
 const clientProvider = new ClientProvider('http://localhost:3124/api/stream')
+const DEFAULT_MODEL = 'togetherai:fast'
 
 // Just store the example code strings
 const tests = {
-  raw: {
-    name: 'Raw Text Streaming',
-    description: 'Stream raw LLM output as it arrives',
-    code: `const rawStream = stream('Tell me a story', {
-  clientProvider
-})
-.raw();
+  pipeline: {
+    name: 'Pipeline: State Tracking',
+    description: 'Track and analyze colors as they arrive using pipelines',
+    code: `const colorTracker = xmllm(({ prompt }) => [
+  // Get initial response
+  prompt({
+    messages: [{
+      role: 'user',
+      content: 'List three colors'
+    }],
+    schema: {
+      colors: { color: [String] }
+    },
+    model: DEFAULT_MODEL
+  }),
 
-for await (const chunk of rawStream) {
-  setOutput(prev => prev + chunk);
+  function*(incoming) {
+    const seen = new Set();
+    
+    // Process incoming colors if they exist
+    if (incoming?.colors?.color) {
+      const newColors = incoming.colors.color
+        .filter(c => !seen.has(c));
+      
+      newColors.forEach(c => seen.add(c));
+      
+      yield {
+        colors: newColors,
+        total: seen.size
+      };
+    }
+  }
+], clientProvider);
+
+for await (const update of colorTracker) {
+  setOutput(prev => prev + JSON.stringify(update, null, 2) + '\\n');
 }`
   },
 
-  streaming: {
-    name: 'Element Streaming',
-    description: 'Process elements as they arrive',
-    code: `const thoughtStream = stream('Share some deep thoughts I.e. <thought>...</thought> etc.', {
-  clientProvider
-})
-.select('thought')
-.map(({$text}) => $text);
+  pipelineChained: {
+    name: 'Pipeline: Chained Analysis',
+    description: 'Chain multiple prompts to build on previous responses',
+    code: `const analysis = xmllm(({ prompt, promptClosed }) => [
+  // First prompt gets a scientist
+  promptClosed('Name a scientist', {
+    scientist: {
+      name: String,
+      field: String
+    }
+  }, {
+    model: DEFAULT_MODEL
+  }),
 
-for await (const thought of thoughtStream) {
-  setOutput(prev => prev + thought + '\\n');
+  promptClosed((incoming) => {
+    this.scientist = incoming.scientist;
+    return {
+      messages: [{
+        role: 'user',
+        content: \`What was \${incoming.scientist.name}'s biggest discovery?\`,
+      }],
+      schema: {
+        discovery: {
+          year: Number,
+          description: String
+        }
+      },
+      model: DEFAULT_MODEL
+    };
+  }),
+
+  // Combine results
+  ({discovery}) => {
+    return {
+      scientist: this.scientist,
+      discovery
+    };
+  }
+], clientProvider);
+
+for await (const update of analysis) {
+  setOutput(prev => prev + JSON.stringify(update, null, 2) + '\\n');
 }`
   },
 
-  partial: {
-    name: 'Real-time Updates',
-    description: 'See content grow within elements',
-    code: `const storyStream = stream('Write a story in tags: <story>...</story>', {
-  clientProvider
-})
-.select('story');
+  deltaMode: {
+    name: 'Delta Mode Streaming',
+    description: 'Only see complete elements as they arrive',
+    code: `const thoughtStream = stream('Share some deep thoughts', {
+  clientProvider,
+  model: DEFAULT_MODEL,
+  mode: 'delta',
+  schema: {
+    thought: [String]
+  }
+});
+
+for await (const update of thoughtStream) {
+  setOutput(prev => prev + JSON.stringify(update, null, 2) + '\\n');
+}`
+  },
+
+  realtimeMode: {
+    name: 'Realtime Story Updates',
+    description: 'Watch content grow within elements',
+    code: `const storyStream = stream('Write a story with <scene>...</scene> tags', {
+  clientProvider,
+  model: DEFAULT_MODEL,
+  mode: 'realtime',
+  schema: {
+    scene: [String]
+  }
+});
 
 for await (const update of storyStream) {
-  setOutput(update.$text);
+  setOutput(JSON.stringify(update, null, 2));
 }`
   },
 
-  schema: {
-    name: 'Schema Analysis',
-    description: 'Get complete structured analysis',
+  structuredAnalysis: {
+    name: 'Complex Schema Analysis',
+    description: 'Extract rich structured data with validation',
     code: `const analysis = await stream({
-  prompt: 'Analyze this tweet: "Just landed my first dev job!"',
-  closed: true,
+  prompt: 'Analyze this tweet: "Just saw the sweetest puppy!"',
+  model: DEFAULT_MODEL,
   schema: {
     sentiment: String,
     topics: [String],
     insights: [{
       point: String,
-      reasoning: String
+      reasoning: String,
+      confidence: Number
     }]
   }
 }, {
   clientProvider
-})
-.merge()
-.value();
+}).last();
 
 setOutput(JSON.stringify(analysis, null, 2));`
   },
 
-  advanced: {
-    name: 'Advanced Selection',
-    description: 'Multiple selectors and nested elements',
-    code: `const baseStream = stream(\`List 3 fiction books and 3 non-fiction like so:
+  nestedSelectors: {
+    name: 'Advanced XML Navigation',
+    description: 'Complex selectors and attribute filtering',
+    code: `const baseStream = stream(\`List books by genre:
   <shelf category="fiction">
     <book><title>___</title>
     <author>___</author></book>
   </shelf>\`, {
-  model: 'claude:fast',
-  clientProvider
+  clientProvider,
+  model: DEFAULT_MODEL
 });
-
-// Get all books
-const allBooks = await baseStream
-  .select('book')
-  .filter(b => b.title?.[0].$tagclosed && b.author?.[0].$tagclosed)
-  .map(({title, author}) => {
-    return {title: title[0].$text, author: author[0].$text}
-  })
-  .all().value()
 
 // Get fiction books specifically
 const fictionBooks = await baseStream
   .select('shelf[category="fiction"] > book')
-  .filter(b => b.title?.[0].$tagclosed && b.author?.[0].$tagclosed)
-  .map(({title, author}) => {
-    return {title: title[0].$text, author: author[0].$text}
-  })
-  .all().value()
+  .closedOnly()
+  .map(({title, author}) => ({
+    title: title[0].$text,
+    author: author[0].$text
+  }))
+  .all()
 
-setOutput(JSON.stringify({
-  all: allBooks,
-  fiction: fictionBooks
-}, null, 2));`
+setOutput(JSON.stringify(fictionBooks, null, 2));`
   },
 
-  betterPrompting: {
-    name: 'Structured Data',
-    description: 'Transform complex XML structures',
+  colorSchema: {
+    name: 'Rich Data Transformation',
+    description: 'Complex nested schema with validation',
     code: `const colorStream = stream(
-  'List 3 colors with their RGB values using this structure:\\n' +
+  'List 3 colors with RGB values:\\n' +
   '<color>\\n' +
   '  <name>purple</name>\\n' +
-  '  <rgb>\\n' +
-  '    <r>128</r>\\n' +
-  '    <g>0</g>\\n' +
-  '    <b>128</b>\\n' +
-  '  </rgb>\\n' +
+  '  <rgb r="128" g="0" b="128"/>\\n' +
   '</color>',
   {
     clientProvider,
-    system: 'You are a color expert'
-  }
-)
-.select('color')
-.map(color => {
-  console.log('color', color);
-  return {
-    name: color?.name?.[0]?.$text,
-    rgb: {
-      r: color?.rgb?.[0]?.r?.[0].$text,
-      g: color?.rgb?.[0]?.g?.[0].$text,
-      b: color?.rgb?.[0]?.b?.[0].$text
+    model: DEFAULT_MODEL,
+    schema: {
+      color: [{
+        name: String,
+        rgb: {
+          $attr: {
+            r: Number,
+            g: Number,
+            b: Number
+          }
+        }
+      }]
     }
   }
-}).filter(f => f.name && f.rgb.r && f.rgb.g && f.rgb.b)
+);
 
 for await (const color of colorStream) {
   setOutput(prev => prev + JSON.stringify(color, null, 2) + '\\n');
@@ -151,7 +214,7 @@ export default function Home() {
   const { theme } = useTheme()
   const [output, setOutput] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const [selectedTest, setSelectedTest] = useState<string>('streaming')
+  const [selectedTest, setSelectedTest] = useState<string>('pipeline')
   const [editedCode, setEditedCode] = useState<string>('')
 
   async function runTest() {
@@ -165,6 +228,7 @@ export default function Home() {
         'clientProvider',
         'setOutput',
         'stream',
+        'DEFAULT_MODEL',
         `return (async () => {
           try {
             ${code}
@@ -175,7 +239,7 @@ export default function Home() {
         })()
       `)
 
-      await fn(xmllm, clientProvider, setOutput, stream)
+      await fn(xmllm, clientProvider, setOutput, stream, DEFAULT_MODEL)
     } catch (error) {
       console.error('Test error:', error)
       setOutput(prev => prev + `\nError: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -199,7 +263,7 @@ export default function Home() {
           {/* Left column - Test controls */}
           <div className="space-y-6">
             {/* Test Selection Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               {Object.entries(tests).map(([key, test]) => (
                 <button
                   key={key}
@@ -207,14 +271,14 @@ export default function Home() {
                     setSelectedTest(key)
                     setOutput('')
                   }}
-                  className={`p-4 rounded-lg border transition-colors text-left ${
+                  className={`p-3 rounded-lg border transition-colors text-left ${
                     selectedTest === key 
                       ? 'bg-primary border-primary text-primary-foreground' 
                       : 'bg-card border-border hover:border-primary/50'
                   }`}
                 >
-                  <div className="font-bold">{test.name}</div>
-                  <div className={`text-sm mt-1 ${
+                  <div className="font-bold text-sm">{test.name}</div>
+                  <div className={`text-xs mt-1 ${
                     selectedTest === key 
                       ? 'text-primary-foreground/80' 
                       : 'text-muted-foreground'

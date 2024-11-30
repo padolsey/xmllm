@@ -6,7 +6,7 @@ const createMockReader = (responses) => {
   return {
     read: jest.fn(async () => {
       if (index >= responses.length) {
-        return { done: true };
+        return { done: true, value: undefined };
       }
       return {
         value: new TextEncoder().encode(responses[index++]),
@@ -979,5 +979,81 @@ describe('Stream Mode Support', () => {
         color: ['red', 'blue']
       }
     ]);
+  });
+});
+
+describe('Stream Terminal Operations', () => {
+  it('should collect all results with collect()', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<items><item>1</item><item>2</item><item>3</item></items>'
+      ])
+    }));
+
+    // Using non-array schema to get individual items
+    const results = await stream('List items', {
+      llmStream: TestStream,
+      schema: { item: [String] },  // Not Array(String)
+      mode: 'snapshot'  // Only get complete items
+    }).collect();
+
+    expect(results).toEqual([
+      { item: ['1', '2', '3'] }
+    ]);
+  });
+
+  it('should deprecate value() in favor of first()', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<items><item>1</item><item>2</item></items>'
+      ])
+    }));
+
+    const stream1 = stream('List items', {
+      llmStream: TestStream,
+      schema: { item: String }
+    });
+
+    // Both should give same result
+    const valueResult = await stream1.value();
+    const firstResult = await stream1.first();
+
+    expect(valueResult).toEqual(firstResult);
+    expect(valueResult).toEqual({ item: '1' });
+  });
+
+  it('should collect results with all()', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<items><item>1</item><item>2</item><item>3</item></items>'
+      ])
+    }));
+
+    const results = await stream('List items', {
+      llmStream: TestStream
+    })
+      .select('item')
+      .map(({$text}) => parseInt($text))
+      .all();
+
+    expect(results).toEqual([1, 2, 3]);
+  });
+
+  it('should accumulate results with accrue()', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<items><item>1</item><item>2</item><item>3</item></items>'
+      ])
+    }));
+
+    const results = await stream('List items', {
+      llmStream: TestStream
+    })
+      .select('item')
+      .map(({$text}) => parseInt($text))
+      .accrue()
+      .last();
+
+    expect(results).toEqual([1, 2, 3]);
   });
 }); 

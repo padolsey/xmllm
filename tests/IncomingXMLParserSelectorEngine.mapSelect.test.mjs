@@ -380,7 +380,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     engine.add(`
       <root>
         <simple>Just text</simple>
-        <complex attr="value">Text and attribute</complex>
+        <complex thing="value">Text and attribute</complex>
       </root>
     `);
     
@@ -389,7 +389,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         simple: String,
         complex: {
           $text: String,
-          $attr: String
+          $thing: String
         }
       }
     });
@@ -399,7 +399,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         simple: "Just text",
         complex: {
           $text: "Text and attribute",
-          $attr: "value"
+          $thing: "value"
         }
       }
     });

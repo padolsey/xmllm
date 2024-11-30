@@ -23,6 +23,15 @@ class Node {
 }
 
 class IncomingXMLParserSelectorEngine {
+  static RESERVED_PROPERTIES = new Set([
+    '$attr',
+    '$tagclosed',
+    '$tagkey',
+    '$children',
+    '$tagname',
+    '__isNodeObj__'
+  ]);
+
   constructor() {
     this.buffer = '';
     this.parsedData = [];
@@ -96,24 +105,36 @@ class IncomingXMLParserSelectorEngine {
     let cached = this.normalizedSchemaCache.get(schema);
     if (cached) return cached;
 
-    // Helper to normalize the new [] syntax to old syntax
-    const normalizeSchema = (schema) => {
+    // Helper to validate and normalize schema
+    const validateAndNormalizeSchema = (schema, path = '') => {
       // Handle primitives and functions
       if (typeof schema !== 'object' || schema === null) return schema;
       if (typeof schema === 'function') return schema;
-      if (Array.isArray(schema)) return schema.map(normalizeSchema);
+      if (Array.isArray(schema)) return schema.map(s => validateAndNormalizeSchema(s, `${path}[]`));
+
+      // Check for reserved properties
+      Object.keys(schema).forEach(key => {
+        if (IncomingXMLParserSelectorEngine.RESERVED_PROPERTIES.has(key)) {
+          throw new Error(
+            `Invalid schema: "${key}" at "${path}" is a reserved node property and cannot be used in schemas`
+          );
+        }
+      });
 
       const result = {};
       for (let [key, value] of Object.entries(schema)) {
-        result[key] = normalizeSchema(value);
+        result[key] = validateAndNormalizeSchema(
+          value, 
+          path ? `${path}.${key}` : key
+        );
       }
       return result;
     };
 
-    // Normalize and cache result
+    // Normalize and validate
     const normalized = Array.isArray(schema)
-      ? schema.map(m => normalizeSchema(m))
-      : normalizeSchema(schema);
+      ? schema.map(m => validateAndNormalizeSchema(m))
+      : validateAndNormalizeSchema(schema);
     
     this.normalizedSchemaCache.set(schema, normalized);
     return normalized;

@@ -146,26 +146,38 @@ describe('xmllm', () => {
           yield "Artificial Intelligence";
         },
         prompt(
-          topic => `Provide a subtopic for "${topic}" from a scientific perspective.`,
-          {
-            subtopic: [{
-              perspective: String,
-              title: String
-            }]
+          topic => {
+            return {
+              messages: [{
+                role: 'user',
+                content: `Provide a subtopic for "${topic}" from a scientific perspective.`
+              }],
+              schema: {
+                subtopic: [{
+                perspective: String,
+                  title: String
+                }]
+              }
+            }
           }
         ),
         filter(thing => !!thing.subtopic),
         prompt(
-          (thing) => {
-            const {subtopic: [{perspective, title}]} = thing;
-            return `Give a brief explanation of "${title}" from a ${perspective} perspective.`;
-          },
-          {
-            explanation: String
-          },
-          function({subtopic}, {explanation}) {
+          ({title, perspective}) => {
             return {
-              subtopic, explanation
+              messages: [{
+                role: 'user',
+                content: `Give a brief explanation of "${title}" from a ${perspective} perspective.`
+              }],
+              schema: {
+                explanation: String
+              },
+              mapper: ({subtopic}, {explanation}) => {
+                return {
+                  subtopic,
+                  explanation
+                }
+              } 
             }
           }
         )

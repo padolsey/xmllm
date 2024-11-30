@@ -243,4 +243,197 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
       }
     });
   });
+
+  test('should handle nested attributes correctly', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <colors>
+        <color>
+          <name>Red</name>
+          <rgb r="255" g="0" b="0"/>
+        </color>
+        <color>
+          <name>Blue</name>
+          <rgb r="0" g="0" b="255"/>
+        </color>
+      </colors>
+    `);
+
+    const result = engine.mapSelect({
+      colors: {
+        color: [{
+          name: String,
+          rgb: {
+            $r: Number,
+            $g: Number,
+            $b: Number
+          }
+        }]
+      }
+    });
+
+    expect(result).toEqual({
+      colors: {
+        color: [
+          {
+            name: 'Red',
+            rgb: {
+              $r: 255,
+              $g: 0,
+              $b: 0
+            }
+          },
+          {
+            name: 'Blue',
+            rgb: {
+              $r: 0,
+              $g: 0,
+              $b: 255
+            }
+          }
+        ]
+      }
+    });
+  });
+
+  // Add a test for attribute transformation behavior
+  test('should transform attributes at any nesting level', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <root>
+        <nested level="1">
+          <deeper level="2" value="42">
+            <deepest level="3" score="99.9"/>
+          </deeper>
+        </nested>
+      </root>
+    `);
+
+    const result = engine.mapSelect({
+      root: {
+        nested: {
+          $level: Number,
+          deeper: {
+            $level: Number,
+            $value: Number,
+            deepest: {
+              $level: Number,
+              $score: Number
+            }
+          }
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      root: {
+        nested: {
+          $level: 1,
+          deeper: {
+            $level: 2,
+            $value: 42,
+            deepest: {
+              $level: 3,
+              $score: 99.9
+            }
+          }
+        }
+      }
+    });
+  });
+
+  test('should handle RGB attributes', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <color>
+        <name>Red</name>
+        <rgb r="255" g="0" b="0"/>
+      </color>
+    `);
+
+    const result = engine.mapSelect({
+      color: {
+        name: String,
+        rgb: {
+          $r: Number,
+          $g: Number,
+          $b: Number
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      color: {
+        name: 'Red',
+        rgb: {
+          $r: 255,
+          $g: 0,
+          $b: 0
+        }
+      }
+    });
+  });
+
+  test('should reject schemas using reserved node properties', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    // Test various reserved properties
+    const invalidSchemas = [
+      {
+        element: {
+          $attr: String,  // Can't use $attr as a schema field
+        }
+      },
+      {
+        element: {
+          $tagclosed: Boolean  // Can't use $tagclosed
+        }
+      },
+      {
+        element: {
+          $tagkey: Number  // Can't use $tagkey
+        }
+      },
+      {
+        element: {
+          $children: Array  // Can't use $children
+        }
+      },
+      {
+        element: {
+          $tagname: String  // Can't use $tagname
+        }
+      }
+    ];
+
+    invalidSchemas.forEach(schema => {
+      expect(() => {
+        engine.mapSelect(schema);
+      }).toThrow(/Reserved node property/i);
+    });
+
+    // Ensure it catches nested usage too
+    expect(() => {
+      engine.mapSelect({
+        root: {
+          nested: {
+            $tagclosed: Boolean
+          }
+        }
+      });
+    }).toThrow(/Reserved node property/i);
+
+    // But should allow normal $ prefixed attributes
+    expect(() => {
+      engine.mapSelect({
+        element: {
+          $customAttr: String,
+          $userDefined: Number
+        }
+      });
+    }).not.toThrow();
+  });
 }); 

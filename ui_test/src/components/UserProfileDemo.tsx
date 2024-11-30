@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { xmllm, stream, ClientProvider } from '../../../src/xmllm-client.mjs'
+import type { PipelineHelpers } from '../../../index'
 
 // The complete XML string for simulation
 const completeXml = `<user_profile>
@@ -142,7 +143,7 @@ export function UserProfileDemo({ clientProvider }: { clientProvider: ClientProv
     
     // Original simulated approach using select() and map()
     const runSimulatedStream = async () => {
-      const stream = xmllm(({ parse, select, map }) => [
+      const stream = xmllm(({ parse, select, map }: PipelineHelpers) => [
         async function*() {
           for (const chunk of generateChunks(completeXml, chunkSize)) {
             if (!mounted) return
@@ -165,11 +166,11 @@ export function UserProfileDemo({ clientProvider }: { clientProvider: ClientProv
                 hex: profile?.details?.[0]?.favorite_color?.[0]?.$attr?.hex
               }
             },
-            hobbies: profile?.hobbies?.[0]?.hobby?.map(h => ({
+            hobbies: profile?.hobbies?.[0]?.hobby?.map((h: any) => ({
               activity: h.$text,
               category: h.$attr.category
             })) || [],
-            skills: profile?.skills?.[0]?.skill?.map(s => ({
+            skills: profile?.skills?.[0]?.skill?.map((s: any) => ({
               name: s.$text,
               level: s.$attr.level
             })) || []
