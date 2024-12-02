@@ -4,10 +4,12 @@ xmllm supports multiple AI providers and offers flexible configuration options f
 
 ## Quick Setup
 
+You can configure API keys of any models you intend to use either at runtime or via environment variables.
+
 ```javascript
 import { stream } from 'xmllm';
 
-// 1. Environment Variables (recommended)
+// OPTION 1. Environment Variables (recommended)
 // .env
 ANTHROPIC_API_KEY=your_claude_key
 OPENAI_API_KEY=your_openai_key
@@ -17,10 +19,9 @@ PERPLEXITYAI_API_KEY=your_perplexity_key
 // 2. Runtime Configuration
 const result = await stream('What is 2+2?', {
   apiKeys: {
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY
+    ANTHROPIC_API_KEY: 'sk-...'
   },
-  model: 'claude:fast',
-  temperature: 0.52  // Default temperature for balanced output
+  model: 'claude:fast' // an alias to haiku
 })
 .complete()
 .value();
