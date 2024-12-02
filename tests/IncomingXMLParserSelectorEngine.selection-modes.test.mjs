@@ -50,7 +50,7 @@ describe('Selection Modes', () => {
     });
   });
 
-  describe('Delta Mode (New Complete Elements)', () => {
+  describe('RootOnce Mode (New Complete Elements)', () => {
     it('should only return new complete elements', () => {
       engine.add('<colors>');
       engine.add('<color>red</color>');

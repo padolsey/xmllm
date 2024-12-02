@@ -21,19 +21,26 @@ const { DEFAULT_CONFIG } = await import('../src/mainCache.mjs');
 
 describe('mainCache', () => {
     beforeAll(async () => {
-        // Any setup
+        await mainCache._reset();
     });
 
     afterAll(async () => {
-        // Any cleanup
-        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to allow logs to complete
+        await mainCache._reset();
+        // Add a small delay to allow any pending operations to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
     });
 
-    beforeEach(() => {
-        // Clear mocks before each test
+    beforeEach(async () => {
+        // Reset cache state before each test
+        await mainCache._reset();
         jest.clearAllMocks();
         mainCache.stats.hits = 0;
         mainCache.stats.misses = 0;
+    });
+
+    afterEach(async () => {
+        // Clean up after each test
+        await mainCache._reset();
     });
 
     describe('Basic Operations', () => {
@@ -63,15 +70,37 @@ describe('mainCache', () => {
     });
 
     describe('Cache Stats', () => {
-        it('should track cache hits', async () => {
-            const key = 'stats-test';
-            await mainCache.set(key, 'value');
-            await mainCache.get(key);
-            expect(mainCache.stats.hits).toBe(1);
+        beforeEach(() => {
+            // Reset stats before each test
+            mainCache.stats.hits = 0;
+            mainCache.stats.misses = 0;
         });
 
-        it('should track cache misses', async () => {
-            await mainCache.get('missing-key');
+        it('should track hits and misses correctly', async () => {
+            // Set a value
+            await mainCache.set('stats-test', 'value');
+            
+            // Hit
+            await mainCache.get('stats-test');
+            expect(mainCache.stats.hits).toBe(1);
+            expect(mainCache.stats.misses).toBe(0);
+            
+            // Miss
+            await mainCache.get('non-existent');
+            expect(mainCache.stats.hits).toBe(1);
+            expect(mainCache.stats.misses).toBe(1);
+        });
+
+        it('should track expired entries as misses', async () => {
+            // Set a value with very short TTL
+            await mainCache.set('expire-test', 'value', 1); // 1ms TTL
+            
+            // Wait for expiration
+            await new Promise(resolve => setTimeout(resolve, 10));
+            
+            // Should count as a miss when expired
+            await mainCache.get('expire-test');
+            expect(mainCache.stats.hits).toBe(0);
             expect(mainCache.stats.misses).toBe(1);
         });
     });
@@ -112,9 +141,12 @@ describe('mainCache', () => {
     });
 
     describe('Persistence', () => {
-        it('should attempt to create cache directory on startup', async () => {
-            // Force a new initialization to trigger mkdir
-            await import('../src/mainCache.mjs?timestamp=' + Date.now());
+        it('should create cache directory when needed', async () => {
+            // Initially, no directory should be created
+            expect(mockFs.mkdir).not.toHaveBeenCalled();
+            
+            // Force cache initialization by setting a value
+            await mainCache.set('test-key', 'test-value');
             
             // Now mkdir should have been called
             expect(mockFs.mkdir).toHaveBeenCalledWith(
@@ -179,6 +211,17 @@ describe('mainCache', () => {
     });
 
     describe('Error Handling', () => {
+        let originalError;
+        
+        beforeEach(() => {
+            originalError = console.error;
+            console.error = jest.fn(); // Suppress error output during these tests
+        });
+        
+        afterEach(() => {
+            console.error = originalError;
+        });
+
         it('should handle set errors gracefully', async () => {
             const circular = {};
             circular.self = circular;
@@ -226,6 +269,115 @@ describe('mainCache', () => {
             // Should start with empty cache
             const result = await newCache.get('test-key');
             expect(result).toBeNull();
+        });
+    });
+
+    describe('Cache Initialization', () => {
+        it('should not create cache directory until first cache operation', async () => {
+            expect(mockFs.mkdir).not.toHaveBeenCalled();
+            
+            // Just importing should not trigger directory creation
+            await import('../src/mainCache.mjs?timestamp=' + Date.now());
+            expect(mockFs.mkdir).not.toHaveBeenCalled();
+            
+            // But setting a value should
+            await mainCache.set('test-key', 'test-value');
+            expect(mockFs.mkdir).toHaveBeenCalledWith(
+                expect.stringContaining('.cache'),
+                { recursive: true }
+            );
+        });
+
+        it('should not persist cache if no modifications made', async () => {
+            // Reset write tracking
+            mockFs.writeFile.mockClear();
+            mockFs.rename.mockClear();
+            
+            // Just reading should not trigger persistence
+            await mainCache.get('non-existent');
+            
+            // No write operations should have occurred
+            expect(mockFs.writeFile).not.toHaveBeenCalled();
+            expect(mockFs.rename).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Cache Persistence Behavior', () => {
+        it('should only persist when cache is modified', async () => {
+            // Reading shouldn't trigger persistence
+            await mainCache.get('test-key');
+            expect(mockFs.writeFile).not.toHaveBeenCalled();
+            
+            // Writing should mark cache for persistence
+            await mainCache.set('test-key', 'test-value');
+            
+            // Force persistence
+            await mainCache.cleanup();
+            
+            // Should have written to temp file and renamed
+            expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
+            expect(mockFs.rename).toHaveBeenCalledTimes(1);
+        });
+
+        it('should handle persistence errors gracefully', async () => {
+            // Setup mock to fail writing
+            mockFs.writeFile.mockRejectedValueOnce(new Error('Write failed'));
+            
+            // Should not throw when persistence fails
+            await mainCache.set('test-key', 'test-value');
+            await expect(mainCache.cleanup()).resolves.not.toThrow();
+        });
+    });
+
+    describe('Memory Management', () => {
+        it('should clear memory under pressure', async () => {
+            // Fill cache with some entries
+            for (let i = 0; i < 100; i++) {
+                await mainCache.set(`key-${i}`, `value-${i}`);
+            }
+            
+            // Mock high memory usage
+            const originalMemoryUsage = process.memoryUsage;
+            process.memoryUsage = jest.fn().mockReturnValue({
+                heapUsed: 900,
+                heapTotal: 1000
+            });
+            
+            // Trigger memory pressure check
+            await mainCache.checkMemoryPressure();
+            
+            // Should have cleared some entries
+            const stats = await mainCache.getStats();
+            expect(stats.entryCount).toBeLessThan(100);
+            
+            // Restore original function
+            process.memoryUsage = originalMemoryUsage;
+        });
+
+        it('should respect entry size limits', async () => {
+            const largeValue = 'x'.repeat(DEFAULT_CONFIG.maxEntrySize + 100);
+            await mainCache.set('large-key', largeValue);
+            
+            // Large value should not be cached
+            const result = await mainCache.get('large-key');
+            expect(result).toBeNull();
+            
+            // Cache should not be marked as modified
+            expect(mockFs.writeFile).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Cache Cleanup', () => {
+        it('should properly clean up resources', async () => {
+            // Setup intervals
+            await mainCache.set('test-key', 'test-value');
+            
+            // Cleanup should clear intervals and persist changes
+            await mainCache.cleanup();
+            
+            // Should have attempted final persistence
+            expect(mockFs.writeFile).toHaveBeenCalled();
+            expect(mockFs.rename).toHaveBeenCalled();
         });
     });
 });

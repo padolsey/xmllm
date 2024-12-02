@@ -43,6 +43,13 @@ class ProviderManager {
       throw new Error(`Provider ${providerName} not found`);
     }
 
+    // Add check for missing API key
+    if (!provider.key) {
+      logger.error(
+        `No API key found for provider "${providerName}". Add ${providerName.toUpperCase()}_API_KEY to your environment variables or pass it in your configuration.`
+      );
+    }
+
     // If it's a predefined model type (fast, good, etc)
     if (provider.models[modelName]) {
       return { provider, modelType: modelName };
@@ -166,6 +173,13 @@ class ProviderManager {
     
     if (!baseProvider) {
       throw new Error(`Base provider ${inherit} not found for custom configuration`);
+    }
+
+    // Add key check here
+    if (!key && !baseProvider.key) {
+      logger.error(
+        `No API key found for provider "${inherit}". Add ${inherit.toUpperCase()}_API_KEY to your environment variables or pass it in your configuration.`
+      );
     }
 
     // Create a new provider instance with custom settings

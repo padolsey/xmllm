@@ -1,4 +1,4 @@
-import _xmllm from '../src/xmllm-main.mjs';
+import xmllm, { configure } from '../src/xmllm-main.mjs';
 import { jest } from '@jest/globals';
 
 const TestStream = (() => {
@@ -64,8 +64,8 @@ const TestStream = (() => {
   return mockFn;
 })();
 
-const xmllm = (pipeline, opts) => {
-  return _xmllm(pipeline, {
+const createTestXmllm = (pipeline, opts) => {
+  return xmllm(pipeline, {
     ...(opts || {}),
     llmStream: TestStream
   })
@@ -74,7 +74,7 @@ const xmllm = (pipeline, opts) => {
 describe('xmllm', () => {
   describe('Simple pipeline', () => {
     it('should process a single step pipeline', async () => {
-      const results = xmllm(({ select, parse }) => [
+      const results = createTestXmllm(({ select, parse }) => [
         parse('<root><item>Test</item></root>'),
         select('item')
       ]);
@@ -90,7 +90,7 @@ describe('xmllm', () => {
 
   describe('xmllm.prompt', () => {
     it('should process a prompt and apply selection schema', async () => {
-      const results = await xmllm(({ promptClosed }) => [
+      const results = await createTestXmllm(({ promptClosed }) => [
         function* () {
           yield '<item><name>Test</name><value>42</value></item>';
         },
@@ -120,7 +120,7 @@ describe('xmllm', () => {
 
   describe('xmllm.mapSelect', () => {
     it('should select and map XML content', async () => {
-      const results = await xmllm(({ mapSelect, parse }) => [
+      const results = await createTestXmllm(({ mapSelect, parse }) => [
         parse('<root><item><name>Item 1</name><value>10</value></item><item><name>Item 2</name><value>20</value></item></root>'),
         mapSelect({
           item: [{
@@ -141,7 +141,7 @@ describe('xmllm', () => {
 
   describe('Complex pipeline', () => {
     it('should process a multi-step pipeline', async () => {
-      const stream = await xmllm(({ prompt, filter }) => [
+      const stream = await createTestXmllm(({ prompt, filter }) => [
         function* () {
           yield "Artificial Intelligence";
         },
@@ -194,7 +194,7 @@ describe('xmllm', () => {
 
   describe('Edge cases', () => {
     it('should handle empty input', async () => {
-      const results = await xmllm(({ select }) => [
+      const results = await createTestXmllm(({ select }) => [
         function* () {
           yield '';
         },
@@ -205,7 +205,7 @@ describe('xmllm', () => {
     });
 
     it('should handle malformed XML', async () => {
-      const results = await xmllm(({ select, parse }) => [
+      const results = await createTestXmllm(({ select, parse }) => [
         parse('<root><item>Test</item><unclosed>'),
         select('item')
       ]);
@@ -221,7 +221,7 @@ describe('xmllm', () => {
 
   describe('value() transformer', () => {
     it('should handle basic text transformation', async () => {
-      const results = xmllm(({ prompt, value }) => [
+      const results = createTestXmllm(({ prompt, value }) => [
         prompt(
           'Give me a user record',
           {
@@ -239,7 +239,7 @@ describe('xmllm', () => {
     });
 
     it('should handle numerical transformations safely', async () => {
-      const results = xmllm(({ prompt, value }) => [
+      const results = createTestXmllm(({ prompt, value }) => [
         prompt(
           'Give me a product',
           {
@@ -264,7 +264,7 @@ describe('xmllm', () => {
     });
 
     it('should handle arrays with value transformers', async () => {
-      const results = xmllm(({ prompt, value }) => [
+      const results = createTestXmllm(({ prompt, value }) => [
         prompt(
           'List some scores',
           {
@@ -284,7 +284,7 @@ describe('xmllm', () => {
     });
 
     it('should handle nested value transformers', async () => {
-      const results = xmllm(({ prompt, value }) => [
+      const results = createTestXmllm(({ prompt, value }) => [
         prompt(
           'Give me user stats',
           {
@@ -310,5 +310,36 @@ describe('xmllm', () => {
       expect(Array.isArray(result.user.stats.score)).toBe(true);
       expect(typeof result.user.stats.average).toBe('number');
     });
+  });
+
+  test('should use global defaults in pipeline', async () => {
+    configure({
+      defaults: {
+        temperature: 0.9,
+        model: 'claude:fast'
+      }
+    });
+  
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => ({
+        read: jest.fn().mockResolvedValue({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }));
+  
+    const pipeline = xmllm(({ prompt }) => [
+      prompt('Test prompt')  // No explicit config
+    ], {
+      llmStream: TestStream
+    });
+  
+    await pipeline.last();
+  
+    expect(TestStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        temperature: 0.9,
+        model: 'claude:fast'
+      })
+    );
   });
 });

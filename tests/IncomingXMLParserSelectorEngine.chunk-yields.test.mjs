@@ -48,7 +48,7 @@ describe('Chunk Yield Behavior', () => {
     });
   });
 
-  describe('Delta Mode (mapSelectClosed)', () => {
+  describe('RootOnce Mode (mapSelectClosed)', () => {
     it('should yield only new complete elements', () => {
       const yields = [];
       
@@ -66,7 +66,7 @@ describe('Chunk Yield Behavior', () => {
         }
       });
 
-      console.log('Delta Mode Yields:', JSON.stringify(yields, null, 2));
+      console.log('RootOnce Mode Yields:', JSON.stringify(yields, null, 2));
       
       // We expect exactly two yields - one for each complete color
       expect(yields).toEqual([

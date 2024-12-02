@@ -1,377 +1,632 @@
 # API Documentation
 
+> Note: xmllm includes TypeScript definitions out of the box. See [index.d.ts](../index.d.ts) and [client.d.ts](../client.d.ts) for type details.
+
 ## Core Functions
 
-### `xmllm(pipelineFn: (helpers: PipelineHelpers) => Operation[], options?: XmlLmOptions)`
+### xmllm()
 
-Creates a pipeline for processing XML streams.
+Creates a pipeline for processing XML streams. Used for complex operations like chaining multiple prompts or transformations.
 
-**Arguments:**
-- `pipelineFn`: Function that returns array of pipeline operations
-- `options`: 
-  ```typescript
-  {
-    timeout?: number;                                    // Request timeout in ms
-    llmStream?: LLMStreamFunction;                      // Custom stream provider
-    generateSystemPrompt?: (system: string) => string;  // Custom system prompt generator
-    generateUserPrompt?: (scaffold: string, prompt: string) => string;  // Custom user prompt
-    apiKeys?: Record<string, string>;                   // Provider API keys
+See [Pipeline API](#pipeline-api) below for details on available helper functions.
+
+```typescript
+function xmllm<T>(
+  pipelineFn: (helpers: PipelineHelpers) => Operation[], 
+  options?: XmlLmOptions
+): AsyncGenerator<T> & {
+  first(n?: number): Promise<T | T[]>;
+  last(n?: number): Promise<T | T[]>;
+  all(): Promise<T[]>;
+}
+```
+
+Options:
+```typescript
+interface XmlLmOptions {
+  timeout?: number;                                    // Request timeout in ms
+  llmStream?: LLMStreamFunction;                      // Custom stream provider
+  generateSystemPrompt?: (system: string) => string;  // Custom prompt generator
+  generateUserPrompt?: (scaffold: string, prompt: string) => string;
+  apiKeys?: {                                         // Provider API keys
+    ANTHROPIC_API_KEY?: string;
+    OPENAI_API_KEY?: string;
+    TOGETHERAI_API_KEY?: string;
+    PERPLEXITYAI_API_KEY?: string;
+  };
+}
+```
+
+Example:
+
+```typescript
+const analysis = xmllm(({ promptClosed, map }) => [
+  // Get scientist info
+  promptClosed('Name a scientist', {
+    scientist: {
+      name: String,
+      field: String
+    }
+  }),
+
+  // Use that info in next prompt
+  promptClosed(({ scientist }) => ({
+    messages: [{
+      role: 'user',
+      content: `What was ${scientist.name}'s biggest discovery?`
+    }],
+    schema: {
+      discovery: {
+        year: Number,
+        description: String
+      }
+    }
+  })),
+
+  // Combine results
+  map(({ scientist, discovery }) => ({
+    scientist,
+    discovery
+  }))
+]);
+
+const result = await analysis.last();
+```
+
+### simple()
+
+One-shot function for getting structured data from AI. No streaming, simpler to use than stream().
+
+Error handling:
+```typescript
+try {
+  const result = await simple(
+    "What is 2+2?",
+    { answer: Number }
+  );
+} catch (error) {
+  if (error instanceof ProviderError) {
+    // Handle API provider errors
+    console.error('Provider error:', error.message);
+  } else if (error instanceof ValidationError) {
+    // Handle schema validation errors
+    console.error('Schema error:', error.message);
   }
-  ```
+}
+```
 
-**Returns:** AsyncGenerator with additional methods:
-- `all()`: Promise<T[]> - Collect all results
-- `first(n?: number)`: Promise<T | T[]> - Get first n results
-- `last(n?: number)`: Promise<T | T[]> - Get last n results
+```typescript
+async function simple<T>(
+  prompt: string,
+  schema: SchemaType,
+  options?: SimpleOptions
+): Promise<T>
+```
 
-### `simple(prompt: string, schema: SchemaType, options?: SimpleOptions)`
+Options:
+```typescript
+interface SimpleOptions {
+  system?: string;                    // System prompt
+  model?: ModelPreference;            // Model selection
+  temperature?: number;               // 0-2, default 0.7
+  maxTokens?: number;                 // Max response length
+  cache?: boolean;                    // Enable response caching
+  apiKeys?: Record<string, string>;   // Provider API keys
+  retryMax?: number;                  // Max retry attempts
+  retryStartDelay?: number;           // Initial retry delay (ms)
+  retryBackoffMultiplier?: number;    // Backoff multiplier
+}
+```
 
-Single-shot function for getting structured data from AI.
+Example:
 
-**Arguments:**
-- `prompt`: String prompt to send to AI
-- `schema`: Schema definition for transforming response
-- `options`:
-  ```typescript
+```typescript
+const result = await simple(
+  "What is 2+2?",
   {
-    system?: string;                    // System prompt
-    model?: ModelPreference;            // Model selection
-    temperature?: number;               // 0-2, default 0.7
-    maxTokens?: number;                 // Max response length
-    cache?: boolean;                    // Enable response caching
-    apiKeys?: Record<string, string>;   // Provider API keys
-    retryMax?: number;                  // Max retry attempts
-    retryStartDelay?: number;           // Initial retry delay (ms)
-    retryBackoffMultiplier?: number;    // Backoff multiplier
+    answer: {
+      value: Number,
+      explanation: String
+    }
   }
-  ```
+);
+```
 
-**Returns:** Promise<SchemaResult>
+### stream()
 
-### `stream(promptOrConfig: string | StreamConfig, options?: StreamOptions)`
+Creates a chainable stream for processing AI responses. Main interface for most use cases.
 
-Creates a chainable stream for processing AI responses.
+Returns an [XMLStream](#xmlstream-interface) instance with chainable methods.
 
-**Arguments:**
-- `promptOrConfig`: String prompt or configuration object
-- `options`:
-  ```typescript
-  {
-    schema?: SchemaType;                // Transform schema
-    system?: string;                    // System prompt
-    model?: ModelPreference;            // Model selection
-    temperature?: number;               // 0-2, default 0.7
-    maxTokens?: number;                 // Max tokens
-    cache?: boolean;                    // Enable caching
-    apiKeys?: Record<string, string>;   // API keys
-    hints?: SchemaHints;                // Schema hints
-    waitMessageString?: string;         // Progress message
-    waitMessageDelay?: number;          // Delay before progress
-  }
-  ```
+```typescript
+function stream<T>(
+  promptOrConfig: string | StreamConfig,
+  options?: StreamOptions
+): XMLStream<T>
+```
 
-**Returns:** XMLStream instance with chainable methods
+Modes:
+- `state_open`: Shows growing state including partials (default)
+- `state_closed`: Shows complete state at each point 
+- `root_open`: Shows each root element's progress once
+- `root_closed`: Shows each complete root element once
 
-## XMLStream Methods
+Examples:
+
+```typescript
+// Basic usage
+const colorStream = stream('List colors')
+  .select('color')
+  .text();
+
+for await (const color of colorStream) {
+  console.log(color);
+}
+
+// With schema
+const result = await stream('What is 2+2?', {
+  schema: {
+    answer: {
+      value: Number,
+      explanation: String
+    }
+  },
+  mode: 'root_closed'  // Only complete elements
+}).last();
+
+// Browser usage
+const browserStream = stream('Query', {
+  schema: { answer: String },
+  clientProvider: new ClientProvider('http://localhost:3124/api/stream')
+});
+```
+
+Configuration:
+```typescript
+interface StreamConfig {
+  prompt?: string;                    // Prompt text
+  messages?: Message[];               // Alternative to prompt
+  schema?: SchemaType;               // Transform schema
+  system?: string;                   // System prompt
+  mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
+  model?: ModelPreference;           // Model selection (see Model Configuration below)
+  temperature?: number;              // Temperature (0-2)
+  maxTokens?: number;                // Max tokens
+  cache?: boolean;                   // Enable caching
+  clientProvider?: ClientProvider;   // Required for browser usage
+}
+```
+
+The schema parameter uses the [Schema Types](#schema-types) format to transform XML into structured data.
+For model configuration options, see [Model Configuration](#model-configuration).
+
+## XMLStream Interface
+
+The XMLStream class provides a chainable API for transforming and controlling the stream of data from the LLM.
 
 ### Chainable Methods
 
-- `select(selector: string)`: Select elements using CSS selectors
-- `map(fn: (value: T) => U)`: Transform values
-- `filter(fn: (value: T) => boolean)`: Filter values
-- `text()`: Extract text content from elements
-- `closedOnly()`: Filter for only completed XML elements
-- `take(n: number)`: Take first n results from stream
-- `skip(n: number)`: Skip first n results
-- `reduce(reducer: (acc: U, value: T) => U, initial: U)`: Reduce values
-- `merge()`: Deep merge all results into single object
-- `debug(label?: string)`: Log debug information
-- `raw()`: Get raw response chunks
-- `first()`: Get first result
-- `last(n?: number)`: Get last n results
-- `all()`: Get all results as array
-
-### Return Types
-
 ```typescript
-type XMLStreamResult<T> = AsyncGenerator<T> & {
-  first(): Promise<T>;
-  last(n?: number): Promise<T | T[]>;
-  all(): Promise<T[]>;
-  select(selector: string): XMLStream;
-  map(fn: (value: T) => U): XMLStream;
-  filter(fn: (value: T) => boolean): XMLStream;
-  text(): XMLStream;
-  closedOnly(): XMLStream;
-  merge(): XMLStream;
-  raw(): XMLStream;
-  debug(label?: string): XMLStream;
+interface XMLStream<T> {
+  // Selection & Transformation
+  select(selector: string): XMLStream<XMLElement>     // CSS selector
+  map<U>(fn: (value: T) => U): XMLStream<U>          // Transform values
+  filter(fn: (value: T) => boolean): XMLStream<T>     // Filter values
+  text(): XMLStream<string>                          // Get text content
+  
+  // Stream Control
+  closedOnly(): XMLStream<T>                         // Only complete elements
+  take(n: number): XMLStream<T>                      // First n elements
+  skip(n: number): XMLStream<T>                      // Skip n elements
+  batch(size: number): XMLStream<T[]>                // Group into batches
+  
+  // Aggregation
+  merge(): XMLStream<T>                              // Deep merge results
+  mergeAggregate(): XMLStream<T[]>                   // Merge into array
+  reduce<U>(                                         // Reduce values
+    fn: (acc: U, value: T) => U, 
+    initial: U
+  ): XMLStream<U>
+  
+  // Debugging
+  debug(label?: string): XMLStream<T>                // Log debug info
+  raw(): XMLStream<string>                          // Raw response chunks
 }
 ```
 
-## Schema Hints
+### Terminal Operations
 
-Hints guide the AI's output format:
+Methods that end the stream and return a Promise:
 
 ```typescript
-type SchemaHints = {
-  [K in keyof SchemaType]: string | SchemaHints;
+interface XMLStream<T> {
+  first(): Promise<T>                    // Get first result
+  last(n?: number): Promise<T>           // Get last n results
+  all(): Promise<T[]>                    // Get all results
+  collect(): Promise<T[]>                // Alias for all()
+  value(): Promise<T>                    // Deprecated: use first() or last()
 }
-
-const schema = {
-  user: {
-    name: String,
-    age: Number
-  }
-};
-
-const hints = {
-  user: {
-    name: "User's full name",
-    age: "Age in years (must be > 0)"
-  }
-};
 ```
 
-## Proxy Server
-
-Simple proxy server for browser usage:
-
-```bash
-npm run proxy -- [options]
-
-Options:
-  --port=3124        # Server port
-  --debug           # Enable debug logging
-  --verbose         # Verbose logging
-  --corsOrigins=*   # CORS origins
-```
-
-## Cache Usage
+### Examples
 
 ```typescript
-// Simple boolean flag to enable/disable caching
-const result = await stream('Query', {
-  cache: true
-});
-```
-
-## Model Configuration
-
-```typescript
-type ModelConfig = {
-  inherit: string;    // Base provider (e.g. 'claude')
-  name: string;       // Model name
-  endpoint?: string;  // Custom endpoint
-}
-
-// Example usage:
-const result = await stream('Query', {
-  model: {
-    inherit: 'claude',
-    name: 'custom-model',
-    endpoint: 'https://custom-endpoint.com'
-  }
-});
-```
-
-## Streaming Patterns
-
-### Real-time Updates
-
-```typescript
-const stream = stream('List colors')
+// Real-time updates with partial elements
+const colorUpdates = stream('List colors')
   .select('color')
   .map(({$text, $tagclosed}) => ({
     text: $text,
     complete: $tagclosed
   }));
 
-for await (const update of stream) {
+for await (const update of colorUpdates) {
   console.log(update);
   // { text: "re", complete: false }
   // { text: "red", complete: true }
 }
-```
 
-### Schema-based Collection
+// Collecting complete elements
+const colors = await stream('List colors')
+  .select('color')
+  .closedOnly()  // Only complete tags
+  .text()        // Extract text content
+  .collect();    // Get all results
 
-```typescript
-const result = await stream('Analyze', {
+// Schema-based transformation
+const analysis = await stream('Analyze text', {
   schema: {
-    analysis: {
+    sentiment: {
       score: Number,
-      tags: {
-        tag: [String]
-      }
-    }
+      label: String
+    },
+    keywords: [String]
   }
 })
-.closedOnly()  // Wait for complete elements
-.merge()       // Merge results
-.last();       // Get final state
+.closedOnly()
+.last();
 ```
 
-## Pipeline Helper Functions
+## Pipeline API
 
-### `req(config: RequestConfig | string)`
+The pipeline API provides helper functions for building complex streaming operations. These are available in the `helpers` argument to xmllm().
 
-Low-level request function for direct provider interaction.
+### Core Prompt Functions
 
-**Arguments:**
 ```typescript
-type RequestConfig = {
-  messages?: Message[];                // Message array
-  system?: string;                    // System prompt
-  model?: ModelPreference;            // Model selection
-  temperature?: number;               // Temperature
-  max_tokens?: number;                // Max tokens
-  top_p?: number;                     // Top P sampling
-  presence_penalty?: number;          // Presence penalty
-  stop?: string[];                    // Stop sequences
-  cache?: boolean;                    // Enable caching
-  accrued?: string;                   // Previous content
-  fakeDelay?: number;                 // Test delay
-  onChunk?: (chunk: string) => void;  // Chunk callback
+interface PipelineHelpers {
+  // Main prompt functions
+  prompt(
+    prompt: string | PromptConfig,
+    schema?: SchemaType,
+    options?: PromptOptions
+  ): PipelineFunction                // Stream all updates including partial elements
+  
+  promptClosed(
+    prompt: string | PromptConfig,
+    schema?: SchemaType,
+    options?: PromptOptions
+  ): PipelineFunction                // Only yield complete elements
+  
+  // Shorthand aliases
+  p: typeof promptClosed             // Alias for promptClosed
+  ps: typeof prompt                  // Alias for prompt
+  r: typeof req                      // Alias for req
+}
+
+interface PromptOptions {
+  system?: string;                   // System prompt
+  model?: ModelPreference;           // Model selection
+  temperature?: number;              // 0-2, default 0.7
+  maxTokens?: number;                // Max tokens
+  cache?: boolean;                   // Enable caching
+  mapper?: (input: any, output: any) => any;  // Transform results
 }
 ```
 
-**Returns:** AsyncGenerator<string>
+### Selection Helpers
 
-### `prompt(prompt: string | PromptConfig, schema?: SchemaType, mapper?: MapperFunction)`
-
-Basic prompt with optional schema transformation.
-
-**Arguments:**
-- `prompt`: String or prompt configuration
-- `schema`: Optional schema for transformation
-- `mapper`: Optional mapping function for results
-
-### `promptClosed(prompt: string | PromptConfig, schema?: SchemaType, options?: PromptOptions)`
-
-Like prompt() but only yields complete XML elements.
-
-**Arguments:**
 ```typescript
-type PromptOptions = {
-  mapper?: MapperFunction;             // Transform results
-  system?: string;                     // System prompt
-  model?: ModelPreference;             // Model selection
-  temperature?: number;                // Temperature
-  maxTokens?: number;                  // Max tokens
-  cache?: boolean;                     // Enable caching
-  retryMax?: number;                   // Max retries
-  retryStartDelay?: number;            // Initial retry delay
-  retryBackoffMultiplier?: number;     // Backoff multiplier
+interface PipelineHelpers {
+  // CSS selector based
+  select(selector: string): PipelineFunction
+  
+  // Schema based selection
+  mapSelect(
+    schema: SchemaType,
+    includeOpenTags?: boolean,      // Include incomplete elements
+    doDedupe?: boolean             // Deduplicate elements
+  ): PipelineFunction
+  
+  mapSelectClosed(
+    schema: SchemaType             // Only complete elements
+  ): PipelineFunction
 }
 ```
-
-**Returns:** AsyncGenerator<T>
-
-### `promptComplex(config: ComplexPromptConfig)`
-
-Advanced prompt configuration with full control.
-
-**Arguments:**
-```typescript
-{
-  messages: Message[];                  // Message array
-  schema?: SchemaType;                 // Transform schema
-  hints?: SchemaHints;                 // Schema hints
-  mapper?: MapperFunction;             // Result mapper
-  system?: string;                     // System prompt
-  maxTokens?: number;                  // Max tokens
-  temperature?: number;                // Temperature
-  model?: ModelPreference;             // Model selection
-  cache?: boolean;                     // Enable caching
-  retryMax?: number;                   // Max retries
-  retryStartDelay?: number;            // Initial retry delay
-  retryBackoffMultiplier?: number;     // Backoff multiplier
-  onChunk?: (chunk: string) => void;   // Chunk callback
-  doMapSelectClosed?: boolean;         // Only return closed elements
-  generateSystemPrompt?: (system: string) => string;  // Custom system prompt
-  generateUserPrompt?: (scaffold: string, prompt: string) => string;  // Custom user prompt
-}
-```
-
-**Returns:** AsyncGenerator<T>
-
-### `promptStream(prompt: string | PromptConfig, schema?: SchemaType, mapper?: MapperFunction)`
-
-Basic prompt with streaming results.
-
-**Arguments:**
-- `prompt`: String or prompt configuration
-- `schema`: Optional schema for transformation
-- `mapper`: Optional mapping function
-
-**Returns:** AsyncGenerator<T>
-
-### `select(selector: string, mapperFn?: (element: XMLElement) => any)`
-
-Select elements using CSS selectors.
-
-**Arguments:**
-- `selector`: CSS selector string
-- `mapperFn`: Optional transform function
-
-**Returns:** AsyncGenerator<T>
-
-### `mapSelect(schema: SchemaType)`
-
-Select and transform elements using schema.
-
-**Arguments:**
-- `schema`: Schema definition
-- `includeOpenTags`: Include incomplete elements
-- `doDedupeChildren`: Deduplicate child elements
-
-**Returns:** AsyncGenerator<T>
-
-### `mapSelectClosed(schema: SchemaType)`
-
-Like mapSelect() but only returns complete elements.
-
-**Arguments:**
-- `schema`: Schema definition
-
-**Returns:** AsyncGenerator<T>
 
 ### Stream Operations
 
-- `map(fn: (value: T) => U)`: Transform values
-- `filter(fn: (value: T) => boolean)`: Filter values
-- `reduce(fn: (acc: U, value: T) => U, initial: U)`: Reduce values
-- `accrue()`: Collect values into array
-- `tap(fn: (value: T) => void)`: Side effects
-- `waitUntil(fn: (value: T) => boolean)`: Wait for condition
-- `mergeAggregate()`: Merge accumulated values
-- `take(n: number)`: Take n values
-- `batch(size: number)`: Batch values
-- `skip(n: number)`: Skip n values
+```typescript
+interface PipelineHelpers {
+  // Transformation
+  map<T, U>(fn: (value: T) => U): PipelineFunction
+  filter(fn: (value: T) => boolean): PipelineFunction
+  reduce<T, U>(fn: (acc: U, value: T) => U, initial: U): PipelineFunction
+  
+  // Collection
+  accrue(): PipelineFunction                          // Collect into array
+  mergeAggregate(): PipelineFunction                  // Merge results
+  batch(size: number): PipelineFunction               // Group into batches
+  
+  // Control
+  take(n: number): PipelineFunction                   // Take n items
+  skip(n: number): PipelineFunction                   // Skip n items
+  tap(fn: (value: T) => void): PipelineFunction       // Side effects
+  waitUntil(fn: (value: T) => boolean): PipelineFunction
+}
+```
 
-### Helper Functions
+### Transformer Helpers
 
-- `text(fn?: (text: string) => string)`: Extract/transform text content
-- `withAttrs(fn: (text: string, attrs: Record<string, string>) => any)`: Combine text and attributes
-- `whenClosed(fn: (element: XMLElement) => any)`: Only transform complete elements
-
-## Client Usage
-
-### `ClientProvider`
-
-Browser-compatible provider that routes requests through a proxy.
+Special helpers for transforming XML elements:
 
 ```typescript
-const client = new ClientProvider(proxyEndpoint: string);
+// Transform text content
+const text = (fn?: (text: string) => any) => 
+  ({ $text }: XMLElement) => fn ? fn($text) : $text;
 
-const result = await stream('Query', {
-  schema: { answer: String },
-  clientProvider: client
+// Combine text and attributes  
+const withAttrs = (fn: (text: string, attrs: Record<string, string>) => any) => 
+  ({ $text, $attr }: XMLElement) => fn($text, $attr);
+
+// Only transform complete elements
+const whenClosed = (fn: (el: XMLElement) => any) => 
+  (el: XMLElement) => el.$tagclosed ? fn(el) : undefined;
+```
+
+Examples:
+
+```typescript
+const stream = xmllm(({ prompt, text, withAttrs, whenClosed }) => [
+  prompt('Get product info', {
+    product: {
+      // Transform text only
+      name: text(s => s.toUpperCase()),
+      
+      // Combine text and attributes
+      price: withAttrs((text, attrs) => ({
+        amount: Number(text),
+        currency: attrs.currency
+      })),
+      
+      // Only process when element is complete
+      status: whenClosed(el => 
+        el.$tagclosed ? `Final: ${el.$text}` : undefined
+      )
+    }
+  })
+]);
+```
+
+### Additional Stream Operations
+
+```typescript
+// Collect all results into an array
+accrue(): PipelineFunction
+
+// Example:
+xmllm(({ accrue }) => [
+  function*() {
+    yield 'apple';
+    yield 'banana';
+  },
+  accrue(),
+  function*(everything) {
+    yield everything.join(' ');  // "apple banana"
+  }
+]);
+
+// Merge results into single array
+mergeAggregate(): PipelineFunction
+
+// Manually add XML content
+parse(str?: string): PipelineFunction
+
+// Example:
+xmllm(({ parse, select }) => [
+  parse('<root><item>test</item></root>'),
+  select('item')  // Select from parsed content
+]);
+```
+
+### Examples
+
+```typescript
+// Basic transformation pipeline
+const sentiment = xmllm(({ prompt, select, map }) => [
+  prompt('Analyze the sentiment of: "Great product, highly recommend!"', {
+    analysis: {
+      score: Number,
+      keywords: [String]
+    }
+  }),
+  mapSelect({ analysis: { score: Number }}),
+  map(({analysis}) => analysis.score > 0.5 ? 'positive' : 'negative')
+]);
+
+// Stateful pipeline with aggregation
+const categoryAnalysis = xmllm(({ promptClosed, mapSelect, reduce }) => [
+  promptClosed('Categorize these products: iPhone, Galaxy, Pixel', {
+    product: [{
+      name: String,
+      category: String,
+      score: Number
+    }]
+  }),
+  mapSelect({ product: [{ score: Number }]}),
+  reduce((avg, {product}) => {
+    return product.reduce((sum, p) => sum + p.score, 0) / product.length;
+  }, 0)
+]);
+
+// Complex chained prompts
+const conversation = xmllm(({ p, map }) => [
+  // First prompt
+  p('Tell me a joke', {
+    joke: String
+  }),
+  
+  // Use result in next prompt
+  map(async ({joke}) => {
+    return p(`Rate this joke: ${joke}`, {
+      rating: {
+        score: Number,
+        explanation: String
+      }
+    });
+  }),
+  
+  // Combine results
+  map(({joke, rating}) => ({
+    joke,
+    rating
+  }))
+]);
+```
+
+## Common Types
+
+### Schema Types
+
+The schema system defines how XML elements are transformed into structured data.
+
+```typescript
+type SchemaType = {
+  [key: string]: 
+    | StringConstructor                 // Convert to string
+    | NumberConstructor                 // Convert to number
+    | BooleanConstructor               // Convert to boolean
+    | ((el: XMLElement) => any)        // Custom transformer
+    | SchemaType                       // Nested schema
+    | [SchemaType]                     // Array of schema
+    | string                           // Hint for LLM
+}
+
+// Example schemas:
+const basic = {
+  user: {
+    name: String,
+    age: Number,
+    active: Boolean
+  }
+};
+
+const nested = {
+  product: {
+    name: String,
+    price: {
+      amount: Number,
+      currency: String
+    },
+    tags: [String]
+  }
+};
+
+const withTransformer = {
+  date: (el: XMLElement) => new Date(el.$text),
+  color: (el: XMLElement) => ({
+    name: el.$text,
+    rgb: el.$attr.rgb?.split(',').map(Number)
+  })
+};
+```
+
+### XMLElement
+
+The parsed XML element structure available in transformers and selectors.
+
+```typescript
+interface XMLElement {
+  $text: string;                        // Element text content
+  $attr: Record<string, string>;        // Element attributes
+  $tagclosed: boolean;                  // Is element complete
+  $tagname: string;                     // Tag name
+  $children: XMLElement[];              // Child elements
+  $tagkey: number;                      // Internal unique ID
+}
+
+// Example usage in transformer:
+const schema = {
+  product: (el: XMLElement) => ({
+    name: el.$text,
+    inStock: el.$attr.stock === 'true',
+    variants: el.$children
+      .filter(child => child.$tagname === 'variant')
+      .map(v => v.$text)
+  })
+};
+```
+
+### Message Format
+
+Chat-style messages for LLM interaction.
+
+```typescript
+interface Message {
+  role: 'system' | 'user' | 'assistant';  // Message role
+  content: string;                        // Message content
+}
+
+// Example usage:
+const result = await stream({
+  messages: [
+    {
+      role: 'system',
+      content: 'You are a helpful assistant'
+    },
+    {
+      role: 'user',
+      content: 'List three colors'
+    }
+  ],
+  schema: { color: [String] }
 });
 ```
 
-## Error Types & Handling
+### Model Configuration
+
+Options for selecting and configuring LLM providers.
+
+```typescript
+type ModelPreference = 
+  | `${ModelProvider}:${ModelSpeed}`   // e.g. 'claude:fast'
+  | `${ModelProvider}:${string}`       // e.g. 'claude:claude-3'
+  | {
+      inherit: ModelProvider;          // Base provider (e.g. 'claude')
+      name: string;                    // Model name
+      maxContextSize?: number;         // Max context window
+      endpoint?: string;               // Custom endpoint
+      key?: string;                    // API key
+    }
+  | Array<ModelString | ModelConfig>;  // Fallback chain
+
+type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai';
+type ModelSpeed = 'superfast' | 'fast' | 'good';
+
+// Examples:
+const simple = 'claude:fast';
+const detailed = {
+  inherit: 'claude',
+  name: 'claude-3-opus-20240229',
+  maxContextSize: 100000
+};
+const withFallback = [
+  'claude:fast',
+  'openai:good',
+  { inherit: 'togetherai', name: 'mixtral-8x7b' }
+];
+```
+
+## Error Types
 
 ```typescript
 // Provider Errors
@@ -385,355 +640,78 @@ class ProviderRateLimitError extends ProviderError {}
 class ProviderAuthenticationError extends ProviderError {}
 class ProviderTimeoutError extends ProviderError {}
 class ProviderNetworkError extends ProviderError {}
-
-// Connection Errors
-class ConnectionError extends Error {
-  name: string;
-  code: string;
-}
-
-class ConnectionTimeoutError extends ConnectionError {}
-
-// Validation Errors
 class ModelValidationError extends Error {}
-class ValidationError extends Error {}
-
-// Example error handling:
-try {
-  await stream.first();
-} catch (error) {
-  if (error.message.includes('Failed to connect')) {
-    // Handle network error
-  }
-  if (error.message.includes('LLM request timed out')) {
-    // Handle timeout
-  }
-}
-```
-
-## Types
-
-```typescript
-type XMLElement = {
-  $text: string;                        // Element text content
-  $attr: Record<string, string>;        // Element attributes
-  $tagclosed: boolean;                  // Is element complete
-  $tagkey: number;                      // Unique identifier
-  $tagname: string;                     // Tag name
-  $children: XMLElement[];              // Child elements
-}
-
-type SchemaType = {
-  [key: string]: 
-    | StringConstructor                 // Convert to string
-    | NumberConstructor                 // Convert to number
-    | BooleanConstructor               // Convert to boolean
-    | ((el: XMLElement) => any)        // Custom transformer
-    | SchemaType                       // Nested schema
-    | [SchemaType];                    // Array of schema
-}
-
-type Message = {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
-
-type ModelPreference = 
-  | string                             // e.g. 'claude:fast'
-  | string[]                           // Fallback chain
-  | {
-      inherit: string;                 // Base provider
-      name: string;                    // Model name
-      maxContextSize?: number;         // Context window
-      endpoint?: string;               // Custom endpoint
-      key?: string;                    // API key
-    }
 ```
 
 ## Provider Configuration
 
-### Model Configuration
 ```typescript
-type ModelConfig = {
-  inherit: string;                    // Base provider (e.g. 'claude')
-  name: string;                       // Model name
-  endpoint?: string;                  // Custom endpoint
-  maxContextSize?: number;           // Max context window
-  headerGen?: () => Headers;         // Custom headers
-  payloader?: (payload: any) => any; // Custom payload transformer
-  constraints?: {
-    rpmLimit?: number;              // Requests per minute
-  }
+interface ProviderConfig {
+  // Circuit Breaker
+  circuitBreakerThreshold?: number;    // Max errors before circuit opens
+  circuitBreakerResetTime?: number;    // Time (ms) before circuit resets
+  
+  // Request Configuration
+  REQUEST_TIMEOUT_MS?: number;         // Request timeout
+  MAX_RETRIES?: number;                // Max retry attempts
+  RETRY_DELAY_WHEN_OVERLOADED?: number; // Delay between retries
 }
 ```
 
-### Provider Options
-```typescript
-type ProviderOptions = {
-  apiKeys: Record<string, string>;   // Provider API keys
-  model?: ModelConfig | string;      // Model selection
-  temperature?: number;              // 0-2, default 0.7
-  maxTokens?: number;               // Max response length
-  cache?: boolean;                  // Enable caching
-  retryMax?: number;                // Max retries
-  retryStartDelay?: number;         // Initial retry delay
-  retryBackoffMultiplier?: number;  // Backoff multiplier
-}
-```
+## Streaming Modes
 
-## Cache Configuration
+The stream API supports four modes of operation:
 
-```typescript
-interface CacheOptions {
-  enabled: boolean;           // Enable caching
-  maxSize?: number;          // Max cache size (bytes)
-  maxEntries?: number;       // Max number of entries
-  ttl?: number;              // Time to live (ms)
-}
-```
+- `state_open`: Shows growing state including partials (default)
+  - Includes incomplete elements
+  - Shows full state at each update
+  
+- `state_closed`: Shows complete state at each point
+  - Only complete elements
+  - Shows full state at each update
+  
+- `root_open`: Shows each root element's progress once
+  - Includes incomplete elements
+  - Only shows each element once
+  
+- `root_closed`: Shows each complete root element once
+  - Only complete elements
+  - Only shows each element once
 
-### Helper Functions
-
-#### `text(fn?: (text: string) => string)`
-Transform element text content.
+Example:
 
 ```typescript
-// Example
-.map(text(s => s.toUpperCase()))
-```
+// Get real-time updates including partial elements
+const stream1 = stream('List colors', {
+  mode: 'state_open'  // default
+});
 
-#### `withAttrs(fn: (text: string, attrs: Record<string, string>) => any)`
-Access both text content and attributes.
-
-```typescript
-// Example
-.map(withAttrs((text, attrs) => ({
-  content: text,
-  type: attrs.type
-})))
-```
-
-#### `whenClosed(fn: (element: XMLElement) => any)`
-Only transform complete elements.
-
-```typescript
-// Example
-.map(whenClosed(el => `Complete: ${el.$text}`))
-```
-
-## Stream Configuration
-
-```typescript
-type StreamConfig = {
-  prompt: string;                      // Prompt text
-  schema?: SchemaType;                 // Transform schema
-  system?: string;                     // System prompt
-  model?: ModelPreference;             // Model selection
-  temperature?: number;                // Temperature (0-2)
-  maxTokens?: number;                  // Max tokens
-  topP?: number;                       // Top P sampling
-  presencePenalty?: number;           // Presence penalty
-  stop?: string[];                    // Stop sequences
-  cache?: boolean;                    // Enable caching
-  closed?: boolean;                   // Only return closed elements
-  waitMessageString?: string;         // Progress message
-  waitMessageDelay?: number;          // Delay before progress
-  retryMax?: number;                  // Max retries
-  retryStartDelay?: number;           // Initial retry delay
-  retryBackoffMultiplier?: number;    // Retry backoff multiplier
-  fakeDelay?: number;                 // Test-only: artificial delay
-  clientProvider?: ClientProvider;    // Browser client provider
-}
-```
-
-## Browser Usage
-
-### Client Setup
-
-```typescript
-import { ClientProvider, stream } from 'xmllm/client';
-
-const client = new ClientProvider('http://localhost:3124/api/stream');
-
-const result = await stream('Query', {
-  schema: { answer: String },
-  clientProvider: client
+// Only see complete elements once
+const stream2 = stream('List colors', {
+  mode: 'root_closed'
 });
 ```
 
-### Proxy Configuration
+## Input Validation
 
-The proxy server supports additional options:
+The library validates:
 
-```bash
-npm run proxy -- [options]
+- Messages format and content
+- Model configuration
+- Schema structure
+- Parameter ranges (temperature, tokens etc)
+- Reserved property usage in schemas
 
-Options:
-  --port=3124        # Server port
-  --corsOrigins=*    # CORS origins
-  --debug           # Enable debug logging
-  --verbose         # Verbose logging
-  --maxRequestSize  # Max request size
-  --timeout        # Request timeout
-```
-
-## Model Configuration & Provider Fallback
+Example validation error:
 
 ```typescript
-type ModelPreference = 
-  | string        // Single provider e.g. 'claude:fast'
-  | string[]      // Fallback chain e.g. ['claude:good', 'openai:good']
-  | {
-      inherit: string;   // Base provider (e.g. 'claude', 'openai')
-      name: string;      // Model name
-      endpoint?: string; // Custom endpoint
-      key?: string;      // API key
-    }
-
-// Example using fallback chain:
-const result = await stream('Query', {
-  model: ['claude:good', 'openai:good', 'claude:fast']  // Will try each in order
-});
-```
-
-## Pipeline Functions
-
-### Prompt Functions
-
-The pipeline provides three prompt functions with similar signatures but different streaming behaviors:
-
-#### `prompt()` / `promptStream()` / `promptClosed()`
-
-These functions can be used in three ways:
-
-1. Basic string prompt with schema:
-```javascript
-prompt('List colors', { color: [String] })
-```
-
-2. Function returning config:
-```javascript
-prompt(input => ({
-  messages: [{
-    role: 'user',
-    content: `Analyze ${input}`
-  }],
-  schema: { analysis: String },
-  mapper: (input, output) => ({
-    input,
-    analysis: output.analysis
-  })
-}))
-```
-
-3. Direct config object:
-```javascript
-prompt({
-  messages: [{
-    role: 'user',
-    content: 'List colors'
-  }],
-  schema: { color: [String] },
-  system: 'You are a color expert',
-  mapper: (input, output) => output,
-  temperature: 0.7,
-  model: 'claude:fast'
-})
-```
-
-**Config Options:**
-```typescript
-{
-  messages: Message[];              // Message array
-  schema?: SchemaType;             // Transform schema
-  hints?: SchemaHints;             // Schema hints
-  mapper?: MapperFunction;         // Transform results
-  system?: string;                 // System prompt
-  model?: ModelPreference;         // Model selection
-  temperature?: number;            // 0-2, default 0.7
-  maxTokens?: number;              // Max tokens
-  cache?: boolean;                 // Enable caching
-  fakeResponse?: string;           // Test response
-  waitMessageString?: string;      // Progress message
-  waitMessageDelay?: number;       // Progress delay
-  retryMax?: number;               // Max retries
-  retryStartDelay?: number;        // Initial retry delay
-  retryBackoffMultiplier?: number; // Retry backoff
-  onChunk?: (chunk: string) => void; // Chunk callback
-}
-```
-
-**Key Differences:**
-- `prompt/promptStream`: Shows growing state including partial elements
-- `promptClosed`: Only yields complete elements
-- All functions support the same config options and signatures
-
-**Examples:**
-
-Basic usage:
-```javascript
-// Simple prompt with schema
-const colors = await prompt('List colors', { 
-  color: [String] 
-}).last();
-
-// With options
-const analysis = await promptClosed(
-  'Analyze text',
-  { sentiment: String },
-  { temperature: 0.9 }
-).last();
-
-// Full config object
-const result = await prompt({
-  messages: [{
-    role: 'user',
-    content: 'List colors'
-  }],
-  schema: { color: [String] },
-  temperature: 0.7
-}).last();
-```
-
-## Schema Validation
-
-### Reserved Properties
-
-The schema system validates against using certain reserved property names:
-
-```javascript
-// These will cause errors
-{
-  element: {
-    $attr: String,      // Error: $attr is reserved
-    $tagclosed: Boolean // Error: $tagclosed is reserved
-    $tagkey: Number,    // Error: $tagkey is reserved
-    $children: Array,   // Error: $children is reserved
-    $tagname: String    // Error: $tagname is reserved
+try {
+  await stream('Query', {
+    temperature: 3.0  // Invalid: must be 0-2
+  });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid parameter:', error.message);
   }
 }
-
-// Correct way to handle attributes
-{
-  element: {
-    $customAttr: String,  // OK: Custom attributes use $ prefix
-    $score: Number,       // OK: User-defined attributes
-    content: String       // OK: Regular element content
-  }
-}
-```
-
-Reserved properties (`$attr`, `$tagclosed`, `$tagkey`, etc.) are used internally by the XML parser and cannot be used in schemas. Instead:
-
-1. Use direct `$` prefixed properties for attributes
-2. Use regular property names for element content
-3. Access reserved properties only in transformer functions:
-
-```javascript
-// In transformers, you can access reserved properties
-element: ({$attr, $text, $tagclosed}) => ({
-  content: $text,
-  attributes: $attr,
-  isComplete: $tagclosed
-})
-```
+``` 

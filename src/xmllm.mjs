@@ -2,10 +2,9 @@ import createStreaming from 'streamops';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
 import { generateSystemPrompt as defaultSystemPrompt, generateUserPrompt as defaultUserPrompt } from './prompts.mjs';
+import { getConfig, configure } from './config.mjs';
 
 const logger = new Logger('xmllm');
-
-const DEFAULT_TEMPERATURE = 0.72;
 
 const text = (fn) => ({ $text }) => fn ? fn($text) : $text;
 const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
@@ -32,8 +31,6 @@ async function* xmllmGen(pipelineFn, {
     throw new Error('You must pass a function to xmllm - and that function must return a pipeline array.');
   }
 
-  const xmlps = new IncomingXMLParserSelectorEngine();
-
   const pipeline = pipelineFn({
 
     // Convenience aliases
@@ -56,7 +53,11 @@ async function* xmllmGen(pipelineFn, {
     // sources.
     parse: (str) => {
       return function*(incoming) {
-        getCurrentParser().add(String(str));
+        if (str != null) {
+          getCurrentParser().add(String(str));
+        } else {
+          getCurrentParser().add(incoming);
+        }
         yield incoming;
       }
     },
@@ -70,10 +71,6 @@ async function* xmllmGen(pipelineFn, {
     mergeAggregate: streamops.mergeAggregate,
     take: streamops.take,
     batch: streamops.batch,
-    // batch: (n, ops) => {
-    //   console.log('xmllm: batch', n, ops);
-    //   return streamops.batch.call(this, n, ops);
-    // },
     skip: streamops.skip,
 
     text,
@@ -104,9 +101,9 @@ async function* xmllmGen(pipelineFn, {
   }
 
   function req(config) {
-
     return async function*(thing) {
       const parser = pushNewParser();
+      const globalConfig = getConfig();
 
       let transformedConfig = config;
 
@@ -128,7 +125,7 @@ async function* xmllmGen(pipelineFn, {
 
       const {
         system,
-        model,
+        model = globalConfig.defaults.model,
         cache,
         max_tokens,
         maxTokens,
@@ -141,16 +138,16 @@ async function* xmllmGen(pipelineFn, {
         messages
       } = transformedConfig;
 
-      if (!messages.length) {
+      if (!messages?.length) {
         throw new Error('Must be at least one message');
       }
 
       const stream = await (llmStream)({
-        max_tokens: max_tokens || maxTokens || 4000,
-        temperature: temperature == null ? DEFAULT_TEMPERATURE : temperature,
+        max_tokens: max_tokens || maxTokens || globalConfig.defaults.maxTokens,
+        temperature: temperature ?? globalConfig.defaults.temperature,
         fakeDelay: transformedConfig.fakeDelay,
-        top_p: top_p || topP,
-        presence_penalty: presence_penalty || presencePenalty,
+        top_p: top_p || topP || globalConfig.defaults.topP,
+        presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
         stop: stop,
         messages: [
           {
@@ -159,7 +156,7 @@ async function* xmllmGen(pipelineFn, {
           },
           ...(messages || [])
         ],
-        model,
+        model: model || globalConfig.defaults.model,
         cache
       });
 
@@ -260,12 +257,14 @@ async function* xmllmGen(pipelineFn, {
         throw new Error('we need a prompt');
       }
 
+      const config = getConfig();
+      
       const stream = await (llmStream)({
-        max_tokens: max_tokens || maxTokens || 4000,
-        temperature: temperature == null ? 0.5 : temperature,
-        top_p: top_p || topP || null,
+        max_tokens: max_tokens || maxTokens || config.defaults.maxTokens,
+        temperature: temperature ?? config.defaults.temperature,
+        top_p: top_p || topP || config.defaults.topP,
         stop: stop || null,
-        presence_penalty: presence_penalty || presencePenalty || null,
+        presence_penalty: presence_penalty || presencePenalty || config.defaults.presencePenalty,
         messages: [
           {
             role: 'system',
@@ -373,6 +372,7 @@ async function* xmllmGen(pipelineFn, {
 
     if (typeof transformedConfig === 'string') {
       transformedConfig = {
+        ...getConfig().defaults,
         system: '',
         doMapSelectClosed: false,
         messages: [
@@ -383,7 +383,6 @@ async function* xmllmGen(pipelineFn, {
         ]
       }
     }
-
 
     return promptComplex({
       schema,
@@ -449,32 +448,8 @@ async function* xmllmGen(pipelineFn, {
         throw new Error('You cannot have a schema with a mapper; it makes no sense.');
       }
 
-      if (!schema) {
-        return xmlReq({
-          system: system,
-          messages,
-          model,
-          hints,
-          max_tokens,
-          maxTokens,
-          top_p,
-          topP,
-          presence_penalty,
-          presencePenalty,
-          temperature,
-          stop,
-          schema,
-          generateSystemPrompt,
-          generateUserPrompt
-        });
-      }
-
       const reqPipeline = [
         function*() {
-          // if (input == null) {
-          //   yield [undefined];
-          //   return;
-          // }
           if (isComplexIterable(input)) {
             yield* input;
           } else {
@@ -519,18 +494,13 @@ async function* xmllmGen(pipelineFn, {
             generateUserPrompt
           }),
 
-        // function*(x) {
-        //   yield x;
-        // },
-
-        // doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema),
-        doMapSelectClosed ? 
-          mapSelectClosed(schema) : 
-          mapSelect(schema, includeOpenTags, doDedupe),
-
-        // function*(x) {
-        //   yield x;
-        // },
+        schema ? 
+          // If it's a schema, we need to map the output
+          (doMapSelectClosed ? 
+            mapSelectClosed(schema) : 
+            mapSelect(schema, includeOpenTags, doDedupe)) :
+          // Otherwise just yield through (x=>x map)
+          function*(x) { yield x; },
       ];
 
       const pipeline = [
@@ -558,6 +528,7 @@ async function* xmllmGen(pipelineFn, {
           }
         }
       ];
+
       for await (const item of xmllmGen(() => pipeline, {llmStream})) {
         yield item;
       }
@@ -665,4 +636,4 @@ function xmllm(pipelineFn, options = {}) {
 }
 
 export default xmllm;
-export { xmllm };
+export { xmllm, configure };

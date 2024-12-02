@@ -2,11 +2,27 @@ import type {
   PipelineHelpers, 
   XmllmOptions, 
   SchemaType, 
+  HintType, 
   StreamOptions, 
   XMLStream,
   XMLElement,
-  PromptFn
+  PromptFn,
+  Message,
+  ModelPreference
 } from './index';
+
+export type { 
+  PipelineHelpers, 
+  XmllmOptions, 
+  SchemaType, 
+  HintType, 
+  StreamOptions, 
+  XMLStream,
+  XMLElement,
+  PromptFn,
+  Message,
+  ModelPreference
+};
 
 export interface IClientProvider {
   createStream(payload: any): Promise<ReadableStream>;
@@ -19,21 +35,30 @@ export class ClientProvider implements IClientProvider {
 
 export function xmllm<T = any>(
   pipelineFn: (helpers: PipelineHelpers) => any[],
-  clientProvider: ClientProvider | string,
+  clientProvider?: ClientProvider | string,
   options?: Omit<XmllmOptions, 'clientProvider'>
 ): AsyncGenerator<T>;
 
 export function stream<T = XMLElement>(
   promptOrConfig: string | { 
-    prompt: string;
+    prompt?: string;
     schema?: SchemaType;
     system?: string;
-    mode?: 'state' | 'delta' | 'snapshot' | 'realtime';
+    mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
     onChunk?: (chunk: string) => void;
-    [key: string]: any;
+    messages?: Message[];
+    model?: ModelPreference;
+    temperature?: number;
+    max_tokens?: number;
+    maxTokens?: number;
+    top_p?: number;
+    topP?: number;
+    presence_penalty?: number;
+    presencePenalty?: number;
+    stop?: string[];
   },
-  options: StreamOptions & {
-    clientProvider: ClientProvider | string;
+  options?: StreamOptions & {
+    clientProvider?: ClientProvider | string;
   }
 ): XMLStream<T>;
 
@@ -41,11 +66,9 @@ export function simple<T = any>(
   prompt: string,
   schema: SchemaType,
   options: Omit<StreamOptions, 'schema'> & {
-    clientProvider: ClientProvider | string;
+    clientProvider?: ClientProvider | string;
   }
 ): Promise<T>;
-
-export { PipelineHelpers };
 
 declare const _default: {
   ClientProvider: typeof ClientProvider;

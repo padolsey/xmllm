@@ -1,5 +1,11 @@
+#!/usr/bin/env node
+
 console.log('Starting Proxy');
 import proxy from './xmllm-proxy.mjs';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file if present
+dotenv.config();
 
 const args = process.argv.slice(2);
 
@@ -12,12 +18,8 @@ const getArg = (prefix) => {
 const config = {
   corsOrigins: getArg('corsOrigins') || '*',
   port: getArg('port') || process.env.PORT || 3124,
-  
-  // Add more configuration options
   maxRequestSize: getArg('maxRequestSize'),
   timeout: getArg('timeout'),
-  
-  // Parse boolean flags
   debug: args.includes('--debug'),
   verbose: args.includes('--verbose')
 };

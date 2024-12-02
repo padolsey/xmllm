@@ -153,6 +153,8 @@ const providers = {
   }
 };
 
+providers.anthropic = providers.claude;
+
 export default providers;
 
 export function createProvidersWithKeys(keys = {}) {

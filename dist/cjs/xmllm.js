@@ -3,12 +3,19 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+Object.defineProperty(exports, "configure", {
+  enumerable: true,
+  get: function get() {
+    return _config2.configure;
+  }
+});
 exports["default"] = void 0;
 exports.xmllm = xmllm;
 var _streamops = _interopRequireDefault(require("streamops"));
 var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
 var _prompts = require("./prompts.js");
+var _config2 = require("./config.js");
 var _excluded = ["mapper"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -37,7 +44,6 @@ function _OverloadYield(e, d) { this.v = e, this.k = d; }
 function _asyncIterator(r) { var n, t, o, e = 2; for ("undefined" != typeof Symbol && (t = Symbol.asyncIterator, o = Symbol.iterator); e--;) { if (t && null != (n = r[t])) return n.call(r); if (o && null != (n = r[o])) return new AsyncFromSyncIterator(n.call(r)); t = "@@asyncIterator", o = "@@iterator"; } throw new TypeError("Object is not async iterable"); }
 function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r) { if (Object(r) !== r) return Promise.reject(new TypeError(r + " is not an object.")); var n = r.done; return Promise.resolve(r.value).then(function (r) { return { value: r, done: n }; }); } return AsyncFromSyncIterator = function AsyncFromSyncIterator(r) { this.s = r, this.n = r.next; }, AsyncFromSyncIterator.prototype = { s: null, n: null, next: function next() { return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments)); }, "return": function _return(r) { var n = this.s["return"]; return void 0 === n ? Promise.resolve({ value: r, done: !0 }) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); }, "throw": function _throw(r) { var n = this.s["return"]; return void 0 === n ? Promise.reject(r) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); } }, new AsyncFromSyncIterator(r); }
 var logger = new _Logger["default"]('xmllm');
-var DEFAULT_TEMPERATURE = 0.72;
 var text = function text(fn) {
   return function (_ref5) {
     var $text = _ref5.$text;
@@ -69,15 +75,42 @@ function _xmllmGen() {
       generateSystemPrompt = _ref7$generateSystemP === void 0 ? _prompts.generateSystemPrompt : _ref7$generateSystemP,
       _ref7$generateUserPro = _ref7.generateUserPrompt,
       generateUserPrompt = _ref7$generateUserPro === void 0 ? _prompts.generateUserPrompt : _ref7$generateUserPro;
-    return /*#__PURE__*/_regeneratorRuntime().mark(function _callee12() {
-      var streamops, context, xmlps, pipeline, stream, getCurrentParser, pushNewParser, req, xmlReq, promptClosed, promptStream, promptComplex, mapSelect, mapSelectClosed, select;
-      return _regeneratorRuntime().wrap(function _callee12$(_context12) {
-        while (1) switch (_context12.prev = _context12.next) {
+    return /*#__PURE__*/_regeneratorRuntime().mark(function _callee13() {
+      var streamops, context, pipeline, stream, getCurrentParser, pushNewParser, req, xmlReq, promptClosed, promptStream, promptComplex, mapSelect, mapSelectClosed, select;
+      return _regeneratorRuntime().wrap(function _callee13$(_context13) {
+        while (1) switch (_context13.prev = _context13.next) {
           case 0:
             select = function _select(selector) {
               var mapperFn = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : function (x) {
                 return x;
               };
+              return /*#__PURE__*/_regeneratorRuntime().mark(function _callee12(chunk) {
+                var currentParser, selection;
+                return _regeneratorRuntime().wrap(function _callee12$(_context12) {
+                  while (1) switch (_context12.prev = _context12.next) {
+                    case 0:
+                      currentParser = getCurrentParser();
+                      if (currentParser) {
+                        _context12.next = 4;
+                        break;
+                      }
+                      logger.warn('No active parser found for select()');
+                      return _context12.abrupt("return");
+                    case 4:
+                      selection = currentParser.dedupeSelect(selector, true);
+                      if (!(selection !== null && selection !== void 0 && selection.length)) {
+                        _context12.next = 7;
+                        break;
+                      }
+                      return _context12.delegateYield(selection.map(mapperFn), "t0", 7);
+                    case 7:
+                    case "end":
+                      return _context12.stop();
+                  }
+                }, _callee12);
+              });
+            };
+            mapSelectClosed = function _mapSelectClosed(schema) {
               return /*#__PURE__*/_regeneratorRuntime().mark(function _callee11(chunk) {
                 var currentParser, selection;
                 return _regeneratorRuntime().wrap(function _callee11$(_context11) {
@@ -88,23 +121,26 @@ function _xmllmGen() {
                         _context11.next = 4;
                         break;
                       }
-                      logger.warn('No active parser found for select()');
+                      logger.warn('No active parser found for mapSelectClosed()');
                       return _context11.abrupt("return");
                     case 4:
-                      selection = currentParser.dedupeSelect(selector, true);
-                      if (!(selection !== null && selection !== void 0 && selection.length)) {
-                        _context11.next = 7;
+                      selection = currentParser.mapSelectClosed(schema);
+                      if (!(selection && Object.keys(selection).length)) {
+                        _context11.next = 8;
                         break;
                       }
-                      return _context11.delegateYield(selection.map(mapperFn), "t0", 7);
-                    case 7:
+                      _context11.next = 8;
+                      return selection;
+                    case 8:
                     case "end":
                       return _context11.stop();
                   }
                 }, _callee11);
               });
             };
-            mapSelectClosed = function _mapSelectClosed(schema) {
+            mapSelect = function _mapSelect(schema) {
+              var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+              var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
               return /*#__PURE__*/_regeneratorRuntime().mark(function _callee10(chunk) {
                 var currentParser, selection;
                 return _regeneratorRuntime().wrap(function _callee10$(_context10) {
@@ -115,10 +151,10 @@ function _xmllmGen() {
                         _context10.next = 4;
                         break;
                       }
-                      logger.warn('No active parser found for mapSelectClosed()');
+                      logger.warn('No active parser found for mapSelect()');
                       return _context10.abrupt("return");
                     case 4:
-                      selection = currentParser.mapSelectClosed(schema);
+                      selection = currentParser.mapSelect(schema, includeOpenTags, doDedupe);
                       if (!(selection && Object.keys(selection).length)) {
                         _context10.next = 8;
                         break;
@@ -132,43 +168,13 @@ function _xmllmGen() {
                 }, _callee10);
               });
             };
-            mapSelect = function _mapSelect(schema) {
-              var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-              var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-              return /*#__PURE__*/_regeneratorRuntime().mark(function _callee9(chunk) {
-                var currentParser, selection;
-                return _regeneratorRuntime().wrap(function _callee9$(_context9) {
-                  while (1) switch (_context9.prev = _context9.next) {
-                    case 0:
-                      currentParser = getCurrentParser();
-                      if (currentParser) {
-                        _context9.next = 4;
-                        break;
-                      }
-                      logger.warn('No active parser found for mapSelect()');
-                      return _context9.abrupt("return");
-                    case 4:
-                      selection = currentParser.mapSelect(schema, includeOpenTags, doDedupe);
-                      if (!(selection && Object.keys(selection).length)) {
-                        _context9.next = 8;
-                        break;
-                      }
-                      _context9.next = 8;
-                      return selection;
-                    case 8:
-                    case "end":
-                      return _context9.stop();
-                  }
-                }, _callee9);
-              });
-            };
             promptComplex = function _promptComplex(config) {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
-                var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(input) {
+                var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9(input) {
                   var _config, messages, schema, hints, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
-                  return _regeneratorRuntime().wrap(function _callee8$(_context8) {
-                    while (1) switch (_context8.prev = _context8.next) {
+                  return _regeneratorRuntime().wrap(function _callee9$(_context9) {
+                    while (1) switch (_context9.prev = _context9.next) {
                       case 0:
                         if (typeof config === 'function') {
                           config = config(input);
@@ -184,33 +190,11 @@ function _xmllmGen() {
                         }
                         _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt;
                         if (!(mapper && !schema)) {
-                          _context8.next = 5;
+                          _context9.next = 5;
                           break;
                         }
                         throw new Error('You cannot have a schema with a mapper; it makes no sense.');
                       case 5:
-                        if (schema) {
-                          _context8.next = 7;
-                          break;
-                        }
-                        return _context8.abrupt("return", xmlReq({
-                          system: system,
-                          messages: messages,
-                          model: model,
-                          hints: hints,
-                          max_tokens: max_tokens,
-                          maxTokens: maxTokens,
-                          top_p: top_p,
-                          topP: topP,
-                          presence_penalty: presence_penalty,
-                          presencePenalty: presencePenalty,
-                          temperature: temperature,
-                          stop: stop,
-                          schema: schema,
-                          generateSystemPrompt: generateSystemPrompt,
-                          generateUserPrompt: generateUserPrompt
-                        }));
-                      case 7:
                         reqPipeline = [/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
                           return _regeneratorRuntime().wrap(function _callee4$(_context4) {
                             while (1) switch (_context4.prev = _context4.next) {
@@ -279,199 +263,204 @@ function _xmllmGen() {
                           cache: cache,
                           generateSystemPrompt: generateSystemPrompt,
                           generateUserPrompt: generateUserPrompt
-                        }),
-                        // function*(x) {
-                        //   yield x;
-                        // },
-
-                        // doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema),
-                        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema, includeOpenTags, doDedupe)
-
-                        // function*(x) {
-                        //   yield x;
-                        // },
-                        ];
+                        }), schema ?
+                        // If it's a schema, we need to map the output
+                        doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema, includeOpenTags, doDedupe) :
+                        /*#__PURE__*/
+                        // Otherwise just yield through (x=>x map)
+                        _regeneratorRuntime().mark(function _callee7(x) {
+                          return _regeneratorRuntime().wrap(function _callee7$(_context7) {
+                            while (1) switch (_context7.prev = _context7.next) {
+                              case 0:
+                                _context7.next = 2;
+                                return x;
+                              case 2:
+                              case "end":
+                                return _context7.stop();
+                            }
+                          }, _callee7);
+                        })];
                         pipeline = [xmllmGen(function () {
                           return reqPipeline;
                         }, {
                           llmStream: llmStream
                         }), (/*#__PURE__*/function () {
-                          var _ref4 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7(output) {
+                          var _ref4 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(output) {
                             var _iteratorAbruptCompletion5, _didIteratorError5, _iteratorError5, _iterator5, _step5, x, _iteratorAbruptCompletion6, _didIteratorError6, _iteratorError6, _iterator6, _step6, _x6, _iteratorAbruptCompletion7, _didIteratorError7, _iteratorError7, _iterator7, _step7, y;
-                            return _regeneratorRuntime().wrap(function _callee7$(_context7) {
-                              while (1) switch (_context7.prev = _context7.next) {
+                            return _regeneratorRuntime().wrap(function _callee8$(_context8) {
+                              while (1) switch (_context8.prev = _context8.next) {
                                 case 0:
                                   if (isComplexIterable(input)) {
-                                    _context7.next = 36;
+                                    _context8.next = 36;
                                     break;
                                   }
                                   if (!isComplexIterable(output)) {
-                                    _context7.next = 33;
+                                    _context8.next = 33;
                                     break;
                                   }
                                   _iteratorAbruptCompletion5 = false;
                                   _didIteratorError5 = false;
-                                  _context7.prev = 4;
+                                  _context8.prev = 4;
                                   _iterator5 = _asyncIterator(output);
                                 case 6:
-                                  _context7.next = 8;
+                                  _context8.next = 8;
                                   return _awaitAsyncGenerator(_iterator5.next());
                                 case 8:
-                                  if (!(_iteratorAbruptCompletion5 = !(_step5 = _context7.sent).done)) {
-                                    _context7.next = 15;
+                                  if (!(_iteratorAbruptCompletion5 = !(_step5 = _context8.sent).done)) {
+                                    _context8.next = 15;
                                     break;
                                   }
                                   x = _step5.value;
-                                  _context7.next = 12;
+                                  _context8.next = 12;
                                   return mapper ? mapper(input, x) : x;
                                 case 12:
                                   _iteratorAbruptCompletion5 = false;
-                                  _context7.next = 6;
+                                  _context8.next = 6;
                                   break;
                                 case 15:
-                                  _context7.next = 21;
+                                  _context8.next = 21;
                                   break;
                                 case 17:
-                                  _context7.prev = 17;
-                                  _context7.t0 = _context7["catch"](4);
+                                  _context8.prev = 17;
+                                  _context8.t0 = _context8["catch"](4);
                                   _didIteratorError5 = true;
-                                  _iteratorError5 = _context7.t0;
+                                  _iteratorError5 = _context8.t0;
                                 case 21:
-                                  _context7.prev = 21;
-                                  _context7.prev = 22;
+                                  _context8.prev = 21;
+                                  _context8.prev = 22;
                                   if (!(_iteratorAbruptCompletion5 && _iterator5["return"] != null)) {
-                                    _context7.next = 26;
+                                    _context8.next = 26;
                                     break;
                                   }
-                                  _context7.next = 26;
+                                  _context8.next = 26;
                                   return _awaitAsyncGenerator(_iterator5["return"]());
                                 case 26:
-                                  _context7.prev = 26;
+                                  _context8.prev = 26;
                                   if (!_didIteratorError5) {
-                                    _context7.next = 29;
+                                    _context8.next = 29;
                                     break;
                                   }
                                   throw _iteratorError5;
                                 case 29:
-                                  return _context7.finish(26);
+                                  return _context8.finish(26);
                                 case 30:
-                                  return _context7.finish(21);
+                                  return _context8.finish(21);
                                 case 31:
-                                  _context7.next = 35;
+                                  _context8.next = 35;
                                   break;
                                 case 33:
-                                  _context7.next = 35;
+                                  _context8.next = 35;
                                   return mapper ? mapper(input, output) : output;
                                 case 35:
-                                  return _context7.abrupt("return");
+                                  return _context8.abrupt("return");
                                 case 36:
                                   _iteratorAbruptCompletion6 = false;
                                   _didIteratorError6 = false;
-                                  _context7.prev = 38;
+                                  _context8.prev = 38;
                                   _iterator6 = _asyncIterator(input);
                                 case 40:
-                                  _context7.next = 42;
+                                  _context8.next = 42;
                                   return _awaitAsyncGenerator(_iterator6.next());
                                 case 42:
-                                  if (!(_iteratorAbruptCompletion6 = !(_step6 = _context7.sent).done)) {
-                                    _context7.next = 81;
+                                  if (!(_iteratorAbruptCompletion6 = !(_step6 = _context8.sent).done)) {
+                                    _context8.next = 81;
                                     break;
                                   }
                                   _x6 = _step6.value;
                                   if (!isComplexIterable(output)) {
-                                    _context7.next = 76;
+                                    _context8.next = 76;
                                     break;
                                   }
                                   _iteratorAbruptCompletion7 = false;
                                   _didIteratorError7 = false;
-                                  _context7.prev = 47;
+                                  _context8.prev = 47;
                                   _iterator7 = _asyncIterator(output);
                                 case 49:
-                                  _context7.next = 51;
+                                  _context8.next = 51;
                                   return _awaitAsyncGenerator(_iterator7.next());
                                 case 51:
-                                  if (!(_iteratorAbruptCompletion7 = !(_step7 = _context7.sent).done)) {
-                                    _context7.next = 58;
+                                  if (!(_iteratorAbruptCompletion7 = !(_step7 = _context8.sent).done)) {
+                                    _context8.next = 58;
                                     break;
                                   }
                                   y = _step7.value;
-                                  _context7.next = 55;
+                                  _context8.next = 55;
                                   return mapper ? mapper(_x6, y) : _x6;
                                 case 55:
                                   _iteratorAbruptCompletion7 = false;
-                                  _context7.next = 49;
+                                  _context8.next = 49;
                                   break;
                                 case 58:
-                                  _context7.next = 64;
+                                  _context8.next = 64;
                                   break;
                                 case 60:
-                                  _context7.prev = 60;
-                                  _context7.t1 = _context7["catch"](47);
+                                  _context8.prev = 60;
+                                  _context8.t1 = _context8["catch"](47);
                                   _didIteratorError7 = true;
-                                  _iteratorError7 = _context7.t1;
+                                  _iteratorError7 = _context8.t1;
                                 case 64:
-                                  _context7.prev = 64;
-                                  _context7.prev = 65;
+                                  _context8.prev = 64;
+                                  _context8.prev = 65;
                                   if (!(_iteratorAbruptCompletion7 && _iterator7["return"] != null)) {
-                                    _context7.next = 69;
+                                    _context8.next = 69;
                                     break;
                                   }
-                                  _context7.next = 69;
+                                  _context8.next = 69;
                                   return _awaitAsyncGenerator(_iterator7["return"]());
                                 case 69:
-                                  _context7.prev = 69;
+                                  _context8.prev = 69;
                                   if (!_didIteratorError7) {
-                                    _context7.next = 72;
+                                    _context8.next = 72;
                                     break;
                                   }
                                   throw _iteratorError7;
                                 case 72:
-                                  return _context7.finish(69);
+                                  return _context8.finish(69);
                                 case 73:
-                                  return _context7.finish(64);
+                                  return _context8.finish(64);
                                 case 74:
-                                  _context7.next = 78;
+                                  _context8.next = 78;
                                   break;
                                 case 76:
-                                  _context7.next = 78;
+                                  _context8.next = 78;
                                   return mapper ? mapper(_x6, output) : output;
                                 case 78:
                                   _iteratorAbruptCompletion6 = false;
-                                  _context7.next = 40;
+                                  _context8.next = 40;
                                   break;
                                 case 81:
-                                  _context7.next = 87;
+                                  _context8.next = 87;
                                   break;
                                 case 83:
-                                  _context7.prev = 83;
-                                  _context7.t2 = _context7["catch"](38);
+                                  _context8.prev = 83;
+                                  _context8.t2 = _context8["catch"](38);
                                   _didIteratorError6 = true;
-                                  _iteratorError6 = _context7.t2;
+                                  _iteratorError6 = _context8.t2;
                                 case 87:
-                                  _context7.prev = 87;
-                                  _context7.prev = 88;
+                                  _context8.prev = 87;
+                                  _context8.prev = 88;
                                   if (!(_iteratorAbruptCompletion6 && _iterator6["return"] != null)) {
-                                    _context7.next = 92;
+                                    _context8.next = 92;
                                     break;
                                   }
-                                  _context7.next = 92;
+                                  _context8.next = 92;
                                   return _awaitAsyncGenerator(_iterator6["return"]());
                                 case 92:
-                                  _context7.prev = 92;
+                                  _context8.prev = 92;
                                   if (!_didIteratorError6) {
-                                    _context7.next = 95;
+                                    _context8.next = 95;
                                     break;
                                   }
                                   throw _iteratorError6;
                                 case 95:
-                                  return _context7.finish(92);
+                                  return _context8.finish(92);
                                 case 96:
-                                  return _context7.finish(87);
+                                  return _context8.finish(87);
                                 case 97:
                                 case "end":
-                                  return _context7.stop();
+                                  return _context8.stop();
                               }
-                            }, _callee7, null, [[4, 17, 21, 31], [22,, 26, 30], [38, 83, 87, 97], [47, 60, 64, 74], [65,, 69, 73], [88,, 92, 96]]);
+                            }, _callee8, null, [[4, 17, 21, 31], [22,, 26, 30], [38, 83, 87, 97], [47, 60, 64, 74], [65,, 69, 73], [88,, 92, 96]]);
                           }));
                           return function (_x5) {
                             return _ref4.apply(this, arguments);
@@ -479,60 +468,60 @@ function _xmllmGen() {
                         }())];
                         _iteratorAbruptCompletion4 = false;
                         _didIteratorError4 = false;
-                        _context8.prev = 11;
+                        _context9.prev = 9;
                         _iterator4 = _asyncIterator(xmllmGen(function () {
                           return pipeline;
                         }, {
                           llmStream: llmStream
                         }));
-                      case 13:
-                        _context8.next = 15;
+                      case 11:
+                        _context9.next = 13;
                         return _awaitAsyncGenerator(_iterator4.next());
-                      case 15:
-                        if (!(_iteratorAbruptCompletion4 = !(_step4 = _context8.sent).done)) {
-                          _context8.next = 22;
+                      case 13:
+                        if (!(_iteratorAbruptCompletion4 = !(_step4 = _context9.sent).done)) {
+                          _context9.next = 20;
                           break;
                         }
                         item = _step4.value;
-                        _context8.next = 19;
+                        _context9.next = 17;
                         return item;
-                      case 19:
+                      case 17:
                         _iteratorAbruptCompletion4 = false;
-                        _context8.next = 13;
+                        _context9.next = 11;
+                        break;
+                      case 20:
+                        _context9.next = 26;
                         break;
                       case 22:
-                        _context8.next = 28;
-                        break;
-                      case 24:
-                        _context8.prev = 24;
-                        _context8.t0 = _context8["catch"](11);
+                        _context9.prev = 22;
+                        _context9.t0 = _context9["catch"](9);
                         _didIteratorError4 = true;
-                        _iteratorError4 = _context8.t0;
-                      case 28:
-                        _context8.prev = 28;
-                        _context8.prev = 29;
+                        _iteratorError4 = _context9.t0;
+                      case 26:
+                        _context9.prev = 26;
+                        _context9.prev = 27;
                         if (!(_iteratorAbruptCompletion4 && _iterator4["return"] != null)) {
-                          _context8.next = 33;
+                          _context9.next = 31;
                           break;
                         }
-                        _context8.next = 33;
+                        _context9.next = 31;
                         return _awaitAsyncGenerator(_iterator4["return"]());
-                      case 33:
-                        _context8.prev = 33;
+                      case 31:
+                        _context9.prev = 31;
                         if (!_didIteratorError4) {
-                          _context8.next = 36;
+                          _context9.next = 34;
                           break;
                         }
                         throw _iteratorError4;
+                      case 34:
+                        return _context9.finish(31);
+                      case 35:
+                        return _context9.finish(26);
                       case 36:
-                        return _context8.finish(33);
-                      case 37:
-                        return _context8.finish(28);
-                      case 38:
                       case "end":
-                        return _context8.stop();
+                        return _context9.stop();
                     }
-                  }, _callee8, null, [[11, 24, 28, 38], [29,, 33, 37]]);
+                  }, _callee9, null, [[9, 22, 26, 36], [27,, 31, 35]]);
                 }));
                 return function (_x4) {
                   return _ref3.apply(this, arguments);
@@ -549,14 +538,14 @@ function _xmllmGen() {
                 });
               }
               if (typeof transformedConfig === 'string') {
-                transformedConfig = {
+                transformedConfig = _objectSpread(_objectSpread({}, (0, _config2.getConfig)().defaults), {}, {
                   system: '',
                   doMapSelectClosed: false,
                   messages: [{
                     role: 'user',
                     content: transformedConfig
                   }]
-                };
+                });
               }
               return promptComplex(_objectSpread(_objectSpread(_objectSpread({
                 schema: schema,
@@ -636,7 +625,7 @@ function _xmllmGen() {
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(thing) {
                   var _messages3;
-                  var parser, transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
+                  var parser, transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, config, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
                   return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                     while (1) switch (_context3.prev = _context3.next) {
                       case 0:
@@ -662,13 +651,14 @@ function _xmllmGen() {
                         }
                         throw new Error('we need a prompt');
                       case 10:
-                        _context3.next = 12;
+                        config = (0, _config2.getConfig)();
+                        _context3.next = 13;
                         return _awaitAsyncGenerator(llmStream({
-                          max_tokens: max_tokens || maxTokens || 4000,
-                          temperature: temperature == null ? 0.5 : temperature,
-                          top_p: top_p || topP || null,
+                          max_tokens: max_tokens || maxTokens || config.defaults.maxTokens,
+                          temperature: temperature !== null && temperature !== void 0 ? temperature : config.defaults.temperature,
+                          top_p: top_p || topP || config.defaults.topP,
                           stop: stop || null,
-                          presence_penalty: presence_penalty || presencePenalty || null,
+                          presence_penalty: presence_penalty || presencePenalty || config.defaults.presencePenalty,
                           messages: [{
                             role: 'system',
                             content: systemPrompt
@@ -685,32 +675,32 @@ function _xmllmGen() {
                           retryBackoffMultiplier: retryBackoffMultiplier,
                           cache: cache
                         }));
-                      case 12:
+                      case 13:
                         stream = _context3.sent;
                         reader = stream.getReader();
                         accrued = '';
                         cancelled = false;
-                        _context3.next = 18;
+                        _context3.next = 19;
                         return accrued;
-                      case 18:
-                        _context3.prev = 18;
                       case 19:
+                        _context3.prev = 19;
+                      case 20:
                         if (!true) {
-                          _context3.next = 35;
+                          _context3.next = 36;
                           break;
                         }
-                        _context3.next = 22;
+                        _context3.next = 23;
                         return _awaitAsyncGenerator(reader.read());
-                      case 22:
+                      case 23:
                         _yield$_awaitAsyncGen2 = _context3.sent;
                         done = _yield$_awaitAsyncGen2.done;
                         value = _yield$_awaitAsyncGen2.value;
                         if (!(cancelled || done)) {
-                          _context3.next = 27;
+                          _context3.next = 28;
                           break;
                         }
-                        return _context3.abrupt("break", 35);
-                      case 27:
+                        return _context3.abrupt("break", 36);
+                      case 28:
                         _text2 = new TextDecoder().decode(value);
                         if (onChunk) {
                           try {
@@ -721,27 +711,27 @@ function _xmllmGen() {
                         }
                         parser.add(_text2);
                         accrued += _text2;
-                        _context3.next = 33;
+                        _context3.next = 34;
                         return _text2;
-                      case 33:
-                        _context3.next = 19;
+                      case 34:
+                        _context3.next = 20;
                         break;
-                      case 35:
-                        _context3.next = 40;
+                      case 36:
+                        _context3.next = 41;
                         break;
-                      case 37:
-                        _context3.prev = 37;
-                        _context3.t0 = _context3["catch"](18);
+                      case 38:
+                        _context3.prev = 38;
+                        _context3.t0 = _context3["catch"](19);
                         logger.error("Error reading stream:", _context3.t0);
-                      case 40:
-                        _context3.prev = 40;
+                      case 41:
+                        _context3.prev = 41;
                         reader.releaseLock();
-                        return _context3.finish(40);
-                      case 43:
+                        return _context3.finish(41);
+                      case 44:
                       case "end":
                         return _context3.stop();
                     }
-                  }, _callee3, null, [[18, 37, 40, 43]]);
+                  }, _callee3, null, [[19, 38, 41, 44]]);
                 }));
                 return function (_x3) {
                   return _ref2.apply(this, arguments);
@@ -751,11 +741,12 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
-                  var parser, transformedConfig, _transformedConfig, system, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
+                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
                         parser = pushNewParser();
+                        globalConfig = (0, _config2.getConfig)();
                         transformedConfig = config;
                         if (typeof transformedConfig == 'function') {
                           transformedConfig = transformedConfig(thing);
@@ -769,82 +760,82 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, model = _transformedConfig.model, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
-                        if (messages.length) {
-                          _context2.next = 7;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
+                        if (messages !== null && messages !== void 0 && messages.length) {
+                          _context2.next = 8;
                           break;
                         }
                         throw new Error('Must be at least one message');
-                      case 7:
-                        _context2.next = 9;
+                      case 8:
+                        _context2.next = 10;
                         return _awaitAsyncGenerator(llmStream({
-                          max_tokens: max_tokens || maxTokens || 4000,
-                          temperature: temperature == null ? DEFAULT_TEMPERATURE : temperature,
+                          max_tokens: max_tokens || maxTokens || globalConfig.defaults.maxTokens,
+                          temperature: temperature !== null && temperature !== void 0 ? temperature : globalConfig.defaults.temperature,
                           fakeDelay: transformedConfig.fakeDelay,
-                          top_p: top_p || topP,
-                          presence_penalty: presence_penalty || presencePenalty,
+                          top_p: top_p || topP || globalConfig.defaults.topP,
+                          presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
                           stop: stop,
                           messages: [{
                             role: 'system',
                             content: system || ''
                           }].concat(_toConsumableArray(messages || [])),
-                          model: model,
+                          model: model || globalConfig.defaults.model,
                           cache: cache
                         }));
-                      case 9:
+                      case 10:
                         stream = _context2.sent;
                         reader = stream.getReader();
                         accrued = config.accrued || '';
                         cancelled = false;
                         if (!accrued) {
-                          _context2.next = 16;
+                          _context2.next = 17;
                           break;
                         }
-                        _context2.next = 16;
+                        _context2.next = 17;
                         return accrued;
-                      case 16:
-                        _context2.prev = 16;
                       case 17:
+                        _context2.prev = 17;
+                      case 18:
                         if (!true) {
-                          _context2.next = 32;
+                          _context2.next = 33;
                           break;
                         }
-                        _context2.next = 20;
+                        _context2.next = 21;
                         return _awaitAsyncGenerator(reader.read());
-                      case 20:
+                      case 21:
                         _yield$_awaitAsyncGen = _context2.sent;
                         done = _yield$_awaitAsyncGen.done;
                         value = _yield$_awaitAsyncGen.value;
                         if (!(cancelled || done)) {
-                          _context2.next = 25;
+                          _context2.next = 26;
                           break;
                         }
-                        return _context2.abrupt("break", 32);
-                      case 25:
+                        return _context2.abrupt("break", 33);
+                      case 26:
                         _text = new TextDecoder().decode(value);
                         parser.add(_text);
                         accrued += _text;
-                        _context2.next = 30;
+                        _context2.next = 31;
                         return _text;
-                      case 30:
-                        _context2.next = 17;
+                      case 31:
+                        _context2.next = 18;
                         break;
-                      case 32:
-                        _context2.next = 37;
+                      case 33:
+                        _context2.next = 38;
                         break;
-                      case 34:
-                        _context2.prev = 34;
-                        _context2.t0 = _context2["catch"](16);
+                      case 35:
+                        _context2.prev = 35;
+                        _context2.t0 = _context2["catch"](17);
                         logger.error("Error reading stream:", _context2.t0);
-                      case 37:
-                        _context2.prev = 37;
+                      case 38:
+                        _context2.prev = 38;
                         reader.releaseLock();
-                        return _context2.finish(37);
-                      case 40:
+                        return _context2.finish(38);
+                      case 41:
                       case "end":
                         return _context2.stop();
                     }
-                  }, _callee2, null, [[16, 34, 37, 40]]);
+                  }, _callee2, null, [[17, 35, 38, 41]]);
                 }));
                 return function (_x2) {
                   return _ref.apply(this, arguments);
@@ -868,12 +859,11 @@ function _xmllmGen() {
             parserStack.set(context, []);
             pushNewParser(); // ensure there's at least one
             if (!(typeof pipelineFn !== 'function')) {
-              _context12.next = 16;
+              _context13.next = 16;
               break;
             }
             throw new Error('You must pass a function to xmllm - and that function must return a pipeline array.');
           case 16:
-            xmlps = new _IncomingXMLParserSelectorEngine["default"]();
             pipeline = pipelineFn({
               // Convenience aliases
               p: promptClosed,
@@ -897,7 +887,11 @@ function _xmllmGen() {
                   return _regeneratorRuntime().wrap(function _callee$(_context) {
                     while (1) switch (_context.prev = _context.next) {
                       case 0:
-                        getCurrentParser().add(String(str));
+                        if (str != null) {
+                          getCurrentParser().add(String(str));
+                        } else {
+                          getCurrentParser().add(incoming);
+                        }
                         _context.next = 3;
                         return incoming;
                       case 3:
@@ -916,10 +910,6 @@ function _xmllmGen() {
               mergeAggregate: streamops.mergeAggregate,
               take: streamops.take,
               batch: streamops.batch,
-              // batch: (n, ops) => {
-              //   console.log('xmllm: batch', n, ops);
-              //   return streamops.batch.call(this, n, ops);
-              // },
               skip: streamops.skip,
               text: text,
               val: text,
@@ -929,18 +919,18 @@ function _xmllmGen() {
               whenClosed: whenClosed
             });
             if (Array.isArray(pipeline)) {
-              _context12.next = 20;
+              _context13.next = 19;
               break;
             }
             throw new Error('Pipeline creator function must return an array.');
-          case 20:
+          case 19:
             stream = streamops(pipeline);
-            return _context12.delegateYield(_asyncGeneratorDelegate(_asyncIterator(stream), _awaitAsyncGenerator), "t0", 22);
-          case 22:
+            return _context13.delegateYield(_asyncGeneratorDelegate(_asyncIterator(stream), _awaitAsyncGenerator), "t0", 21);
+          case 21:
           case "end":
-            return _context12.stop();
+            return _context13.stop();
         }
-      }, _callee12);
+      }, _callee13);
     })();
   });
   return _xmllmGen.apply(this, arguments);
@@ -951,67 +941,67 @@ function isComplexIterable(obj) {
 function xmllm(pipelineFn) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   var g = xmllmGen(pipelineFn, options);
-  g.all = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee13() {
+  g.all = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee14() {
     var results, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, item;
-    return _regeneratorRuntime().wrap(function _callee13$(_context13) {
-      while (1) switch (_context13.prev = _context13.next) {
+    return _regeneratorRuntime().wrap(function _callee14$(_context14) {
+      while (1) switch (_context14.prev = _context14.next) {
         case 0:
           results = [];
           _iteratorAbruptCompletion = false;
           _didIteratorError = false;
-          _context13.prev = 3;
+          _context14.prev = 3;
           _iterator = _asyncIterator(this);
         case 5:
-          _context13.next = 7;
+          _context14.next = 7;
           return _iterator.next();
         case 7:
-          if (!(_iteratorAbruptCompletion = !(_step = _context13.sent).done)) {
-            _context13.next = 13;
+          if (!(_iteratorAbruptCompletion = !(_step = _context14.sent).done)) {
+            _context14.next = 13;
             break;
           }
           item = _step.value;
           results.push(item);
         case 10:
           _iteratorAbruptCompletion = false;
-          _context13.next = 5;
+          _context14.next = 5;
           break;
         case 13:
-          _context13.next = 19;
+          _context14.next = 19;
           break;
         case 15:
-          _context13.prev = 15;
-          _context13.t0 = _context13["catch"](3);
+          _context14.prev = 15;
+          _context14.t0 = _context14["catch"](3);
           _didIteratorError = true;
-          _iteratorError = _context13.t0;
+          _iteratorError = _context14.t0;
         case 19:
-          _context13.prev = 19;
-          _context13.prev = 20;
+          _context14.prev = 19;
+          _context14.prev = 20;
           if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
-            _context13.next = 24;
+            _context14.next = 24;
             break;
           }
-          _context13.next = 24;
+          _context14.next = 24;
           return _iterator["return"]();
         case 24:
-          _context13.prev = 24;
+          _context14.prev = 24;
           if (!_didIteratorError) {
-            _context13.next = 27;
+            _context14.next = 27;
             break;
           }
           throw _iteratorError;
         case 27:
-          return _context13.finish(24);
+          return _context14.finish(24);
         case 28:
-          return _context13.finish(19);
+          return _context14.finish(19);
         case 29:
-          return _context13.abrupt("return", results);
+          return _context14.abrupt("return", results);
         case 30:
         case "end":
-          return _context13.stop();
+          return _context14.stop();
       }
-    }, _callee13, this, [[3, 15, 19, 29], [20,, 24, 28]]);
+    }, _callee14, this, [[3, 15, 19, 29], [20,, 24, 28]]);
   }));
-  g.first = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee14() {
+  g.first = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee15() {
     var n,
       results,
       _iteratorAbruptCompletion2,
@@ -1020,72 +1010,72 @@ function xmllm(pipelineFn) {
       _iterator2,
       _step2,
       item,
-      _args14 = arguments;
-    return _regeneratorRuntime().wrap(function _callee14$(_context14) {
-      while (1) switch (_context14.prev = _context14.next) {
+      _args15 = arguments;
+    return _regeneratorRuntime().wrap(function _callee15$(_context15) {
+      while (1) switch (_context15.prev = _context15.next) {
         case 0:
-          n = _args14.length > 0 && _args14[0] !== undefined ? _args14[0] : 1;
+          n = _args15.length > 0 && _args15[0] !== undefined ? _args15[0] : 1;
           results = [];
           _iteratorAbruptCompletion2 = false;
           _didIteratorError2 = false;
-          _context14.prev = 4;
+          _context15.prev = 4;
           _iterator2 = _asyncIterator(this);
         case 6:
-          _context14.next = 8;
+          _context15.next = 8;
           return _iterator2.next();
         case 8:
-          if (!(_iteratorAbruptCompletion2 = !(_step2 = _context14.sent).done)) {
-            _context14.next = 16;
+          if (!(_iteratorAbruptCompletion2 = !(_step2 = _context15.sent).done)) {
+            _context15.next = 16;
             break;
           }
           item = _step2.value;
           results.push(item);
           if (!(results.length >= n)) {
-            _context14.next = 13;
+            _context15.next = 13;
             break;
           }
-          return _context14.abrupt("break", 16);
+          return _context15.abrupt("break", 16);
         case 13:
           _iteratorAbruptCompletion2 = false;
-          _context14.next = 6;
+          _context15.next = 6;
           break;
         case 16:
-          _context14.next = 22;
+          _context15.next = 22;
           break;
         case 18:
-          _context14.prev = 18;
-          _context14.t0 = _context14["catch"](4);
+          _context15.prev = 18;
+          _context15.t0 = _context15["catch"](4);
           _didIteratorError2 = true;
-          _iteratorError2 = _context14.t0;
+          _iteratorError2 = _context15.t0;
         case 22:
-          _context14.prev = 22;
-          _context14.prev = 23;
+          _context15.prev = 22;
+          _context15.prev = 23;
           if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
-            _context14.next = 27;
+            _context15.next = 27;
             break;
           }
-          _context14.next = 27;
+          _context15.next = 27;
           return _iterator2["return"]();
         case 27:
-          _context14.prev = 27;
+          _context15.prev = 27;
           if (!_didIteratorError2) {
-            _context14.next = 30;
+            _context15.next = 30;
             break;
           }
           throw _iteratorError2;
         case 30:
-          return _context14.finish(27);
+          return _context15.finish(27);
         case 31:
-          return _context14.finish(22);
+          return _context15.finish(22);
         case 32:
-          return _context14.abrupt("return", n === 1 ? results[0] : results);
+          return _context15.abrupt("return", n === 1 ? results[0] : results);
         case 33:
         case "end":
-          return _context14.stop();
+          return _context15.stop();
       }
-    }, _callee14, this, [[4, 18, 22, 32], [23,, 27, 31]]);
+    }, _callee15, this, [[4, 18, 22, 32], [23,, 27, 31]]);
   }));
-  g.last = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee15() {
+  g.last = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee16() {
     var n,
       results,
       _iteratorAbruptCompletion3,
@@ -1095,66 +1085,66 @@ function xmllm(pipelineFn) {
       _step3,
       item,
       lastN,
-      _args15 = arguments;
-    return _regeneratorRuntime().wrap(function _callee15$(_context15) {
-      while (1) switch (_context15.prev = _context15.next) {
+      _args16 = arguments;
+    return _regeneratorRuntime().wrap(function _callee16$(_context16) {
+      while (1) switch (_context16.prev = _context16.next) {
         case 0:
-          n = _args15.length > 0 && _args15[0] !== undefined ? _args15[0] : 1;
+          n = _args16.length > 0 && _args16[0] !== undefined ? _args16[0] : 1;
           results = [];
           _iteratorAbruptCompletion3 = false;
           _didIteratorError3 = false;
-          _context15.prev = 4;
+          _context16.prev = 4;
           _iterator3 = _asyncIterator(this);
         case 6:
-          _context15.next = 8;
+          _context16.next = 8;
           return _iterator3.next();
         case 8:
-          if (!(_iteratorAbruptCompletion3 = !(_step3 = _context15.sent).done)) {
-            _context15.next = 14;
+          if (!(_iteratorAbruptCompletion3 = !(_step3 = _context16.sent).done)) {
+            _context16.next = 14;
             break;
           }
           item = _step3.value;
           results.push(item);
         case 11:
           _iteratorAbruptCompletion3 = false;
-          _context15.next = 6;
+          _context16.next = 6;
           break;
         case 14:
-          _context15.next = 20;
+          _context16.next = 20;
           break;
         case 16:
-          _context15.prev = 16;
-          _context15.t0 = _context15["catch"](4);
+          _context16.prev = 16;
+          _context16.t0 = _context16["catch"](4);
           _didIteratorError3 = true;
-          _iteratorError3 = _context15.t0;
+          _iteratorError3 = _context16.t0;
         case 20:
-          _context15.prev = 20;
-          _context15.prev = 21;
+          _context16.prev = 20;
+          _context16.prev = 21;
           if (!(_iteratorAbruptCompletion3 && _iterator3["return"] != null)) {
-            _context15.next = 25;
+            _context16.next = 25;
             break;
           }
-          _context15.next = 25;
+          _context16.next = 25;
           return _iterator3["return"]();
         case 25:
-          _context15.prev = 25;
+          _context16.prev = 25;
           if (!_didIteratorError3) {
-            _context15.next = 28;
+            _context16.next = 28;
             break;
           }
           throw _iteratorError3;
         case 28:
-          return _context15.finish(25);
+          return _context16.finish(25);
         case 29:
-          return _context15.finish(20);
+          return _context16.finish(20);
         case 30:
           lastN = results.slice(-n);
-          return _context15.abrupt("return", n === 1 ? lastN[0] : lastN);
+          return _context16.abrupt("return", n === 1 ? lastN[0] : lastN);
         case 32:
         case "end":
-          return _context15.stop();
+          return _context16.stop();
       }
-    }, _callee15, this, [[4, 16, 20, 30], [21,, 25, 29]]);
+    }, _callee16, this, [[4, 16, 20, 30], [21,, 25, 29]]);
   }));
   return g;
 }

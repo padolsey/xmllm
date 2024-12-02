@@ -652,7 +652,7 @@ function parseError(error) {
   // Remove "Unhandled error. (" prefix if it exists
   message = message.replace(/^Unhandled error\. \(?(?:Error(?:\s+\[[^\]]+\])?\s*:\s*)?/, '');
   // Remove stack trace
-  message = message.replace(/\n[\s\S]*$/, '');
+  message = message.replace(/\n[^]*$/, '');
   // Remove trailing parenthesis if it exists
   message = message.replace(/\)$/, '');
   return {

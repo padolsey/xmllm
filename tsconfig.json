@@ -1,16 +1,26 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "noEmit": true,
+    "declaration": true,
+    "declarationDir": "./",
+    "outDir": "./dist",
     "module": "esnext",
-    "moduleResolution": "node",
     "target": "es2020",
-    "lib": ["es2020", "dom"],
-    "allowJs": true,
-    "checkJs": false
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "isolatedModules": true,
+    "types": ["node"],
+    "strict": true,
+    "preserveSymlinks": true
   },
   "include": [
+    "src/**/*",
     "index.d.ts",
-    "tests/type-tests.ts"
+    "client.d.ts"
+  ],
+  "files": [
+    "index.d.ts",
+    "client.d.ts"
   ]
 } 

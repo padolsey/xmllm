@@ -25,7 +25,6 @@ function createServer() {
   };
   app.use(cors(corsOptions));
   app.use(express.json());
-  var providerManager = new ProviderManager();
   console.log('Starting Proxy Server with config', config, 'Port:', port);
   app.post('/api/stream', /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(req, res) {

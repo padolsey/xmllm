@@ -1,13 +1,41 @@
 # Streaming Interface
 
-The `stream()` function is xmllm's main interface for processing AI responses. It returns a chainable `XMLStream` that lets you transform and filter data as it arrives.
+xmllm provides several ways to process AI responses, from simple one-shot requests to complex streaming scenarios.
 
-## Basic Usage
+## Quick Results with simple()
+
+For when you just want the final result:
 
 ```javascript
-import { stream } from 'xmllm';
+import { simple } from 'xmllm';
 
-// With schema:
+// Get a clean, complete result
+const result = await simple('Analyze this text', {
+  sentiment: String,
+  score: Number
+});
+
+console.log(result);
+// { sentiment: 'positive', score: 0.92 }
+```
+
+## Streaming with stream()
+
+For when you need to process updates as they arrive:
+
+### 1. Raw XML Streaming ([details](./raw_streaming.md))
+```javascript
+const thoughts = stream('Share some thoughts')
+  .select('thought')    // Find <thought> elements
+  .text();             // Get text content
+
+for await (const thought of thoughts) {
+  console.log(thought);
+}
+```
+
+### 2. Schema-Based Streaming ([details](./schema_streaming.md))
+```javascript
 const analysis = stream('Analyze this text', {
   schema: {
     sentiment: String,
@@ -15,13 +43,7 @@ const analysis = stream('Analyze this text', {
   }
 });
 
-// With selectors:
-const thoughts = stream('Share some thoughts')
-  .select('thought')
-  .text();
-
-// Both approaches use the same chainable methods
-for await (const update of thoughts) {
+for await (const update of analysis) {
   console.log(update);
 }
 ```
@@ -37,13 +59,15 @@ Either a string prompt or configuration object:
 ```javascript
 {
   prompt: string,              // The prompt to send
-  schema?: SchemaType,         // Optional schema
-  system?: string,             // System prompt
   model?: string | string[],   // Model selection
   temperature?: number,        // 0-2, default 0.72
   maxTokens?: number,         // Max response length
   cache?: boolean,            // Enable caching
-  mode?: 'state' | 'delta' | 'snapshot' | 'realtime'
+  
+  // Schema-specific options:
+  schema?: SchemaType,         // Enable schema processing
+  system?: string,             // System prompt
+  mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed'
 }
 ```
 
@@ -59,7 +83,7 @@ Additional options that override promptOrConfig:
 
 ## Chainable Methods
 
-### Data Selection
+### Selection & Extraction
 ```javascript
 .select(selector: string)     // CSS selector for elements
 .text()                       // Extract text content
@@ -75,7 +99,7 @@ Additional options that override promptOrConfig:
 
 ### Collection
 ```javascript
-.first()                      // Get first result
+.first()                     // Get first result
 .last(n?: number)            // Get last n results (default 1)
 .all()                       // Get all results as array
 .merge()                     // Deep merge all results
@@ -93,48 +117,19 @@ Additional options that override promptOrConfig:
 .raw()                       // Get raw response chunks
 ```
 
-## simple() Function
+## Browser Usage
 
-For one-shot requests without streaming:
+For browser environments, see the [Provider Setup Guide](./providers.md#browser-usage):
 
 ```javascript
-import { simple } from 'xmllm';
+import { stream, ClientProvider } from 'xmllm/client';
 
-const result = await simple(
-  'What is 2+2?',
-  { answer: Number }
-);
-```
+const client = new ClientProvider('http://localhost:3124/api/stream');
 
-Equivalent to:
-```javascript
-const result = await stream('What is 2+2?', {
-  schema: { answer: Number },
-  mode: 'delta'
+const result = await stream('Query', {
+  clientProvider: client
 }).last();
 ```
-
-## Working with Streams
-
-There are two main approaches to working with streams:
-
-### 1. Schema-Based ([details](./schema_streaming.md))
-```javascript
-const stream1 = stream('List colors', {
-  schema: { color: Array(String) },
-  mode: 'state'  // See updates as they arrive
-});
-```
-
-### 2. Selector-Based ([details](./raw_streaming.md))
-```javascript
-const stream2 = stream('List colors')
-  .select('color')    // Find <color> elements
-  .closedOnly()       // Only complete tags
-  .text();           // Get text content
-```
-
-Both approaches use the same chainable methods, but handle the XML stream differently under the hood.
 
 ## Error Handling
 
@@ -147,24 +142,6 @@ try {
   if (error.message.includes('Failed to connect')) {
     // Handle network error
   }
-  if (error.message.includes('LLM request timed out')) {
-    // Handle timeout
-  }
 }
-```
-
-## Browser Usage
-
-For browser environments, see the [Provider Setup Guide](./providers.md#browser-usage) for details on configuring the proxy server. Basic usage:
-
-```javascript
-import { stream, ClientProvider } from 'xmllm/client';
-
-const client = new ClientProvider('http://localhost:3124/api/stream');
-
-const result = await stream('Query', {
-  schema: { answer: String },
-  clientProvider: client
-}).last();
 ``` 
 

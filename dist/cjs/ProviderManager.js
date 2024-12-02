@@ -69,6 +69,11 @@ var ProviderManager = /*#__PURE__*/function () {
         throw new Error("Provider ".concat(providerName, " not found"));
       }
 
+      // Add check for missing API key
+      if (!provider.key) {
+        logger.error("No API key found for provider \"".concat(providerName, "\". Add ").concat(providerName.toUpperCase(), "_API_KEY to your environment variables or pass it in your configuration."));
+      }
+
       // If it's a predefined model type (fast, good, etc)
       if (provider.models[modelName]) {
         return {
@@ -311,6 +316,11 @@ var ProviderManager = /*#__PURE__*/function () {
       var baseProvider = this.providers[inherit];
       if (!baseProvider) {
         throw new Error("Base provider ".concat(inherit, " not found for custom configuration"));
+      }
+
+      // Add key check here
+      if (!key && !baseProvider.key) {
+        logger.error("No API key found for provider \"".concat(inherit, "\". Add ").concat(inherit.toUpperCase(), "_API_KEY to your environment variables or pass it in your configuration."));
       }
 
       // Create a new provider instance with custom settings

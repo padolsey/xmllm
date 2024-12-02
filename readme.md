@@ -1,10 +1,26 @@
 # xmllm
 
-xmllm solves a core problem with AI APIs: you shouldn't have to choose between getting structured data OR real-time updates.
+xmllm is a JS utility that makes it easy to get structured data from LLMs, using a boring, time-tested, semantically enriched human-writable/readable syntax that is resilient and forgiving of human-made (and thus, **LLM-made**) mistakes:
 
-> *XML allows LLMs to communicate naturally with the best merits of 'free prose' while still giving you structured data back. The norm of deriving JSON from LLMs, even if valid, is biased to more "robotic" completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value.*
+## XML *{through the eyes of a forgiving HTML parser.}*
 
-Instead of wrestling with JSON function calls or parsing text deltas, xmllm lets AI models communicate naturally using markup - giving you both structure and streaming at once. It is provider-agnostic and uses a flexible HTML parser to extract structured data, making it more resilient and less brittle than JSON.
+*Why XML?* – XML allows LLMs to communicate naturally with the best merits of 'free prose' while still giving you structured data back. In contrast, the norm of deriving JSON from LLMs via 'Function Calling' or 'Tool Use' is (*anecdotally*) biased to more "robotic" transactional completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value from language models. And they make streaming a headache. Markup languages like XML, however, excel at this.
+
+---
+
+Here's an example of a UI being progressively populated by a streaming LLM 'alien species' generator:
+
+![XMLLM Demo](https://j11y.io/public_images/xmllm1.gif)
+
+---
+
+
+## Provider-agnostic & high compliance on many models!
+
+xmllm is able to be run against most conceivable endpoints since you can define [custom providers](./docs/providers.md). Out of the box we've hard-coded some models just to play with like Claude Haiku/Sonnet, GPT-4o (+mini), and Qwen2.5-7B-Instruct via TogetherAI.
+
+In addition to OpenAI and Anthropic models, xmllm has impressive schema compliance on mid-to-low-param models like: Llama 3.1 8B, Qwen2.5-7B-Instruct-Turbo, Nous Hermes 2 Mixtral, Qwen 2.5 Coder 32B. And, where lacking, compliance can usually be improved by using `hints` in addition to [schemas](./docs/schemas.md) and a bit of experimental prompt-engineering.
+
 
 Here's an example:
 
@@ -13,6 +29,7 @@ const analysis = await stream(
   `
     How many Rs are in the word strawberry?
     Count the letters prior to your answer.
+    And add in some philosophical stuff too.
   `,
   {
     schema: {
@@ -30,7 +47,7 @@ const analysis = await stream(
 ).value();
 ```
 
-The AI responds naturally with XML:
+The LLM responds naturally with XML:
 ```xml
 <approach>To solve this problem, I will first count the number of 'R' letters 
 in the word 'strawberry'. Then, I will provide some abstract and philosophical
@@ -69,9 +86,9 @@ Which transforms into structured data:
 
 TLDR: `Schema-guided prompt`→`Stream XML`→`HTML parser`→`Data`
 
-Under the hood, xmllm uses a specialized system prompt and a seeded-user prompt ([see prompts.mjs](./src/prompts.mjs)) that tells the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, from Claude Haiku to Qwen2.5-7B. Once the stream starts coming in, xmllm uses a streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in realtime or you can wait until the stream completes and then get the final value.
+Under the hood, xmllm uses a specialized system prompt and a seeded-user prompt ([see prompts.mjs](./src/prompts.mjs)) that tells the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, from Claude Haiku to Qwen2.5-7B. Once the stream starts coming in, xmllm uses a streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
 
-## Frailty & Errors:
+## Resilience & Errors:
 
 LLMs are unquestionably _very_ liberal in what output they give you, despite our best efforts to constrain. Therefore xmllm follows the latter of Postel's Law: "Be liberal in what you accept". Whatever data exists in the shape specified by your schema will be given to you, and it is up to you what to do with it.
 
@@ -81,9 +98,12 @@ LLMs are unquestionably _very_ liberal in what output they give you, despite our
 # Install
 npm install xmllm
 
-# Configure your AI provider (at least one required)
-export ANTHROPIC_API_KEY=your_key    # For Claude
-export OPENAI_API_KEY=your_key       # For GPT-4
+# Set up environment variables
+# Create a .env file:
+ANTHROPIC_API_KEY=your_api_key
+OPENAI_API_KEY=your_api_key
+TOGETHERAI_API_KEY=your_api_key
+PERPLEXITYAI_API_KEY=your_api_key
 ```
 
 ### Simplest Usage
@@ -101,21 +121,28 @@ const result = await simple(
       value: Number,
       explanation: String
     }
+  },
+  {
+    model: {
+      inherit: 'claude',
+      name: 'claude-3-haiku-20240307',
+      key: process.env.ANTHROPIC_API_KEY
+    }
   }
 );
 
 console.log(result);
 // {
 //   answer: {
-//     value: 4,
-//     explanation: "Basic addition of two plus two"
+//     explanation: "Basic addition of two plus two",
+//     value: 4
 //   }
 // }
 ```
 
 ### Streaming Usage
 
-The `stream()` API offers a simple interface for streaming with or without a schema:
+The `stream()` API offers a simple interface for streaming with or without a schema. Some examples:
 
 ```javascript
 import { stream } from 'xmllm';
@@ -132,8 +159,12 @@ const thoughts = stream(`
 for await (const thought of thoughts) {
   console.log('AI is thinking:', thought); // See thoughts as they arrive
 }
+```
 
-// 2. SCHEMA: Structured Data:
+---
+
+```javascript
+// 2. WITH A SCHEMA: Structured Data:
 const result = await stream('What is 2+2?', {
   schema: {
     answer: {
@@ -144,12 +175,7 @@ const result = await stream('What is 2+2?', {
 }).last(); // wait until the stream completes
 ```
 
-## Core Features
-
-**Streaming First**
-- Process AI responses as they arrive
-- Show real-time progress
-- Handle partial updates
+---
 
 ```javascript
 // See updates in real-time:
@@ -159,7 +185,7 @@ for await (const color of stream('List colors as <color>...</color>').select('co
 }
 ```
 
-A more thorough example that uses a custom model and schema:
+---
 
 ```javascript
 const colors = [];
@@ -178,16 +204,18 @@ for await (
       }
     }).closedOnly() // ensure tags are closed
 ) {
-  colors = 
+  colors.push(...color); // Add new colors to array
+  console.log('Current colors:', colors);
 }
 ```
 
 See more details in the [Streaming Guide](./docs/streaming.md).
 
-**Schema-Based**
-- Transform XML into structured data
-- Type conversion & validation
-- Flexible mapping options
+---
+
+## Schemas!
+
+xmllm uses schemas to transform XML into structured data.
 
 ```javascript
 const schema = {
@@ -204,19 +232,14 @@ const schema = {
 
 See more details in the [Schema Guide](./docs/schemas.md).
 
-🛠️ **Developer Friendly**
-- Multiple AI providers supported
-- Graceful error recovery
-- Browser & Node.js support
-
-## Configuration
+## Provider-Agnostic / Max-configuration
 
 xmllm supports multiple AI providers. You'll need at least one:
 
 | Provider | Key | Models such as... |
 |----------|-----|-----------|
 | Claude | `ANTHROPIC_API_KEY` | Sonnet, Haiku, Opus |
-| OpenAI | `OPENAI_API_KEY` | GPT-o1, GPT-4o, GPT-4o-mini |
+| OpenAI | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini |
 | Together.ai | `TOGETHERAI_API_KEY` | Qwen, Mistral, Llama, etc. |
 | Perplexity | `PERPLEXITYAI_API_KEY` | Llama, Mistral, etc. |
 
@@ -234,58 +257,80 @@ stream('Query', {
 
 ## Browser Usage
 
-For browser environments, use the client interface with a proxy server:
+For browser environments, use the client interface with a proxy server so that your LLM API keys stay private. This is most useful for development and experimentation. Production apps should tbh keep all direct LLM interfacing on the server.
 
 ```javascript
 import { stream, ClientProvider } from 'xmllm/client';
 
 const client = new ClientProvider('http://localhost:3124/api/stream');
 
-const result = await stream('Query', {
-  schema: { answer: String }
+const result = await stream('Tell me a joke', {
+  schema: { joke: String }
 }, client).last()
 
-// last() is a shortcut for getting the very final value
+// btw: last() is a shortcut for getting the very final value
 // i.e. the completed stream
 ```
 
-## Advanced Pipeline API
+## Lower-level Pipeline API
 
-Need more control? xmllm provides a lower-level pipeline API for complex scenarios:
+xmllm provides a lower-level pipeline API for complex scenarios where you might want several stream-friendly transformations or generations to happen in a row.
+
+Contrived example:
 
 ```javascript
-import { xmllm } from 'xmllm';
 
-// Chain prompts and track state:
-const stream = xmllm(({ prompt }) => [
-  // Get initial response
-  prompt('List three colors', {
-    colors: { color: [String] }
+let results = {};
+
+const analysis = xmllm(({ prompt, promptClosed }) => [
+  // First prompt gets a scientist
+  // promptClosed means 'close the tags before yielding'
+  promptClosed('Name a scientist', {
+    scientist: {
+      name: String,
+      field: String
+    }
+  }, {
+    model: DEFAULT_MODEL
   }),
 
-  // Track colors seen so far
-  function*() {
-    const seen = new Set();
-    while (true) {
-      const result = yield;
-      if (!result?.colors?.color) continue;
-      
-      const newColors = result.colors.color
-        .filter(c => !seen.has(c));
-      
-      newColors.forEach(c => seen.add(c));
-      
-      yield {
-        colors: newColors,
-        total: seen.size
-      };
-    }
-  }
-]);
+  // Then we get a discovery in a distinct LLM inference
+  promptClosed((incoming) => {
+    results.scientist = incoming.scientist;
+    return {
+      messages: [{
+        role: 'user',
+        content: `What was ${incoming.scientist.name}'s biggest discovery?`,
+      }],
+      schema: {
+        discovery: {
+          year: Number,
+          description: String
+        }
+      },
+      model: DEFAULT_MODEL
+    };
+  }),
 
-// Outputs like: 
-// { colors: ["red", "blue"], total: 2 }
-// { colors: ["green"], total: 3 }
+  // Combine results
+  ({discovery}) => {
+    // (we would have already stored scientist btw)
+    results.discovery = discovery;
+    return results;
+  }
+], clientProvider);
+
+await analysis.last();
+// {
+//   "scientist": {
+//     "name": "Albert Einstein",
+//     "field": "Theory of Relativity"
+//   },
+//   "discovery": {
+//     "year": 1905,
+//     "description": "E=mc², the theory of relativity"
+//   }
+// }
 ```
 
 See the [Pipeline Guide](./docs/pipelines.md) for more advanced usage like parallel processing, complex transformations, and error handling.
@@ -299,7 +344,6 @@ See the [Pipeline Guide](./docs/pipelines.md) for more advanced usage like paral
 * [Raw Streaming](./docs/raw_streaming.md)
 * [Advanced Pipeline Guide](./docs/pipelines.md)
 * [Complete API Reference](./docs/api.md)
-* [TypeScript Types Guide](./docs/typescript.md)
 
 ## License
 

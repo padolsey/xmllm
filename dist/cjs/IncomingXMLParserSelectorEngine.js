@@ -389,7 +389,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
     /**
      * Maps schema to elements. Can operate in different modes:
      * - State mode: (includeOpen=true, dedupe=false) - Shows growing state including partials
-     * - Delta mode: (includeOpen=false, dedupe=true) - Shows only new complete elements
+     * - RootOnce mode: (includeOpen=false, dedupe=true) - Shows only new complete elements
      * - Snapshot mode: (includeOpen=false, dedupe=false) - Shows current complete state
      */
   }, {

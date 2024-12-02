@@ -1,4 +1,4 @@
-var _excluded = ["clientProvider", "mode"],
+var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk"],
   _excluded2 = ["mode"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
@@ -19,6 +19,12 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 import { xmllm } from './xmllm.mjs';
 import XMLStream from './XMLStream.mjs';
+import Logger from './Logger.mjs';
+
+// Import configuration functions
+// import { configure, getConfig } from './xmllm-main.mjs';
+import { getConfig, configure } from './config.mjs';
+var logger = new Logger('ClientProvider');
 var ClientProvider = /*#__PURE__*/function () {
   function ClientProvider(proxyEndpoint) {
     _classCallCheck(this, ClientProvider);
@@ -35,7 +41,7 @@ var ClientProvider = /*#__PURE__*/function () {
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
-              console.log('Client createStream payload', payload);
+              logger.info('Client createStream payload', payload);
               _context2.next = 3;
               return fetch(this.endpoint, {
                 method: 'POST',
@@ -83,7 +89,7 @@ var ClientProvider = /*#__PURE__*/function () {
                                 try {
                                   data = JSON.parse(line.slice(6));
                                 } catch (e) {
-                                  console.error('Invalid chunk/line', line);
+                                  logger.error('Invalid chunk/line', line);
                                 }
                                 controller.enqueue(new TextEncoder().encode(((_data = data) === null || _data === void 0 ? void 0 : _data.content) || ''));
                               }
@@ -144,79 +150,111 @@ function xmllmClient(pipelineFn, clientProvider) {
   }));
 }
 
-// Enhanced stream function with mode support
+// Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  var clientProvider = options.clientProvider,
-    _options$mode = options.mode,
-    mode = _options$mode === void 0 ? 'state' : _options$mode,
-    restOptions = _objectWithoutProperties(options, _excluded);
-  if (!clientProvider) {
-    throw new Error('ClientProvider is required for browser usage. Example: ' + 'stream("prompt", { clientProvider: new ClientProvider("http://your-proxy/api/stream") })');
-  }
-  var llmStream = typeof clientProvider === 'string' ? clientLlmStream(new ClientProvider(clientProvider)) : clientLlmStream(clientProvider);
-  var config = {};
+  var config = getConfig();
+  var streamConfig = {};
   if (typeof promptOrConfig === 'string') {
-    config = _objectSpread({
-      prompt: promptOrConfig,
-      mode: mode
-    }, restOptions);
+    streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), options), {}, {
+      // Allow overrides
+      messages: [{
+        role: 'user',
+        content: promptOrConfig
+      }]
+    });
   } else {
-    config = _objectSpread(_objectSpread({}, promptOrConfig), {}, {
-      mode: promptOrConfig.mode || mode
-    }, restOptions);
+    streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), promptOrConfig), options);
   }
-  var _config = config,
-    prompt = _config.prompt,
-    schema = _config.schema,
-    system = _config.system,
-    onChunk = _config.onChunk;
+  var _streamConfig = streamConfig,
+    prompt = _streamConfig.prompt,
+    schema = _streamConfig.schema,
+    messages = _streamConfig.messages,
+    system = _streamConfig.system,
+    _streamConfig$mode = _streamConfig.mode,
+    mode = _streamConfig$mode === void 0 ? 'state_open' : _streamConfig$mode,
+    onChunk = _streamConfig.onChunk,
+    restOptions = _objectWithoutProperties(_streamConfig, _excluded);
 
-  // If schema is provided, use schema-based config
-  return new XMLStream([['req', _objectSpread({
-    messages: [{
+  // Validate mode
+  if (!['state_open', 'root_closed', 'state_closed', 'root_open'].includes(mode)) {
+    throw new Error('Invalid mode. Must be one of: state_open, state_closed, root_open, root_closed');
+  }
+
+  // Convert mode to low-level parameters
+  var modeParams = schema && mode ? {
+    // Shows growing state including partials
+    state_open: {
+      includeOpenTags: true,
+      doDedupe: false
+    },
+    // Shows complete state at each point
+    state_closed: {
+      includeOpenTags: false,
+      doDedupe: false
+    },
+    // Shows each root element's progress once
+    root_open: {
+      includeOpenTags: true,
+      doDedupe: true
+    },
+    // Shows each complete root element once
+    root_closed: {
+      includeOpenTags: false,
+      doDedupe: true
+    }
+  }[mode] : {};
+  if (messages && prompt) {
+    throw new Error('Cannot provide both messages and (prompt or system)');
+  }
+  var _messages = messages || [];
+  if (prompt) {
+    _messages.push({
       role: 'user',
       content: prompt
-    }],
-    schema: schema,
+    });
+  }
+  if (!restOptions.clientProvider) {
+    throw new Error('clientProvider is required');
+  }
+  return new XMLStream([['req', _objectSpread(_objectSpread({
+    messages: _messages,
     system: system,
+    schema: schema,
     onChunk: onChunk
-  }, config)]], _objectSpread(_objectSpread({}, restOptions), {}, {
-    llmStream: llmStream
-  }));
+  }, modeParams), restOptions)]], {
+    llmStream: clientLlmStream(restOptions.clientProvider)
+  });
 }
 
 // Simple function with mode support
 export function simple(_x3, _x4) {
   return _simple.apply(this, arguments);
 }
+
+// Export configuration function for client-side use
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4(prompt, schema) {
     var options,
-      _options$mode2,
+      _options$mode,
       mode,
       restOptions,
-      theStream,
       result,
       _args4 = arguments;
     return _regeneratorRuntime().wrap(function _callee4$(_context4) {
       while (1) switch (_context4.prev = _context4.next) {
         case 0:
           options = _args4.length > 2 && _args4[2] !== undefined ? _args4[2] : {};
-          _options$mode2 = options.mode, mode = _options$mode2 === void 0 ? 'delta' : _options$mode2, restOptions = _objectWithoutProperties(options, _excluded2);
+          _options$mode = options.mode, mode = _options$mode === void 0 ? 'root_closed' : _options$mode, restOptions = _objectWithoutProperties(options, _excluded2);
           _context4.next = 4;
           return stream(prompt, _objectSpread(_objectSpread({}, restOptions), {}, {
             schema: schema,
-            mode: mode // Pass through mode
-          }));
+            mode: mode
+          })).last();
         case 4:
-          theStream = _context4.sent;
-          _context4.next = 7;
-          return theStream.last();
-        case 7:
           result = _context4.sent;
           return _context4.abrupt("return", result);
-        case 9:
+        case 6:
         case "end":
           return _context4.stop();
       }
@@ -224,8 +262,9 @@ function _simple() {
   }));
   return _simple.apply(this, arguments);
 }
-export { xmllmClient as xmllm, ClientProvider, stream };
+export { configure, xmllmClient as xmllm, ClientProvider, stream };
 export default {
+  configure: configure,
   ClientProvider: ClientProvider,
   xmllm: xmllmClient,
   stream: stream

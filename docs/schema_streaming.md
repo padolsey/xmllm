@@ -7,10 +7,10 @@ When using xmllm with a schema, you get structured data streaming with built-in 
 ```javascript
 import { stream } from 'xmllm';
 
-// 1. State Mode (default)
+// 1. State (Open) Mode - Shows growing state including partials
 const colors = stream('List colors', {
   schema: { color: Array(String) },
-  mode: 'state'
+  mode: 'state_open'  // default mode
 });
 
 for await (const update of colors) {
@@ -22,10 +22,23 @@ for await (const update of colors) {
   // { color: ['red', 'blue'] }      // Both Complete
 }
 
-// 2. Delta Mode
+// 2. State (Closed) Mode - Shows complete state at each point
+const snapshots = stream('List colors', {
+  schema: { color: Array(String) },
+  mode: 'state_closed'
+});
+
+for await (const update of snapshots) {
+  console.log(update);
+  // Shows complete state at each point:
+  // { color: ['red'] }           // First complete
+  // { color: ['red', 'blue'] }   // Both complete
+}
+
+// 3. Root (Closed) Mode - Shows each complete root element once
 const updates = stream('List colors', {
   schema: { color: Array(String) },
-  mode: 'delta'
+  mode: 'root_closed'
 });
 
 for await (const update of updates) {
@@ -35,17 +48,19 @@ for await (const update of updates) {
   // { color: ['blue'] }    // Second complete
 }
 
-// 3. Snapshot Mode
-const snapshots = stream('List colors', {
+// 4. Root (Open) Mode - Shows each root element's progress once
+const progress = stream('List colors', {
   schema: { color: Array(String) },
-  mode: 'snapshot'
+  mode: 'root_open'
 });
 
-for await (const update of snapshots) {
+for await (const update of progress) {
   console.log(update);
-  // Shows complete state at each point:
-  // { color: ['red'] }           // First complete
-  // { color: ['red', 'blue'] }   // Both complete
+  // Shows progress of each root element once:
+  // { color: ['re'] }      // First partial
+  // { color: ['red'] }     // First complete
+  // { color: ['blu'] }     // Second partial
+  // { color: ['blue'] }    // Second complete
 }
 ```
 
@@ -93,7 +108,7 @@ const stream1 = stream('List items', {
       }]
     }
   },
-  mode: 'state'  // See partial updates
+  mode: 'state_open'  // See partial updates
 });
 
 // You might see:
@@ -151,30 +166,24 @@ const data = stream('List data', {
 Different ways to handle schema-based streams:
 
 ```javascript
-// 1. See every update
+// 1. See every update (including partials)
 for await (const update of stream('Query', {
   schema: { answer: String },
-  mode: 'state'
+  mode: 'state_open'
 })) {
   console.log('Progress:', update);
 }
 
-// 2. Wait for completion
+// 2. Get final complete state
 const final = await stream('Query', {
   schema: { answer: String },
-  mode: 'delta'  // Only complete elements
+  mode: 'state_closed'  // Best for getting clean final state
 }).last();
 
-// 3. Get first complete result
-const first = await stream('Query', {
+// 3. Process complete elements one by one
+const elements = await stream('Query', {
   schema: { answer: String },
-  mode: 'delta'
-}).first();
-
-// 4. Collect all results
-const all = await stream('Query', {
-  schema: { answer: String },
-  mode: 'delta'
+  mode: 'root_closed'  // Best for processing elements individually
 }).all();
 ```
 

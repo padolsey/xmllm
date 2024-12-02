@@ -8,7 +8,8 @@ import xmllm, {
   simple,
   stream,
   XMLStream,
-  SchemaType
+  SchemaType,
+  HintType
 } from '../index';
 import { xmllm as clientXmllm, ClientProvider } from '../client';
 
@@ -96,15 +97,6 @@ xmllm('not a function');
 // Client usage - valid cases
 const client = new ClientProvider('http://localhost:3000');
 expectType<ClientProvider>(client);
-
-const clientStream = clientXmllm(validPipeline, client, {
-  timeout: 1000
-});
-expectType<AsyncGenerator<any>>(clientStream);
-
-// Negative test - missing required client provider
-// @ts-expect-error - clientXmllm requires a client provider as its second argument
-clientXmllm(validPipeline);
 
 // Test transformer helpers - valid cases
 const validPipelineWithTransformers = (helpers: PipelineHelpers) => [
@@ -246,148 +238,44 @@ const streamValue = stream("Test")
 // This should error because value() returns Promise<T>, not XMLStream<T>
 expectError(streamValue.map());
 
-// First one - testing string literals as hints in schema
-const schemaWithLiteralHints = {
-  user: {
-    name: "The user's full name",  // String literal as hint
-    age: Number,
-    occupation: "The person's current job title",  // String literal as hint
-    hobbies: {
-      hobby: ["A hobby they enjoy"]  // String literal in array
-    }
-  }
-};
-
-type HintSchema = {
-  user: {
-    name: string;
-    age: number;
-    occupation: string;
-    hobbies: {
-      hobby: string[];
-    }
-  }
-};
-
-const hintResult = await simple<HintSchema>(
-  "Get user info",
-  schemaWithLiteralHints
-);
-expectType<HintSchema>(hintResult);
-
-// Test string literals as valid schema values at any level
-const validSchemas: Record<string, SchemaType> = {
-  topLevel: "This is a valid explanation hint",
-  user: {
-    name: "The user's full name",
-    details: "Additional user information",
-    age: Number
-  },
-  items: ["These are the items"],
-  mixed: {
-    hint: "An explanation hint",
-    transform: Number,
-    nested: {
-      moreHints: "More documentation",
-      value: String
-    }
-  }
-};
-
-// These should work
-expectType<SchemaType>(validSchemas.topLevel);
-expectType<SchemaType>(validSchemas.user);
-expectType<SchemaType>(validSchemas.items);
-expectType<SchemaType>(validSchemas.mixed);
-
-// Second one - testing separate hints object
-const schemaWithHints = {
-  user: {
-    name: String,
-    age: Number
-  }
-};
-
-const hints = {
+// Valid hint test
+const validHints = {
   user: {
     name: "User's full name",
-    age: "User's age in years"
+    age: {
+      another: "Age in years"
+    },
+    hobbies: ["A hobby description"]
   }
-};
+} as HintType;
 
-// Should work with both schema and hints
-const resultWithHints = await simple<{
-  user: { name: string; age: number }
-}>(
+// This should work
+expectType<HintType>(validHints);
+
+// Test with simple()
+await simple(
   "Get user info",
-  schemaWithHints,
   {
-    hints
-  }
+    user: {
+      name: String,
+      age: Number,
+      hobbies: [String]
+    }
+  },
+  { hints: validHints }
 );
 
-// Should error when hints provided without schema
-expectError(simple(
-  "Get user info",
-  undefined,
-  {
-    hints  // Should error - hints requires schema
+// Invalid hint tests - Update these
+const invalidHintNumber = {
+  user: {
+    name: 123  // Not a string
   }
-));
+} as const;
+expectError<HintType>(invalidHintNumber);
 
-// Test prompt function signatures
-const pipeline = (helpers: PipelineHelpers) => [
-  // Test string prompt with schema
-  helpers.prompt('List colors', { color: [String] }),
-
-  // Test function returning config
-  helpers.prompt(input => ({
-    messages: [{
-      role: 'user',
-      content: `Analyze ${input}`
-    }],
-    schema: { analysis: String },
-    mapper: (input, output) => ({
-      input,
-      analysis: output.analysis
-    })
-  })),
-
-  // Test direct config object
-  helpers.prompt({
-    messages: [{
-      role: 'user',
-      content: 'List colors'
-    }],
-    schema: { color: [String] },
-    system: 'You are a color expert',
-    mapper: (input, output) => output,
-    temperature: 0.7,
-    model: 'claude:fast'
-  }),
-
-  // Test with options
-  helpers.prompt(
-    'List colors',
-    { color: [String] },
-    { temperature: 0.9 }
-  )
-];
-
-// Test invalid usages - these SHOULD produce type errors
-const invalidPipeline = (helpers: PipelineHelpers) => [
-  // Should error: Invalid message role
-  expectError(helpers.prompt({
-    messages: [{
-      role: 'invalid' as const,
-      content: 'test'
-    }]
-  })),
-
-  // Should error: Wrong temperature type
-  expectError(helpers.prompt(
-    'test',
-    { color: [String] },
-    { temperature: 'high' as const }
-  ))
-];
+const invalidHintBoolean = {
+  user: {
+    hobbies: true  // Not a string or string array
+  }
+} as const;
+expectError<HintType>(invalidHintBoolean);

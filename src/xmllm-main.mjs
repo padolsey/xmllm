@@ -1,8 +1,9 @@
-import xmllmCore from './xmllm.mjs';
+import {xmllm as xmllmCore} from './xmllm.mjs';
 import Stream from './Stream.mjs';
 import { createProvidersWithKeys } from './PROVIDERS.mjs';
 import ProviderManager from './ProviderManager.mjs';
 import XMLStream from './XMLStream.mjs';
+import { configure, getConfig } from './config.mjs';
 
 function xmllm(pipelineFn, options = {}) {
   let providerManager;
@@ -21,15 +22,19 @@ function xmllm(pipelineFn, options = {}) {
 
 // Enhanced stream function with mode support
 export function stream(promptOrConfig, options = {}) {
+
   let config = {};
+  const globalConfig = getConfig();
   
   if (typeof promptOrConfig === 'string') {
     config = {
+      ...globalConfig.defaults,
       prompt: promptOrConfig,
       ...options
     };
   } else {
     config = {
+      ...globalConfig.defaults,
       ...promptOrConfig,
       ...options
     };
@@ -37,74 +42,72 @@ export function stream(promptOrConfig, options = {}) {
 
   const { 
     prompt, 
-    schema, 
+    schema,
+    messages,
     system, 
-    mode = 'state',  // Default to state mode
+    mode = 'state_open',  // Default to state mode
     onChunk, 
     ...restOptions 
   } = config;
 
   // Validate mode
-  if (!['state', 'delta', 'snapshot', 'realtime'].includes(mode)) {
-    throw new Error('Invalid mode. Must be one of: state, delta, snapshot, realtime');
+  if (!['state_open', 'state_closed', 'root_open', 'root_closed'].includes(mode)) {
+    throw new Error('Invalid mode. Must be one of: state_open, state_closed, root_open, root_closed');
   }
 
   // Convert mode to low-level parameters
-  const modeParams = {
-    // State mode: Show growing state including partials
-    state: {
+  const modeParams = schema && mode ? {
+    // Shows growing state including partials
+    state_open: {
       includeOpenTags: true,
       doDedupe: false
     },
-    // Delta mode: Only show new complete elements
-    delta: {
+    // Shows complete state at each point
+    state_closed: {
       includeOpenTags: false,
+      doDedupe: false
+    },
+    // Shows each root element's progress once
+    root_open: {
+      includeOpenTags: true,
       doDedupe: true
     },
-    // Snapshot mode: Show current complete state
-    snapshot: {
+    // Shows each complete root element once
+    root_closed: {
       includeOpenTags: false,
-      doDedupe: false
-    },
-    // Realtime mode: Show everything including empty tags
-    realtime: {
-      includeOpenTags: true,
-      doDedupe: false,
-      includeEmpty: true
+      doDedupe: true
     }
-  }[mode];
+  }[mode] : {};
 
-  // If schema is provided, use schema-based configuration
-  if (schema) {
-    return new XMLStream([
-      ['req', {
-        messages: [{
-          role: 'user',
-          content: prompt
-        }],
-        schema,
-        system,
-        onChunk,
-        ...modeParams,  // Apply mode parameters
-        ...restOptions
-      }]
-    ], {
-      llmStream: restOptions.llmStream || Stream
-    });
+  if (messages && prompt) {
+    throw new Error('Cannot provide both messages and (prompt or system)');
   }
 
-  // Basic prompt without schema
+  const _messages = messages || [];
+
+  if (prompt) {
+    _messages.push({
+      role: 'user',
+      content: prompt
+    });
+  }
   return new XMLStream([
-    ['req', prompt]
+    ['req', {
+      messages: _messages,
+      system,
+      schema,
+      onChunk,
+      ...modeParams,
+      ...restOptions
+    }]
   ], {
-    ...restOptions,
-    ...modeParams  // Apply mode parameters
+    llmStream: restOptions.llmStream || Stream
   });
 }
 
 // Simple function also gets mode support
 export async function simple(prompt, schema, options = {}) {
-  const { mode = 'delta', ...restOptions } = options;
+  const { mode = 'state_closed', ...restOptions } = options;
 
   const result = await stream(prompt, {
     ...restOptions,
@@ -116,3 +119,4 @@ export async function simple(prompt, schema, options = {}) {
 }
 
 export default xmllm;
+export { xmllm, configure };

@@ -65,7 +65,9 @@ export interface PipelineHelpers {
   pc: PromptClosedFn;
   r: ReqFn;
   prompt: PromptFn;
+  promptStream: PromptFn;
   promptClosed: PromptClosedFn;
+  promptComplex: PromptFn;
   req: ReqFn;
   map: MapFn;
   filter: FilterFn;
@@ -80,6 +82,8 @@ export interface PipelineHelpers {
   whenClosed: WhenClosedFn;
   parse: () => PipelineFunction;
   select: (selector: string) => PipelineFunction;
+  mapSelect: (schema: SchemaType, includeOpenTags?: boolean, doDedupe?: boolean) => PipelineFunction;
+  mapSelectClosed: (schema: SchemaType) => PipelineFunction;
 }
 
 // Model types
@@ -98,7 +102,13 @@ export interface ModelConfig {
   };
 }
 
-export type ModelPreference = ModelString | ModelConfig | Array<ModelString | ModelConfig>;
+export type ModelPreference = 
+  | ModelString
+    // e.g. 'claude:fast'
+  | ModelConfig
+    // e.g. { inherit: 'claude', name: 'claude-3' }
+  | Array<ModelString | ModelConfig>;
+    // e.g. ['claude:fast', { inherit: 'openai', name: 'gpt-4' }]
 
 // First, let's define what a string hint can be
 export type SchemaHint = string;
@@ -109,13 +119,16 @@ export type SchemaValue =
   | NumberConstructor
   | BooleanConstructor
   | ((element: XMLElement) => any)
-  | SchemaHint;
+  | SchemaHint
+  | Readonly<SchemaHint>;
 
 // Finally, define the full schema type that can be recursive
 export type SchemaType = 
   | SchemaValue
+  | { readonly [key: string]: SchemaType }
   | { [key: string]: SchemaType }
-  | Array<SchemaType>;
+  | readonly SchemaType[]
+  | SchemaType[];
 
 // Add these new types
 export type PipelineFunction = 
@@ -153,11 +166,16 @@ export type StreamFunction = (payload: {
   [key: string]: any;
 }) => Promise<ReadableStream>;
 
-// Add this with the other interfaces
+// A hint can be a string, array of strings, or an object containing more hints
+export type HintType = {
+  [key: string]: string | string[] | HintType
+};
+
+// Update PromptConfig interface
 export interface PromptConfig {
   messages?: Message[];
   schema?: SchemaType;
-  hints?: Record<string, any>;
+  hints?: HintType;  // Now properly typed to mirror schema structure
   mapper?: (input: any, output: any) => any;
   system?: string;
   model?: ModelPreference;
@@ -266,15 +284,17 @@ export interface CacheService {
 // Add these interfaces
 export interface StreamOptions extends XmllmOptions {
   schema?: SchemaType;
-  hints?: Record<string, any>;
+  hints?: HintType;  // Now properly typed to mirror schema structure
   system?: string;
   closed?: boolean;
+  mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
   model?: ModelPreference;
   temperature?: number;
   maxTokens?: number;
+  onChunk?: (chunk: string) => void;
 }
 
-export interface XMLStream<T = XMLElement> {
+export interface XMLStream<T = XMLElement> extends AsyncIterable<T> {
   select(selector: string): XMLStream<XMLElement>;
   map<U>(fn: (value: T) => U): XMLStream<U>;
   filter(fn: (value: T) => boolean): XMLStream<T>;
@@ -294,16 +314,27 @@ export interface XMLStream<T = XMLElement> {
   reduce<U>(reducer: (acc: U, value: T) => U, initialValue: U): XMLStream<U>;
   mergeAggregate(): XMLStream<T[]>;
   batch(size: number, options?: { yieldIncomplete?: boolean }): XMLStream<T[]>;
+  [Symbol.asyncIterator](): AsyncIterator<T>;
 }
 
 // Add these function declarations
 export function stream<T = XMLElement>(
   promptOrConfig: string | { 
-    prompt: string;
+    prompt?: string;
     schema?: SchemaType;
     system?: string;
-    mode?: 'state' | 'delta' | 'snapshot' | 'realtime';
+    mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
     onChunk?: (chunk: string) => void;
+    messages?: Message[];
+    model?: ModelPreference;
+    temperature?: number;
+    max_tokens?: number;
+    maxTokens?: number;
+    top_p?: number;
+    topP?: number;
+    presence_penalty?: number;
+    presencePenalty?: number;
+    stop?: string[];
     [key: string]: any;
   },
   options?: StreamOptions

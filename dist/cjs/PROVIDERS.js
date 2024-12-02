@@ -187,6 +187,7 @@ var providers = {
     payloader: standardPayloader
   }
 };
+providers.anthropic = providers.claude;
 var _default = exports["default"] = providers;
 function createProvidersWithKeys() {
   var keys = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
