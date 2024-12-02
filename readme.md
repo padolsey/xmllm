@@ -2,6 +2,10 @@
 
 xmllm is a JS utility that makes it easy to get structured data from LLMs, using a boring, time-tested, semantically enriched human-writable/readable syntax that is resilient and forgiving of human-made (and thus, **LLM-made**) mistakes:
 
+## Demos
+
+Fork and play with **[xmllm demos](https://github.com/padolsey/xmllm_demos)** (SOON: shall have this up and running publicly!)
+
 ## XML *{through the eyes of a forgiving HTML parser.}*
 
 *Why XML?* – XML allows LLMs to communicate naturally with the best merits of 'free prose' while still giving you structured data back. In contrast, the norm of deriving JSON from LLMs via 'Function Calling' or 'Tool Use' is (*anecdotally*) biased to more "robotic" transactional completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value from language models. And they make streaming a headache. Markup languages like XML, however, excel at this.
