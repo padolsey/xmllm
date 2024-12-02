@@ -245,7 +245,7 @@ function _simple() {
       while (1) switch (_context4.prev = _context4.next) {
         case 0:
           options = _args4.length > 2 && _args4[2] !== undefined ? _args4[2] : {};
-          _options$mode = options.mode, mode = _options$mode === void 0 ? 'root_closed' : _options$mode, restOptions = _objectWithoutProperties(options, _excluded2);
+          _options$mode = options.mode, mode = _options$mode === void 0 ? 'state_closed' : _options$mode, restOptions = _objectWithoutProperties(options, _excluded2);
           _context4.next = 4;
           return stream(prompt, _objectSpread(_objectSpread({}, restOptions), {}, {
             schema: schema,

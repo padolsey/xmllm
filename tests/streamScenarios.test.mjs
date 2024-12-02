@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { stream } from '../src/xmllm-main.mjs';
+import { stream, simple } from '../src/xmllm-main.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -408,6 +408,63 @@ describe('Common xmllm Scenarios', () => {
           'And so are you'
         ]
       ]);
+    });
+  });
+
+  describe('simple() Mode Behavior', () => {
+
+    it('should demonstrate why state_closed is better than root_closed for simple()', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          // '<data>',
+          '<root_value_a>A</root_value_a>',  // First value emitted
+          '<root_value_b>B</root_value_b>',  // Same value updated/corrected
+          '<root_value_c>C</root_value_c>',  // New value
+          // '</data>'
+        ])
+      }));
+
+      // Using root_closed mode (wrong approach)
+      const rootClosedResult = await simple(
+        'Get values',
+        {
+          root_value_a: String,
+          root_value_b: String,
+          root_value_c: String
+        },
+        { 
+          llmStream: TestStream,
+          mode: 'root_closed'
+        }
+      );
+
+      // Reset mock for second test
+      TestStream.mockClear();
+
+      // Using state_closed mode (correct approach)
+      const stateClosedResult = await simple(
+        'Get values',
+        {
+          root_value_a: String,
+          root_value_b: String,
+          root_value_c: String
+        },
+        { 
+          llmStream: TestStream,
+          // mode: 'state_closed'  // default so we comment it out!
+        }
+      );
+
+      // root_closed would miss the correction due to deduplication
+      expect(rootClosedResult.root_value_a).toBeUndefined();
+      expect(rootClosedResult.root_value_b).toBeUndefined();
+      // Only the last is given to use:
+      expect(rootClosedResult.root_value_c).toBeDefined();
+      
+      // state_closed captures the final state correctly
+      expect(stateClosedResult.root_value_a).toEqual('A');
+      expect(stateClosedResult.root_value_b).toEqual('B');
+      expect(stateClosedResult.root_value_c).toEqual('C');
     });
   });
 

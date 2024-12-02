@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { stream, ClientProvider } from '../src/xmllm-client.mjs';
+import { stream, ClientProvider, simple } from '../src/xmllm-client.mjs';
 import { configure } from '../src/config.mjs';
 
 const createMockReader = (responses) => {
@@ -326,4 +326,86 @@ describe('Client Stream Interface', () => {
       }).rejects.toThrow('Invalid mode. Must be one of: state_open, state_closed, root_open, root_closed');
     });
   });
-}); 
+
+  describe('simple() Mode Behavior', () => {
+    it('should demonstrate why state_closed is better than root_closed for simple()', async () => {
+      // First test with root_closed mode
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        body: {
+          getReader: () => createMockReader([
+            'data: {"content":"<root_value_a>A</root_value_a>"}\n\n',
+            'data: {"content":"<root_value_b>B</root_value_b>"}\n\n',
+            'data: {"content":"<root_value_c>C</root_value_c>"}\n\n'
+          ])
+        }
+      });
+
+      // Using root_closed mode (wrong approach)
+      const rootClosedResult = await simple(
+        'Get values',
+        {
+          root_value_a: String,
+          root_value_b: String,
+          root_value_c: String
+        },
+        { 
+          clientProvider,
+          mode: 'root_closed'
+        }
+      );
+
+      // Reset mock for second test
+      mockFetch.mockReset();
+
+      // Setup mock for state_closed test
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        body: {
+          getReader: () => createMockReader([
+            'data: {"content":"<root_value_a>A</root_value_a>"}\n\n',
+            'data: {"content":"<root_value_b>B</root_value_b>"}\n\n',
+            'data: {"content":"<root_value_c>C</root_value_c>"}\n\n'
+          ])
+        }
+      });
+
+      // Using state_closed mode (correct approach)
+      const stateClosedResult = await simple(
+        'Get values',
+        {
+          root_value_a: String,
+          root_value_b: String,
+          root_value_c: String
+        },
+        { 
+          clientProvider,
+          // DEFAULT mode: 'state_closed'
+        }
+      );
+
+      // root_closed would miss the correction due to deduplication
+      expect(rootClosedResult.root_value_a).toBeUndefined();
+      expect(rootClosedResult.root_value_b).toBeUndefined();
+      // Only the last is given to us:
+      expect(rootClosedResult.root_value_c).toBeDefined();
+      
+      // state_closed captures the final state correctly
+      expect(stateClosedResult.root_value_a).toEqual('A');
+      expect(stateClosedResult.root_value_b).toEqual('B');
+      expect(stateClosedResult.root_value_c).toEqual('C');
+
+      // Verify the fetch calls were made correctly
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://test-endpoint.com',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: expect.any(String)
+        })
+      );
+    });
+  });
+});

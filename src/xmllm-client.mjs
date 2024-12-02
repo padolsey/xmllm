@@ -174,7 +174,7 @@ function stream(promptOrConfig, options = {}) {
 
 // Simple function with mode support
 export async function simple(prompt, schema, options = {}) {
-  const { mode = 'root_closed', ...restOptions } = options;
+  const { mode = 'state_closed', ...restOptions } = options;
   
   const result = await stream(prompt, {
     ...restOptions,
