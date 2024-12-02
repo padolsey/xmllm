@@ -1,10 +1,6 @@
 # xmllm
 
-xmllm is a JS utility that makes it easy to get structured data from LLMs, using a boring, time-tested, semantically enriched human-writable/readable syntax that is resilient and forgiving of human-made (and thus, **LLM-made**) mistakes:
-
-## Demos
-
-Fork and play with **[xmllm demos](https://github.com/padolsey/xmllm_demos)** (SOON: shall have this up and running publicly!)
+xmllm is a JS utility that makes it easy to get structured data from LLMs, using a boring, time-tested, semantically enriched human-writable/readable syntax that is resilient and forgiving of human-made (and thus, **LLM-made**) mistakes.
 
 ## XML *{through the eyes of a forgiving HTML parser.}*
 
@@ -17,6 +13,10 @@ Here's an example of a UI being progressively populated by a streaming LLM 'alie
 ![XMLLM Demo](https://j11y.io/public_images/xmllm1.gif)
 
 ---
+
+## Demo Repo
+
+Fork and play with **[xmllm demos](https://github.com/padolsey/xmllm_demos)** (SOON: shall have this up and running publicly!)
 
 
 ## Provider-agnostic & high compliance on many models!
