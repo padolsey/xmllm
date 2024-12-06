@@ -4,11 +4,12 @@ import type {
   SchemaType, 
   HintType, 
   StreamOptions, 
-  XMLStream,
+  ChainableStreamInterface,
   XMLElement,
   PromptFn,
   Message,
-  ModelPreference
+  ModelPreference,
+  ConfigureOptions
 } from './index';
 
 export type { 
@@ -17,11 +18,12 @@ export type {
   SchemaType, 
   HintType, 
   StreamOptions, 
-  XMLStream,
+  ChainableStreamInterface,
   XMLElement,
   PromptFn,
   Message,
-  ModelPreference
+  ModelPreference,
+  ConfigureOptions
 };
 
 export interface IClientProvider {
@@ -33,9 +35,13 @@ export class ClientProvider implements IClientProvider {
   createStream(payload: any): Promise<ReadableStream>;
 }
 
+// Extend base ConfigureOptions for client usage
+export interface ClientConfigureOptions extends ConfigureOptions {
+  clientProvider?: ClientProvider | string;
+}
+
 export function xmllm<T = any>(
   pipelineFn: (helpers: PipelineHelpers) => any[],
-  clientProvider?: ClientProvider | string,
   options?: Omit<XmllmOptions, 'clientProvider'>
 ): AsyncGenerator<T>;
 
@@ -44,6 +50,7 @@ export function stream<T = XMLElement>(
     prompt?: string;
     schema?: SchemaType;
     system?: string;
+    sudoPrompt?: boolean;
     mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
     onChunk?: (chunk: string) => void;
     messages?: Message[];
@@ -60,17 +67,21 @@ export function stream<T = XMLElement>(
   options?: StreamOptions & {
     clientProvider?: ClientProvider | string;
   }
-): XMLStream<T>;
+): ChainableStreamInterface<T>;
 
 export function simple<T = any>(
   prompt: string,
   schema: SchemaType,
-  options: Omit<StreamOptions, 'schema'> & {
+  options?: Omit<StreamOptions, 'schema'> & {
     clientProvider?: ClientProvider | string;
+    sudoPrompt?: boolean;
   }
 ): Promise<T>;
 
+export function configure(options: ClientConfigureOptions): void;
+
 declare const _default: {
+  configure: typeof configure;
   ClientProvider: typeof ClientProvider;
   xmllm: typeof xmllm;
   stream: typeof stream;

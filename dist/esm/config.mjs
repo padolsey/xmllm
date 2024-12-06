@@ -4,18 +4,15 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-var LOG_LEVELS = {
-  ERROR: 0,
-  WARN: 1,
-  INFO: 2,
-  DEBUG: 3,
-  TRACE: 4
-};
-var CONFIG = {
+import { LOG_LEVELS } from './LogLevels.mjs';
+import { ClientProvider } from './ClientProvider.mjs';
+import { Logger } from './Logger.mjs';
+var DEFAULT_CONFIG = {
   logging: {
     level: process.env.NODE_ENV === 'production' ? 'ERROR' : 'INFO',
     customLogger: null
   },
+  clientProvider: null,
   defaults: {
     temperature: 0.72,
     maxTokens: 4000,
@@ -26,6 +23,7 @@ var CONFIG = {
     modelFallbacks: ['claude:good', 'openai:good', 'claude:fast', 'openai:fast']
   }
 };
+var CONFIG = _objectSpread({}, DEFAULT_CONFIG);
 
 // Validation helper
 var validateLogLevel = function validateLogLevel(level) {
@@ -33,7 +31,17 @@ var validateLogLevel = function validateLogLevel(level) {
 };
 export function configure() {
   var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-  console.log('configure()', options);
+  // Handle clientProvider string -> ClientProvider conversion
+  if (options.clientProvider) {
+    var provider = typeof options.clientProvider === 'string' ? new ClientProvider(options.clientProvider) : options.clientProvider;
+
+    // Set logger on provider
+    var logger = new Logger('ClientProvider');
+    provider.setLogger(logger);
+    CONFIG = _objectSpread(_objectSpread({}, CONFIG), {}, {
+      clientProvider: provider
+    });
+  }
   if (options.logging) {
     CONFIG = _objectSpread(_objectSpread({}, CONFIG), {}, {
       logging: _objectSpread(_objectSpread(_objectSpread({}, CONFIG.logging), options.logging.level && {
@@ -68,3 +76,6 @@ export function getConfig() {
   return frozenConfig;
 }
 export { LOG_LEVELS };
+export function resetConfig() {
+  CONFIG = _objectSpread({}, DEFAULT_CONFIG);
+}

@@ -2,7 +2,7 @@ import {xmllm as xmllmCore} from './xmllm.mjs';
 import Stream from './Stream.mjs';
 import { createProvidersWithKeys } from './PROVIDERS.mjs';
 import ProviderManager from './ProviderManager.mjs';
-import XMLStream from './XMLStream.mjs';
+import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { configure, getConfig } from './config.mjs';
 
 function xmllm(pipelineFn, options = {}) {
@@ -91,7 +91,7 @@ export function stream(promptOrConfig, options = {}) {
       content: prompt
     });
   }
-  return new XMLStream([
+  return new ChainableStreamInterface([
     ['req', {
       messages: _messages,
       system,

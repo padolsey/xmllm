@@ -143,7 +143,7 @@ class ValidationService {
     return true;
   }
 
-  static validateParameters(params) {
+  static validateParameters(params = {}) {
     const {
       temperature,
       max_tokens,
@@ -152,14 +152,11 @@ class ValidationService {
     } = params;
 
     if (temperature !== undefined) {
-      // OpenAI allows up to 2.0; let's just use that.
-      if (
-        typeof temperature !== 'number' ||
-        temperature < 0 ||
-        temperature > 2
-      ) {
+      if (typeof temperature !== 'number' || 
+          temperature < 0 || 
+          temperature > 1) {
         throw new ParameterValidationError(
-          'Temperature must be between 0 and 2',
+          'Temperature must be between 0 and 1',
           { temperature }
         );
       }

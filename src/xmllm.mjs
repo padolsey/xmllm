@@ -191,6 +191,7 @@ async function* xmllmGen(pipelineFn, {
     hints,
     system,
     messages, 
+    sudoPrompt = false,
     max_tokens, 
     maxTokens, 
     model, 
@@ -243,8 +244,17 @@ async function* xmllmGen(pipelineFn, {
         transformedPrompt = transformedPrompt(thing);
       }
 
+      let userMessages;
+
       if (mapSelectionSchemaScaffold) {
-        transformedPrompt = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt);
+        const result = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt, sudoPrompt);
+        if (sudoPrompt && Array.isArray(result)) {
+          userMessages = result;
+        } else {
+          userMessages = [{ role: 'user', content: result }];
+        }
+      } else {
+        userMessages = [{ role: 'user', content: transformedPrompt }];
       }
 
       const systemPrompt = useSystemPrompt(system);
@@ -270,15 +280,8 @@ async function* xmllmGen(pipelineFn, {
             role: 'system',
             content: systemPrompt
           },
-
-          ...(
-            messages?.length && messages || []
-          ),
-
-          {
-            role: 'user',
-            content: transformedPrompt
-          }
+          ...(messages?.length ? messages : []),
+          ...userMessages
         ],
         model,
         fakeDelay,
@@ -417,6 +420,7 @@ async function* xmllmGen(pipelineFn, {
         hints,
         mapper,
         system,
+        sudoPrompt,
         max_tokens,
         maxTokens,
         top_p,
@@ -476,6 +480,7 @@ async function* xmllmGen(pipelineFn, {
             schema: schema,
             hints,
             model,
+            sudoPrompt,
             fakeDelay,
             waitMessageString,
             waitMessageDelay,

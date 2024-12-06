@@ -7,11 +7,14 @@ import xmllm, {
   ModelPreference,
   simple,
   stream,
-  XMLStream,
+  ChainableStreamInterface,
   SchemaType,
-  HintType
+  HintType,
+  configure,
+  ConfigureOptions,
+  ClientProvider
 } from '../index';
-import { xmllm as clientXmllm, ClientProvider } from '../client';
+import { xmllm as clientXmllm } from '../client';
 
 // Positive test - should compile
 const validMessage: Message = {
@@ -93,10 +96,6 @@ expectType<AsyncGenerator<any>>(testStream);
 // Negative test - wrong argument type
 // @ts-expect-error - xmllm's first argument must be a function that returns a pipeline array
 xmllm('not a function');
-
-// Client usage - valid cases
-const client = new ClientProvider('http://localhost:3000');
-expectType<ClientProvider>(client);
 
 // Test transformer helpers - valid cases
 const validPipelineWithTransformers = (helpers: PipelineHelpers) => [
@@ -191,7 +190,7 @@ expectType<{ date: Date }>(dateResult);
 const streamResult = stream("Count to 3")
   .select("number")
   .map((x: XMLElement) => parseInt(x.$text));
-expectType<XMLStream<number>>(streamResult);
+expectType<ChainableStreamInterface<number>>(streamResult);
 
 // Test stream() with schema - rename local variable
 const streamWithSchema = stream<{
@@ -207,7 +206,7 @@ const streamWithSchema = stream<{
     }]
   }
 });
-expectType<XMLStream<{
+expectType<ChainableStreamInterface<{
   users: Array<{
     name: string;
     age: number;
@@ -220,7 +219,7 @@ const streamChained = stream("Test")
   .map((x: XMLElement) => x.$text)
   .filter((x: string) => x.length > 0)
   .map((x: string) => parseInt(x));
-expectType<XMLStream<number>>(streamChained);
+expectType<ChainableStreamInterface<number>>(streamChained);
 
 // Test error cases - use something that's definitely not a valid schema type
 expectError<SchemaType>({
@@ -235,7 +234,7 @@ expectError<SchemaType>({
 const streamValue = stream("Test")
   .select("item")
   .value();
-// This should error because value() returns Promise<T>, not XMLStream<T>
+// This should error because value() returns Promise<T>, not ChainableStreamInterface<T>
 expectError(streamValue.map());
 
 // Valid hint test
@@ -279,3 +278,55 @@ const invalidHintBoolean = {
   }
 } as const;
 expectError<HintType>(invalidHintBoolean);
+
+// Test valid server-side configure options
+expectType<void>(configure({
+  logging: {
+    level: 'DEBUG' as const,
+    custom: (level: string, ...args: any[]) => console.log(level, ...args)
+  },
+  defaults: {
+    temperature: 0.7,
+    maxTokens: 4000,
+    model: 'claude:good',
+    modelFallbacks: ['openai:fast', 'claude:fast'],
+    mode: 'root_closed' as const
+  }
+}));
+
+// Test invalid logging level
+const invalidConfig = {
+  logging: {
+    level: 'INVALID_LEVEL' as const
+  }
+} as const;
+expectError<ConfigureOptions>(invalidConfig);
+
+// Test invalid defaults
+const invalidDefaults = {
+  defaults: {
+    mode: 'invalid_mode' as const,
+    temperature: 'hot' as const
+  }
+} as const;
+expectError<ConfigureOptions>(invalidDefaults);
+
+// Test that server configure rejects clientProvider
+const serverWithClient = {
+  clientProvider: 'http://localhost:3000'
+} as const;
+expectError<ConfigureOptions>(serverWithClient);
+
+// Import client configure and types to test client-specific options
+import { configure as clientConfigure, ClientConfigureOptions } from '../client';
+
+// Test valid client-side configure
+expectType<void>(clientConfigure({
+  clientProvider: 'http://localhost:3000',
+  logging: {
+    level: 'DEBUG' as const
+  },
+  defaults: {
+    temperature: 0.8
+  }
+}));

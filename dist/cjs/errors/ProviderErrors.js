@@ -35,12 +35,13 @@ var ProviderError = exports.ProviderError = /*#__PURE__*/function (_Error) {
   return _createClass(ProviderError);
 }(/*#__PURE__*/_wrapNativeSuper(Error));
 var ProviderRateLimitError = exports.ProviderRateLimitError = /*#__PURE__*/function (_ProviderError) {
-  function ProviderRateLimitError(provider, retryAfter) {
+  function ProviderRateLimitError(provider, resetInMs, limits) {
     var _this2;
     _classCallCheck(this, ProviderRateLimitError);
     _this2 = _callSuper(this, ProviderRateLimitError, ["Rate limit exceeded for provider ".concat(provider), 'RATE_LIMIT_ERROR', provider]);
     _this2.name = 'ProviderRateLimitError';
-    _this2.retryAfter = retryAfter;
+    _this2.resetInMs = resetInMs;
+    _this2.limits = limits;
     return _this2;
   }
   _inherits(ProviderRateLimitError, _ProviderError);

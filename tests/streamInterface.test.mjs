@@ -17,7 +17,7 @@ const createMockReader = (responses) => {
   };
 };
 
-describe('Stream Chaining Convenience API', () => {
+describe('ChainableStreamInterface', () => {
 
   describe('A: stream()', () => {
     it('should handle basic prompt and selection', async () => {
@@ -944,6 +944,131 @@ describe('Stream to Provider Parameter Passing', () => {
       max_tokens: 4000,      // Default max tokens
       temperature: 0.72,     // Default temperature
     });
+  });
+
+  test('sudoPrompt mode generates correct message structure', async () => {
+    let capturedParams = {};
+
+    const TestStream = jest.fn().mockImplementation((payload) => {
+      capturedParams = payload;
+      throw new Error('Payload captured');
+    });
+
+    const streamConfig = {
+      prompt: "Test prompt",
+      schema: {
+        response: String
+      },
+      sudoPrompt: true  // Enable sudoPrompt mode
+    };
+
+    await expect(
+      stream(streamConfig, { llmStream: TestStream }).value()
+    ).rejects.toThrow('Payload captured');
+
+    console.log('CAPTURED MESSAGES', capturedParams.messages);
+
+    // Should have 4 messages in the expected order:
+    // 1. System prompt
+    // 2. User explaining structure
+    // 3. Assistant acknowledgment
+    // 4. Actual prompt
+    expect(capturedParams.messages).toHaveLength(4);
+    
+    // First message: user explaining structure
+    expect(capturedParams.messages[1]).toEqual({
+      role: 'user',
+      content: expect.stringContaining('I am going to give you a prompt')
+    });
+    expect(capturedParams.messages[1].content).toContain('<response>');
+
+    // Second message: assistant acknowledgment
+    expect(capturedParams.messages[2]).toEqual({
+      role: 'assistant',
+      content: expect.stringContaining('abide by')
+    });
+
+    // Third message: actual prompt
+    expect(capturedParams.messages[3]).toEqual({
+      role: 'user',
+      content: expect.stringContaining('PROMPT: Test prompt')
+    });
+  });
+
+  test('sudoPrompt mode works with both stream() and simple() interfaces', async () => {
+    const TestStream = jest.fn().mockImplementation((payload) => {
+      return {
+        getReader: () => ({
+          read: jest.fn()
+            .mockResolvedValueOnce({ 
+              value: new TextEncoder().encode('<response>test</response>'),
+              done: false 
+            })
+            .mockResolvedValueOnce({ done: true }),
+          releaseLock: jest.fn()
+        })
+      };
+    });
+
+    // Test with stream()
+    await stream("Test prompt", {
+      llmStream: TestStream,
+      schema: { response: String },
+      sudoPrompt: true
+    }).value();
+
+    // Verify first call had sudoPrompt message structure
+    expect(TestStream.mock.calls[0][0].messages).toHaveLength(4);
+    
+    TestStream.mockClear();
+
+    // Test with simple()
+    await simple("Test prompt", 
+      { response: String },
+      { llmStream: TestStream, sudoPrompt: true }
+    );
+
+    // Verify second call also had sudoPrompt message structure
+    expect(TestStream.mock.calls[0][0].messages).toHaveLength(4);
+  });
+
+  test('defaults to non-sudoPrompt mode with standard message structure', async () => {
+    let capturedParams = {};
+
+    const TestStream = jest.fn().mockImplementation((payload) => {
+      capturedParams = payload;
+      throw new Error('Payload captured');
+    });
+
+    const streamConfig = {
+      prompt: "Test prompt",
+      schema: {
+        response: String
+      }
+      // sudoPrompt not specified - should default to false
+    };
+
+    await expect(
+      stream(streamConfig, { llmStream: TestStream }).value()
+    ).rejects.toThrow('Payload captured');
+
+    // Should have exactly 2 messages: system and user
+    expect(capturedParams.messages).toHaveLength(2);
+    
+    // First message should be system
+    expect(capturedParams.messages[0]).toEqual({
+      role: 'system',
+      content: expect.any(String)
+    });
+
+    // Second message should be user with standard format
+    expect(capturedParams.messages[1]).toEqual({
+      role: 'user',
+      content: expect.stringContaining('BEGIN PROMPT')
+    });
+    // Should contain scaffold but not in conversation format
+    expect(capturedParams.messages[1].content).toContain('<response>');
+    expect(capturedParams.messages[1].content).not.toContain('I am going to give you a prompt');
   });
 });
 

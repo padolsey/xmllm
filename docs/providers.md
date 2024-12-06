@@ -281,7 +281,7 @@ The proxy server is intentionally "blind" - it only:
 1. **Run the Proxy Server**
 
 ```bash
-npx xmllm-proxy --port=3000 --corsOrigins="http://localhost:3000" --debug
+npx xmllm-proxy --port=3124 --corsOrigins="http://localhost:3000" --debug
 ```
 
 2. **Connect from Client**
@@ -296,6 +296,117 @@ const result = await stream('Query', {
 }, client)
 .complete()
 .value();
+```
+
+### Rate Limiting
+
+The proxy server supports multiple types of rate limiting that can be combined:
+
+- **Global Limits**: Apply across all clients
+  - `globalRateLimit`: Max requests per minute
+  - `globalTokensPerMinute`: Max tokens per minute
+  - `globalTokensPerHour`: Max tokens per hour
+  - `globalRequestsPerHour`: Max requests per hour
+
+- **Per-Provider Limits**: Each provider has its own built-in limits
+  - Claude: 200 RPM
+  - OpenAI: 200 RPM
+  - TogetherAI: 100 RPM
+  - PerplexityAI: 100 RPM
+
+The most restrictive limit (global or provider) will be applied.
+
+### Rate Limit Error Handling
+
+When rate limits are exceeded, the error is returned in two ways:
+
+1. JSON Response (non-streaming):
+```json
+{
+  "error": "Global rate limit exceeded",
+  "code": "GLOBAL_RATE_LIMIT",
+  "message": "Custom rate limit message here",
+  "limits": {
+    "rpm": {
+      "resetInMs": 45000
+    }
+  }
+}
+```
+
+2. SSE Stream Event:
+```
+event: error
+data: {"error":"Stream error","code":"GLOBAL_RATE_LIMIT","message":"Custom rate limit message here"}
+```
+
+You can customize the error message via:
+```bash
+xmllm-proxy --rateLimitMessage="Custom rate limit exceeded message"
+```
+
+## Proxy Server Configuration
+
+The proxy server can be started via CLI with various configuration options:
+
+```bash
+xmllm-proxy \
+  --port=3124 \
+  --corsOrigins="http://localhost:3000" \
+  --globalRateLimit=20 \
+  --globalTokensPerMinute=1000 \
+  --globalTokensPerHour=10000 \
+  --globalRequestsPerHour=1000 \
+  --maxRequestSize=1048576 \
+  --timeout=30000 \
+  --rateLimitMessage="Custom rate limit exceeded message" \
+  --debug \
+  --verbose
+```
+
+### Configuration Options
+
+| Option | Environment Variable | Default | Description |
+|--------|---------------------|---------|-------------|
+| port | PORT | 3124 | Port to run the proxy server on |
+| corsOrigins | - | * | CORS allowed origins (string or array) |
+| globalRateLimit | GLOBAL_RATE_LIMIT | - | Max requests per minute |
+| globalTokensPerMinute | GLOBAL_TOKENS_PER_MINUTE | - | Max tokens per minute |
+| globalTokensPerHour | GLOBAL_TOKENS_PER_HOUR | - | Max tokens per hour |
+| globalRequestsPerHour | GLOBAL_REQUESTS_PER_HOUR | - | Max requests per hour |
+| maxRequestSize | - | 1MB | Max request size in bytes |
+| timeout | - | 30000 | Request timeout in ms |
+| rateLimitMessage | - | "Please try again later" | Custom rate limit error message |
+| debug | - | false | Enable debug logging |
+| verbose | - | false | Enable verbose logging |
+
+### Monitoring Rate Limits
+
+The proxy exposes an endpoint to check current rate limit status:
+
+```bash
+curl http://localhost:3124/api/limits
+```
+
+Response:
+```json
+{
+  "allowed": true,
+  "limits": {
+    "rpm": {
+      "allowed": true,
+      "remaining": 15,
+      "limit": 20,
+      "resetInMs": 45000
+    },
+    "tpm": {
+      "allowed": true,
+      "remaining": 800,
+      "limit": 1000,
+      "resetInMs": 45000
+    }
+  }
+}
 ```
 
 ## Custom Model Configuration

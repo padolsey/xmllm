@@ -14,6 +14,27 @@ const DEFAULT_PREFERRED_PROVIDERS = [
   'openai:fast'
 ];
 
+/**
+ * Orchestrates multiple Provider instances and handles provider selection.
+ * 
+ * 
+ * ponsibilities:
+ * - Manages provider pool and initialization
+ * - Handles provider fallback logic
+ * - Creates custom provider configurations
+ * - Routes requests to appropriate providers
+ * - Manages provider-level error handling
+ * 
+ * Acts as a facade for the Provider layer, abstracting provider complexity
+ * from the Stream layer.
+ * 
+ * @example
+ * const manager = new ProviderManager();
+ * const stream = await manager.streamRequest({
+ *   messages: [...],
+ *   model: ['claude:fast', 'openai:fast']
+ * });
+ */
 class ProviderManager {
   constructor() {
     this.providers = {};
@@ -71,8 +92,12 @@ class ProviderManager {
 
     let lastError = null;
     const MAX_RETRIES_PER_PROVIDER = payload.retryMax || 3;
-    let retryDelay = payload.retryStartDelay || 1000;
-    const backoffMultiplier = payload.retryBackoffMultiplier || 2;
+    let retryDelay = process.env.NODE_ENV === 'test'
+      ? 100  // Much shorter in tests
+      : (payload.retryStartDelay || 1000);
+    const backoffMultiplier = process.env.NODE_ENV === 'test'
+      ? 1.5  // Slower growth in tests
+      : (payload.retryBackoffMultiplier || 2);
 
     for (const preference of preferredProviders) {
       try {

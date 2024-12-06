@@ -158,7 +158,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9(input) {
-                  var _config, messages, schema, hints, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
+                  var _config, messages, schema, hints, mapper, system, sudoPrompt, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
                   return _regeneratorRuntime().wrap(function _callee9$(_context9) {
                     while (1) switch (_context9.prev = _context9.next) {
                       case 0:
@@ -174,7 +174,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt;
+                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, sudoPrompt = _config.sudoPrompt, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt;
                         if (!(mapper && !schema)) {
                           _context9.next = 5;
                           break;
@@ -233,6 +233,7 @@ function _xmllmGen() {
                           schema: schema,
                           hints: hints,
                           model: model,
+                          sudoPrompt: sudoPrompt,
                           fakeDelay: fakeDelay,
                           waitMessageString: waitMessageString,
                           waitMessageDelay: waitMessageDelay,
@@ -575,6 +576,8 @@ function _xmllmGen() {
                 hints = _ref8.hints,
                 system = _ref8.system,
                 messages = _ref8.messages,
+                _ref8$sudoPrompt = _ref8.sudoPrompt,
+                sudoPrompt = _ref8$sudoPrompt === void 0 ? false : _ref8$sudoPrompt,
                 max_tokens = _ref8.max_tokens,
                 maxTokens = _ref8.maxTokens,
                 model = _ref8.model,
@@ -611,7 +614,7 @@ function _xmllmGen() {
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(thing) {
                   var _messages3;
-                  var parser, transformedPrompt, mapSelectionSchemaScaffold, systemPrompt, config, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
+                  var parser, transformedPrompt, mapSelectionSchemaScaffold, userMessages, result, systemPrompt, config, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
                   return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                     while (1) switch (_context3.prev = _context3.next) {
                       case 0:
@@ -622,7 +625,20 @@ function _xmllmGen() {
                           transformedPrompt = transformedPrompt(thing);
                         }
                         if (mapSelectionSchemaScaffold) {
-                          transformedPrompt = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt);
+                          result = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt, sudoPrompt);
+                          if (sudoPrompt && Array.isArray(result)) {
+                            userMessages = result;
+                          } else {
+                            userMessages = [{
+                              role: 'user',
+                              content: result
+                            }];
+                          }
+                        } else {
+                          userMessages = [{
+                            role: 'user',
+                            content: transformedPrompt
+                          }];
                         }
                         systemPrompt = useSystemPrompt(system);
                         if (!(typeof transformedPrompt !== 'string')) {
@@ -648,10 +664,7 @@ function _xmllmGen() {
                           messages: [{
                             role: 'system',
                             content: systemPrompt
-                          }].concat(_toConsumableArray(((_messages3 = messages) === null || _messages3 === void 0 ? void 0 : _messages3.length) && messages || []), [{
-                            role: 'user',
-                            content: transformedPrompt
-                          }]),
+                          }].concat(_toConsumableArray((_messages3 = messages) !== null && _messages3 !== void 0 && _messages3.length ? messages : []), _toConsumableArray(userMessages)),
                           model: model,
                           fakeDelay: fakeDelay,
                           waitMessageString: waitMessageString,

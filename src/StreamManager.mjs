@@ -2,9 +2,23 @@ import Logger from './Logger.mjs';
 
 const logger = new Logger('StreamManager');
 
+/**
+ * Manages streaming responses between the API and client.
+ * 
+ * Responsibilities:
+ * - Handles SSE (Server-Sent Events) formatting
+ * - Manages stream timeouts and cleanup
+ * - Ensures proper response encoding
+ * - Handles stream interruptions and errors
+ * 
+ * @example
+ * const streamManager = new StreamManager({ timeout: 30000 });
+ * await streamManager.createStream(llmStream, response);
+ */
 class StreamManager {
   constructor(config = {}) {
     this.timeout = config.timeout || 30000; // 30 second default timeout
+    this.rateLimitMessage = config.rateLimitMessage || 'Please try again later';
     this.activeStreams = new Set();
   }
 
@@ -49,8 +63,10 @@ class StreamManager {
   handleError(res, error) {
     const errorResponse = {
       error: 'Stream error',
-      code: 'STREAM_ERROR',
-      message: error.message
+      code: error.code || 'STREAM_ERROR',
+      message: error.code === 'GLOBAL_RATE_LIMIT' ? 
+        this.rateLimitMessage : 
+        error.message
     };
     res.write(`event: error\ndata: ${JSON.stringify(errorResponse)}\n\n`);
   }

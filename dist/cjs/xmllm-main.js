@@ -18,7 +18,7 @@ var _xmllm = require("./xmllm.js");
 var _Stream = _interopRequireDefault(require("./Stream.js"));
 var _PROVIDERS = require("./PROVIDERS.js");
 var _ProviderManager = _interopRequireDefault(require("./ProviderManager.js"));
-var _XMLStream = _interopRequireDefault(require("./XMLStream.js"));
+var _ChainableStreamInterface = _interopRequireDefault(require("./ChainableStreamInterface.js"));
 var _config2 = require("./config.js");
 var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk"],
   _excluded2 = ["mode"];
@@ -106,7 +106,7 @@ function stream(promptOrConfig) {
       content: prompt
     });
   }
-  return new _XMLStream["default"]([['req', _objectSpread(_objectSpread({
+  return new _ChainableStreamInterface["default"]([['req', _objectSpread(_objectSpread({
     messages: _messages,
     system: system,
     schema: schema,

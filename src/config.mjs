@@ -1,16 +1,13 @@
-const LOG_LEVELS = {
-  ERROR: 0,
-  WARN: 1,
-  INFO: 2,
-  DEBUG: 3,
-  TRACE: 4
-};
+import { LOG_LEVELS } from './LogLevels.mjs';
+import { ClientProvider } from './ClientProvider.mjs';
+import { Logger } from './Logger.mjs';
 
-let CONFIG = {
+const DEFAULT_CONFIG = {
   logging: {
     level: process.env.NODE_ENV === 'production' ? 'ERROR' : 'INFO',
     customLogger: null
   },
+  clientProvider: null,
   defaults: {
     temperature: 0.72,
     maxTokens: 4000,
@@ -27,6 +24,8 @@ let CONFIG = {
   }
 };
 
+let CONFIG = { ...DEFAULT_CONFIG };
+
 // Validation helper
 const validateLogLevel = (level) => {
   return LOG_LEVELS[level?.toUpperCase()] !== undefined 
@@ -35,8 +34,23 @@ const validateLogLevel = (level) => {
 };
 
 export function configure(options = {}) {
+  
+  // Handle clientProvider string -> ClientProvider conversion
+  if (options.clientProvider) {
+    const provider = typeof options.clientProvider === 'string' 
+      ? new ClientProvider(options.clientProvider)
+      : options.clientProvider;
+    
+    // Set logger on provider
+    const logger = new Logger('ClientProvider');
+    provider.setLogger(logger);
 
-  console.log('configure()', options);
+    CONFIG = {
+      ...CONFIG,
+      clientProvider: provider
+    };
+  }
+
   if (options.logging) {
     CONFIG = {
       ...CONFIG,
@@ -94,4 +108,7 @@ export function getConfig() {
   return frozenConfig;
 }
 
-export { LOG_LEVELS }; 
+export { LOG_LEVELS };
+export function resetConfig() {
+  CONFIG = { ...DEFAULT_CONFIG };
+} 

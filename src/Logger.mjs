@@ -1,6 +1,7 @@
-import { getConfig, LOG_LEVELS } from './config.mjs';
+import { LOG_LEVELS } from './LogLevels.mjs';
+import { getConfig } from './config.mjs';
 
-class Logger {
+export class Logger {
   constructor(name) {
     this.name = name;
   }
@@ -64,5 +65,4 @@ class Logger {
     this.debug(...args);
   }
 }
-
 export default Logger;

@@ -175,7 +175,8 @@ export type HintType = {
 export interface PromptConfig {
   messages?: Message[];
   schema?: SchemaType;
-  hints?: HintType;  // Now properly typed to mirror schema structure
+  hints?: HintType;
+  sudoPrompt?: boolean;
   mapper?: (input: any, output: any) => any;
   system?: string;
   model?: ModelPreference;
@@ -284,7 +285,8 @@ export interface CacheService {
 // Add these interfaces
 export interface StreamOptions extends XmllmOptions {
   schema?: SchemaType;
-  hints?: HintType;  // Now properly typed to mirror schema structure
+  hints?: HintType;
+  sudoPrompt?: boolean;
   system?: string;
   closed?: boolean;
   mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
@@ -294,26 +296,26 @@ export interface StreamOptions extends XmllmOptions {
   onChunk?: (chunk: string) => void;
 }
 
-export interface XMLStream<T = XMLElement> extends AsyncIterable<T> {
-  select(selector: string): XMLStream<XMLElement>;
-  map<U>(fn: (value: T) => U): XMLStream<U>;
-  filter(fn: (value: T) => boolean): XMLStream<T>;
-  text(): XMLStream<string>;
-  merge(): XMLStream<T>;
+export interface ChainableStreamInterface<T = XMLElement> extends AsyncIterable<T> {
+  select(selector: string): ChainableStreamInterface<XMLElement>;
+  map<U>(fn: (value: T) => U): ChainableStreamInterface<U>;
+  filter(fn: (value: T) => boolean): ChainableStreamInterface<T>;
+  text(): ChainableStreamInterface<string>;
+  merge(): ChainableStreamInterface<T>;
   value(): Promise<T>;
-  closedOnly(): XMLStream<T>;
-  complete(): XMLStream<T>;  // deprecated
+  closedOnly(): ChainableStreamInterface<T>;
+  complete(): ChainableStreamInterface<T>;  // deprecated
   all(): Promise<T[]>;
   first(): Promise<T>;
   last(n?: number): Promise<T>;
-  take(n: number): XMLStream<T>;
-  skip(n: number): XMLStream<T>;
-  raw(): XMLStream<string>;
-  debug(label?: string): XMLStream<T>;
+  take(n: number): ChainableStreamInterface<T>;
+  skip(n: number): ChainableStreamInterface<T>;
+  raw(): ChainableStreamInterface<string>;
+  debug(label?: string): ChainableStreamInterface<T>;
   collect(): Promise<T[]>;
-  reduce<U>(reducer: (acc: U, value: T) => U, initialValue: U): XMLStream<U>;
-  mergeAggregate(): XMLStream<T[]>;
-  batch(size: number, options?: { yieldIncomplete?: boolean }): XMLStream<T[]>;
+  reduce<U>(reducer: (acc: U, value: T) => U, initialValue: U): ChainableStreamInterface<U>;
+  mergeAggregate(): ChainableStreamInterface<T[]>;
+  batch(size: number, options?: { yieldIncomplete?: boolean }): ChainableStreamInterface<T[]>;
   [Symbol.asyncIterator](): AsyncIterator<T>;
 }
 
@@ -323,6 +325,7 @@ export function stream<T = XMLElement>(
     prompt?: string;
     schema?: SchemaType;
     system?: string;
+    sudoPrompt?: boolean;
     mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
     onChunk?: (chunk: string) => void;
     messages?: Message[];
@@ -338,11 +341,47 @@ export function stream<T = XMLElement>(
     [key: string]: any;
   },
   options?: StreamOptions
-): XMLStream<T>;
+): ChainableStreamInterface<T>;
 
 export function simple<T = any>(
   prompt: string,
   schema: SchemaType,
   options?: Omit<StreamOptions, 'schema'> // schema comes from second param
 ): Promise<T>;
+
+// Add these interfaces for configure()
+export interface LoggingConfig {
+  level?: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
+  custom?: (level: string, ...args: any[]) => void;
+}
+
+export interface DefaultsConfig {
+  temperature?: number;
+  maxTokens?: number;
+  presencePenalty?: number;
+  topP?: number;
+  mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
+  model?: ModelPreference;
+  modelFallbacks?: ModelPreference[];
+}
+
+// Base configure options
+export interface ConfigureOptions {
+  logging?: LoggingConfig;
+  defaults?: DefaultsConfig;
+}
+
+// Client-specific configure options that extends the base
+export interface ClientConfigureOptions extends ConfigureOptions {
+  clientProvider?: ClientProvider | string;
+}
+
+// Add configure function declaration
+export function configure(options: ConfigureOptions): void;
+
+// Add ClientProvider interface
+export interface ClientProvider {
+  createStream(payload: any): Promise<ReadableStream>;
+  setLogger?(logger: any): void;
+}
 

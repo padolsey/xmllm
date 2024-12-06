@@ -24,6 +24,28 @@ import { ProviderAuthenticationError } from './errors/ProviderErrors.mjs';
 var logger = new Logger('ProviderManager');
 // Default preferred providers list (only used if payload.model is not provided)
 var DEFAULT_PREFERRED_PROVIDERS = ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'];
+
+/**
+ * Orchestrates multiple Provider instances and handles provider selection.
+ * 
+ * 
+ * ponsibilities:
+ * - Manages provider pool and initialization
+ * - Handles provider fallback logic
+ * - Creates custom provider configurations
+ * - Routes requests to appropriate providers
+ * - Manages provider-level error handling
+ * 
+ * Acts as a facade for the Provider layer, abstracting provider complexity
+ * from the Stream layer.
+ * 
+ * @example
+ * const manager = new ProviderManager();
+ * const stream = await manager.streamRequest({
+ *   messages: [...],
+ *   model: ['claude:fast', 'openai:fast']
+ * });
+ */
 var ProviderManager = /*#__PURE__*/function () {
   function ProviderManager() {
     _classCallCheck(this, ProviderManager);
@@ -91,8 +113,10 @@ var ProviderManager = /*#__PURE__*/function () {
               preferredProviders = payload.model ? Array.isArray(payload.model) ? payload.model : [payload.model] : DEFAULT_PREFERRED_PROVIDERS;
               lastError = null;
               MAX_RETRIES_PER_PROVIDER = payload.retryMax || 3;
-              retryDelay = payload.retryStartDelay || 1000;
-              backoffMultiplier = payload.retryBackoffMultiplier || 2;
+              retryDelay = process.env.NODE_ENV === 'test' ? 100 // Much shorter in tests
+              : payload.retryStartDelay || 1000;
+              backoffMultiplier = process.env.NODE_ENV === 'test' ? 1.5 // Slower growth in tests
+              : payload.retryBackoffMultiplier || 2;
               _iterator = _createForOfIteratorHelper(preferredProviders);
               _context2.prev = 6;
               _iterator.s();

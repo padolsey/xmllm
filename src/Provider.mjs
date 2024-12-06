@@ -10,6 +10,7 @@ import {
 import { createParser } from 'eventsource-parser';
 import innerTruncate from './innerTruncate.mjs';
 import ValidationService from './ValidationService.mjs';
+import ResourceLimiter from './ResourceLimiter.mjs';
 
 // Use native AbortController if available (modern environments), otherwise try to import
 const AbortController = globalThis.AbortController || 
@@ -29,38 +30,87 @@ const MAX_TOKEN_HISTORICAL_MESSAGE = 600;
 
 const VALID_ROLES = ['user', 'assistant'];
 
+/**
+ * Handles direct communication with LLM APIs.
+ * 
+ * Responsibilities:
+ * - Makes HTTP requests to LLM endpoints
+ * - Handles rate limiting and quotas
+ * - Manages retries and circuit breaking
+ * - Transforms payloads for specific providers
+ * - Streams responses back to ProviderManager
+ * 
+ * Each Provider instance represents a specific LLM service (OpenAI, Claude, etc)
+ * with its own configuration and constraints.
+ * 
+ * @example
+ * const provider = new Provider('claude', {
+ *   endpoint: 'https://api.anthropic.com/v1/messages',
+ *   key: process.env.ANTHROPIC_API_KEY,
+ *   models: { fast: { name: 'claude-3-haiku' } }
+ * });
+ */
 class Provider {
-  constructor(name, details, fetchFn = fetch, configOverrides = {}) {
-    this.fetch = fetchFn;
+  static _globalFetch = fetch;
+
+  static setGlobalFetch(fetchFn) {
+    Provider._globalFetch = fetchFn;
+  }
+
+  get constraints() { // backward compatibility
+    const limits = {};
+    for (const [name, bucket] of this.resourceLimiter.buckets) {
+      const constraintName = {
+        rpm: 'rpmLimit',
+        tpm: 'tokensPerMinute',
+        rph: 'requestsPerHour'
+      }[name] || name;
+      
+      limits[constraintName] = bucket.limit;
+    }
+    return limits;
+  }
+
+  get fetch() {
+    return Provider._globalFetch;
+  }
+
+  constructor(name, details, configOverrides = {}) {
     this.name = name;
     this.endpoint = details.endpoint;
     this.key = details.key;
     this.models = details.models || {};
     this.payloader = details.payloader || this.defaultPayloader;
     this.headerGen = details.headerGen || this.defaultHeaderGen;
-    this.rpmLimit = details.constraints?.rpmLimit || 1e6;
 
-    this.constraints = details.constraints || { rpmLimit: this.rpmLimit };
+    // Initialize resource limiter with provider constraints
+    this.resourceLimiter = new ResourceLimiter({
+      rpm: details.constraints?.rpmLimit ? {
+        limit: details.constraints.rpmLimit,
+        window: 60000 // 1 minute
+      } : { limit: Infinity, window: 60000 },  // Default to unlimited
+      tpm: details.constraints?.tokensPerMinute ? {
+        limit: details.constraints.tokensPerMinute,
+        window: 60000
+      } : null,
+      rph: details.constraints?.requestsPerHour ? {
+        limit: details.constraints.requestsPerHour,
+        window: 3600000 // 1 hour
+      } : null
+    });
 
-    // Configurable properties with more sensible defaults or overrides
-    this.REQUEST_TIMEOUT_MS = configOverrides.REQUEST_TIMEOUT_MS || 50_000; 
-    this.MAX_RETRIES = configOverrides.MAX_RETRIES || 2; 
+    // Configurable properties
+    this.REQUEST_TIMEOUT_MS = process.env.NODE_ENV === 'test' 
+      ? 1000  // 1 second for tests
+      : (configOverrides.REQUEST_TIMEOUT_MS || 50_000);
+    this.MAX_RETRIES = configOverrides.MAX_RETRIES || 2;
     this.RETRY_DELAY_WHEN_OVERLOADED = configOverrides.RETRY_DELAY_WHEN_OVERLOADED || 1000;
 
-    // Token Bucket Properties
-    this.tokens = this.rpmLimit;
-    this.lastRefill = Date.now();
-    this.tokenRefillInterval = 60000; // 1 minute
-
-    // Add circuit breaker properties
+    // Circuit breaker properties
     this.errorCount = 0;
     this.lastErrorTime = null;
     this.circuitBreakerThreshold = configOverrides.circuitBreakerThreshold || 5;
-    this.circuitBreakerResetTime = configOverrides.circuitBreakerResetTime || 60000; // 1 minute
-
-    // Default RPM limit from provider config
-    this.defaultRpmLimit = details.constraints?.rpmLimit || Infinity;
-    this.currentRpmLimit = this.defaultRpmLimit;
+    this.circuitBreakerResetTime = configOverrides.circuitBreakerResetTime || 60000;
   }
 
   defaultPayloader(payload) {
@@ -72,9 +122,17 @@ class Provider {
   }
 
   async makeRequest(payload) {
+    logger.log('Starting makeRequest');
+
     // Apply any request-specific constraints
     if (payload.constraints?.rpmLimit) {
-      this.setRpmLimit(payload.constraints.rpmLimit);
+      logger.log('Applying request-specific RPM limit:', payload.constraints.rpmLimit);
+      this.resourceLimiter.setLimits({
+        rpm: {
+          limit: payload.constraints.rpmLimit,
+          window: 60000
+        }
+      });
     }
 
     if (this.isCircuitBroken()) {
@@ -85,12 +143,29 @@ class Provider {
       );
     }
 
-    this.refillTokens();
-    if (this.tokens <= 0) {
-      throw new ProviderRateLimitError(this.name);
-    }
+    // Check resource limits
+    const limitCheck = this.resourceLimiter.consume({
+      rpm: 1,
+      ...(payload.messages ? {
+        tpm: estimateTokenCount(payload.messages.join(''))
+      } : {})
+    });
 
-    this.tokens--;
+    logger.log('Resource limit check result:', limitCheck);
+
+    if (!limitCheck.allowed) {
+      logger.log('Resource limit exceeded, throwing error');
+      throw new ProviderRateLimitError(
+        this.name,
+        limitCheck.limits.rpm.resetInMs,
+        Object.entries(limitCheck.limits)
+          .filter(([_, status]) => !status.allowed)
+          .map(([name, status]) => ({
+            type: name,
+            resetInMs: status.resetInMs
+          }))
+      );
+    }
 
     let retries = 0;
     const maxRetries = this.MAX_RETRIES;
@@ -133,7 +208,7 @@ class Provider {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
+      if (!response?.ok) {
         throw await this.handleErrorResponse(response);
       }
 
@@ -151,22 +226,45 @@ class Provider {
   }
 
   async handleErrorResponse(response) {
+    logger.log('Handling error response:', {
+      status: response?.status,
+      headers: response?.headers?.get ? {
+        'Retry-After': response.headers.get('Retry-After')
+      } : null
+    });
+
+    if (!response) {
+      throw new ProviderNetworkError(
+        this.name,
+        undefined,
+        'No response received'
+      );
+    }
+
     const errorBody = await response.text();
+    logger.log('Error body:', errorBody);
     
     switch (response.status) {
       case 401:
       case 403:
-        return new ProviderAuthenticationError(this.name, errorBody);
+        throw new ProviderAuthenticationError(this.name, errorBody);
       case 429:
-        return new ProviderRateLimitError(
+        logger.log('Detected 429 rate limit response');
+        const retryAfter = response.headers.get('Retry-After');
+        logger.log('Retry-After header:', retryAfter);
+        throw new ProviderRateLimitError(
           this.name,
-          response.headers.get('Retry-After')
+          parseInt(retryAfter) * 1000,
+          [{
+            type: 'rpm',
+            resetInMs: parseInt(retryAfter) * 1000
+          }]
         );
       case 408:
       case 504:
-        return new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
+        throw new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
       default:
-        return new ProviderNetworkError(
+        throw new ProviderNetworkError(
           this.name,
           response.status,
           errorBody
@@ -175,11 +273,20 @@ class Provider {
   }
 
   calculateBackoff(retryCount) {
-    // Exponential backoff with jitter
-    const baseDelay = 1000; // 1 second
-    const maxDelay = 32000; // 32 seconds
+    if (process.env.NODE_ENV === 'test') {
+      // Much shorter delays for tests
+      const baseDelay = 100; // 100ms instead of 1000ms
+      const maxDelay = 500;  // 500ms instead of 32000ms
+      const exponential = Math.min(maxDelay, baseDelay * Math.pow(2, retryCount));
+      const jitter = Math.random() * 0.1 * exponential;
+      return exponential + jitter;
+    }
+
+    // Original delays for production
+    const baseDelay = 1000;
+    const maxDelay = 32000;
     const exponential = Math.min(maxDelay, baseDelay * Math.pow(2, retryCount));
-    const jitter = Math.random() * 0.1 * exponential; // 10% jitter
+    const jitter = Math.random() * 0.1 * exponential;
     return exponential + jitter;
   }
 
@@ -205,180 +312,168 @@ class Provider {
     this.lastErrorTime = null;
   }
 
-  async createStream(payload, retries = 0) {
-    this.refillTokens();
-    if (this.tokens <= 0) {
-      throw new Error(`RPM limit exceeded for provider ${this.name}`);
+  createReadableStream(response) {
+    if (!response?.body) {
+      logger.error('Response body is null', response);
+      throw new Error(`No response body from ${this.name}`);
     }
-    this.tokens--;
 
-    let response;
+    const encoder = new TextEncoder();
     let closed = false;
+    let data = '';
+    let counter = 0;
+
+    return new ReadableStream({
+      async start(controller) {
+        logger.log('Starting readable stream');
+
+        function onParse(event) {
+          if (closed) return;
+
+          if (event.type === 'event') {
+            const eventData = event.data;
+            if (eventData === '[DONE]') {
+              logger.log('[done] Closing readable stream');
+              data += '\n';
+              controller.enqueue(encoder.encode('\n'));
+              controller.close();
+              closed = true;
+              return;
+            }
+            try {
+              const json = JSON.parse(eventData);
+
+              // Various output formats depending on provider.
+              let text =
+                json?.delta?.text 
+                ||
+                json?.content_block?.text
+                ||
+                json.choices?.[0]?.delta?.content;
+
+              if (json?.delta?.stop_reason) {
+                logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
+                data += '\n';
+                controller.enqueue(encoder.encode('\n'));
+                controller.close();
+                closed = true;
+                return;
+              }
+
+              text = text || '';
+
+              if (counter < 2 && (text.match(/\n/) || []).length) {
+                return; //??? what is this for???
+              }
+
+              data += text;
+              const queue = encoder.encode(text);
+              controller.enqueue(queue);
+              counter++;
+            } catch (e) {
+              logger.error('controller error', e);
+              closed = true;
+              controller.error(e);
+            }
+          }
+        }
+
+        try {
+          const parser = createParser(onParse);
+
+          logger.log('Starting to read response body', response?.body);
+          for await (const chunk of response?.body) {
+            if (closed) break;
+            const decoded = new TextDecoder().decode(chunk);
+            parser.feed(decoded);
+          }
+        } catch (e) {
+          logger.error('Stream error:', e);
+          controller.error(e);
+        } finally {
+          if (!closed) {
+            closed = true;
+            controller.close();
+          }
+          if (response?.body) {
+            try {
+              await response.body.cancel();
+            } catch (e) {
+              logger.error('Error cancelling response body:', e);
+            }
+          }
+        }
+      },
+      cancel(reason) {
+        closed = true;
+        logger.log(`Stream cancelled: ${reason}`);
+        if (response?.body) {
+          response.body.cancel().catch(e => 
+            logger.error('Error during stream cancellation:', e)
+          );
+        }
+      }
+    });
+  }
+
+  async createStream(payload, retries = 0) {
+    // Check resource limits
+    const limitCheck = this.resourceLimiter.consume({
+      rpm: 1,
+      ...(payload.messages ? {
+        tpm: estimateTokenCount(payload.messages.join(''))
+      } : {})
+    });
+
+    if (!limitCheck.allowed) {
+      throw new ProviderRateLimitError(
+        this.name,
+        limitCheck.limits.rpm.resetInMs,
+        Object.entries(limitCheck.limits)
+          .filter(([_, status]) => !status.allowed)
+          .map(([name, status]) => ({
+            type: name,
+            resetInMs: status.resetInMs
+          }))
+      );
+    }
 
     try {
-      logger.log('Making STREAMING request with payload', payload);
-      
-      const encoder = new TextEncoder();
-      const inst = this;
+      const preparedPayload = this.preparePayload({
+        ...payload,
+        stream: true
+      });
 
-      payload.stream = true;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
 
-      const makeSingleStream = async () => {
-        logger.log('Initiating stream request');
+      const response = await this.fetch(this.endpoint, {
+        method: 'POST',
+        headers: this.headerGen ? this.headerGen.call(this) : this.getHeaders(),
+        body: JSON.stringify(preparedPayload),
+        signal: controller.signal
+      });
 
-        const preparedPayload = this.preparePayload(payload);
+      clearTimeout(timeoutId);
 
-        logger.log('Prepared payload for stream request', preparedPayload);
-        try {
-          const endpoint = `${this.endpoint}${preparedPayload.stream?'?stream=true':''}`;
-          const headers = this.headerGen ? this.headerGen.call(this) : this.getHeaders();
+      if (!response.ok) {
+        throw await this.handleErrorResponse(response);
+      }
 
-          logger.log('Sending fetch request to', this.endpoint, headers, JSON.stringify(preparedPayload));
+      return this.createReadableStream(response);
 
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
-
-          response = await this.fetch(endpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(preparedPayload),
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-
-          logger.log('Received response', response.status, response.statusText);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            logger.error(`HTTP Error ${response.status} for ${this.name} (stream):`, {
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
-              errorText: errorText
-            });
-            throw new Error(`HTTP Error ${response.status}: ${errorText}`);
-          }
-
-          if (!response.body) {
-            logger.error('Response body is null', response);
-            throw new Error(`No response body from ${inst.name}`);
-          }
-
-          let data = '';
-          let counter = 0;
-
-          return new ReadableStream({
-            async start(controller) {
-              logger.log('Starting readable stream');
-
-              function onParse(event) {
-                if (closed) return;
-
-                if (event.type === 'event') {
-                  const eventData = event.data;
-                  if (eventData === '[DONE]') {
-                    logger.log('[done] Closing readable stream');
-                    data += '\n';
-                    controller.enqueue(encoder.encode('\n'));
-                    controller.close();
-                    closed = true;
-                    return;
-                  }
-                  try {
-                    const json = JSON.parse(eventData);
-
-                    // Various output formats depending on provider.
-                    let text =
-                      json?.delta?.text 
-                      ||
-                      json?.content_block?.text
-                      ||
-                      json.choices?.[0]?.delta?.content;
-
-                    if (json?.delta?.stop_reason) {
-                      logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
-                      data += '\n';
-                      controller.enqueue(encoder.encode('\n'));
-                      controller.close();
-                      closed = true;
-                      return;
-                    }
-
-                    text = text || '';
-
-                    if (counter < 2 && (text.match(/\n/) || []).length) {
-                      return; //??? what is this for???
-                    }
-
-                    data += text;
-                    const queue = encoder.encode(text);
-                    controller.enqueue(queue);
-                    counter++;
-                  } catch (e) {
-                    logger.error('controller error', e);
-                    closed = true;
-                    controller.error(e);
-                  }
-                }
-              }
-
-              try {
-                const parser = createParser(onParse);
-
-                logger.log('Starting to read response body', response.body);
-                for await (const chunk of response.body) {
-                  if (closed) break;
-                  const decoded = new TextDecoder().decode(chunk);
-                  parser.feed(decoded);
-                }
-              } catch (e) {
-                logger.error('Stream error:', e);
-                controller.error(e);
-              } finally {
-                if (!closed) {
-                  closed = true;
-                  controller.close();
-                }
-                if (response?.body) {
-                  try {
-                    await response.body.cancel();
-                  } catch (e) {
-                    logger.error('Error cancelling response body:', e);
-                  }
-                }
-              }
-            },
-            cancel(reason) {
-              closed = true;
-              logger.log(`Stream cancelled: ${reason}`);
-              if (response?.body) {
-                response.body.cancel().catch(e => 
-                  logger.error('Error during stream cancellation:', e)
-                );
-              }
-            }
-          });
-        } catch (error) {
-          logger.error(`Error in streaming from ${this.name}:`, {
-            error: error.message,
-            responseStatus: response?.status,
-            responseStatusText: response?.statusText
-          });
-
-          if (retries < this.MAX_RETRIES && this.shouldRetry(error, response?.status)) {
-            retries++;
-            logger.log(`Retrying request for ${this.name}, attempt ${retries}`);
-            await this.delay(this.RETRY_DELAY_WHEN_OVERLOADED * Math.pow(2, retries - 1)); // Exponential backoff
-            return this.createStream(payload, retries);
-          }
-
-          throw error;
-        }
-      };
-
-      return makeSingleStream();
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
+      }
+
+      // Handle retries for transient errors
+      if (this.shouldRetry(error) && retries < this.MAX_RETRIES) {
+        const delay = this.calculateBackoff(retries);
+        await this.delay(delay);
+        return this.createStream(payload, retries + 1);
+      }
+
       throw error;
     }
   }
@@ -400,7 +495,7 @@ class Provider {
 
   shouldRetry(error) {
     // Expanded list of transient errors
-    const transientStatusCodes = [408, 429, 500, 502, 503, 504, 520, 524];
+    const transientStatusCodes = [408, 500, 502, 503, 504, 520, 524];
     const transientErrorMessages = [
       'ECONNRESET',
       'ETIMEDOUT',
@@ -414,11 +509,6 @@ class Provider {
     // Check if it's one of our custom error types
     if (error instanceof ProviderNetworkError) {
       return transientStatusCodes.includes(error.statusCode);
-    }
-
-    // Check if it's a rate limit error (we might want to retry these)
-    if (error instanceof ProviderRateLimitError) {
-      return true;
     }
 
     // Don't retry authentication errors
@@ -516,27 +606,6 @@ class Provider {
       model: model.name,
       stream: customPayload.stream || false
     };
-  }
-
-  // Refill tokens based on elapsed time
-  refillTokens() {
-    const now = Date.now();
-    const elapsed = now - this.lastRefill;
-
-    if (elapsed >= this.tokenRefillInterval) {
-      // Calculate number of complete intervals elapsed
-      const intervals = Math.floor(elapsed / this.tokenRefillInterval);
-      // Reset tokens to the limit (full refill)
-      this.tokens = this.currentRpmLimit;
-      // Update last refill time to the start of the current interval
-      this.lastRefill = now - (elapsed % this.tokenRefillInterval);
-    }
-  }
-
-  // Add method to update RPM limit
-  setRpmLimit(limit) {
-    this.currentRpmLimit = limit || this.defaultRpmLimit;
-    this.lastRefill = Date.now();
   }
 }
 

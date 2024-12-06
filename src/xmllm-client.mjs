@@ -1,82 +1,22 @@
 import {xmllm} from './xmllm.mjs';
-import XMLStream from './XMLStream.mjs';
-import Logger from './Logger.mjs';
-
-// Import configuration functions
-// import { configure, getConfig } from './xmllm-main.mjs';
+import ChainableStreamInterface from './ChainableStreamInterface.mjs';
+import { ClientProvider } from './ClientProvider.mjs';
 import { getConfig, configure } from './config.mjs';
 
-const logger = new Logger('ClientProvider');
-
-class ClientProvider {
-  constructor(proxyEndpoint) {
-    if (!proxyEndpoint) {
-      throw new Error(
-        'You must provide a proxy endpoint URL. This is required for browser usage ' +
-        'to route requests through your server. Example: ' +
-        'new ClientProvider("http://localhost:3124/api/stream")'
-      );
-    }
-
-    this.endpoint = proxyEndpoint;
-  }
-
-  async createStream(payload) {
-    logger.info('Client createStream payload', payload);
-
-    const response = await fetch(this.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    });
-
-    return new ReadableStream({
-      async start(controller) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n\n');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              let data;
-
-              try {
-                data = JSON.parse(line.slice(6));
-              } catch(e) {
-                logger.error('Invalid chunk/line', line);
-              }
-
-              controller.enqueue(new TextEncoder().encode(data?.content || ''));
-            }
-          }
-        }
-
-        controller.close();
-      }
-    });
-  }
-}
-
 function clientLlmStream(clientProvider) {
+  const provider = typeof clientProvider === 'string' 
+    ? new ClientProvider(clientProvider)
+    : clientProvider;
+
   return async function(payload) {
-    return clientProvider.createStream(payload);
+    return provider.createStream(payload);
   };
 }
 
-function xmllmClient(pipelineFn, clientProvider, options = {}) {
-  const llmStream = typeof clientProvider === 'string'
-    ? clientLlmStream(new ClientProvider(clientProvider))
-    : clientLlmStream(clientProvider);
-
+function xmllmClient(pipelineFn, options = {}) {
+  const llmStream = clientLlmStream(
+    options.clientProvider || getConfig().clientProvider
+  );
   return xmllm(pipelineFn, { ...options, llmStream });
 }
 
@@ -102,18 +42,29 @@ function stream(promptOrConfig, options = {}) {
     };
   }
 
+  // Use default clientProvider if none provided - now checking top-level config
+  if (!streamConfig.clientProvider && !config.clientProvider) {
+    throw new Error('clientProvider is required - either pass it directly or set via configure()');
+  }
+
   const { 
     prompt, 
     schema, 
     messages,
     system,
-    mode = 'state_open',  // Default to state mode
-    onChunk, 
-    ...restOptions 
+    mode = 'state_open',
+    onChunk,
+    clientProvider = config.clientProvider,  // Use top-level config
+    ...restOptions
   } = streamConfig;
 
   // Validate mode
-  if (!['state_open', 'root_closed', 'state_closed', 'root_open'].includes(mode)) {
+  if (![
+    'state_open', 
+    'root_closed', 
+    'state_closed', 
+    'root_open'
+  ].includes(mode)) {
     throw new Error('Invalid mode. Must be one of: state_open, state_closed, root_open, root_closed');
   }
 
@@ -154,11 +105,7 @@ function stream(promptOrConfig, options = {}) {
     });
   }
 
-  if (!restOptions.clientProvider) {
-    throw new Error('clientProvider is required');
-  }
-
-  return new XMLStream([
+  return new ChainableStreamInterface([
     ['req', {
       messages: _messages,
       system,
@@ -168,7 +115,7 @@ function stream(promptOrConfig, options = {}) {
       ...restOptions
     }]
   ], {
-    llmStream: clientLlmStream(restOptions.clientProvider)
+    llmStream: clientLlmStream(clientProvider)
   });
 }
 

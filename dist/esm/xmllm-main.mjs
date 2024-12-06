@@ -15,7 +15,7 @@ import { xmllm as xmllmCore } from './xmllm.mjs';
 import Stream from './Stream.mjs';
 import { createProvidersWithKeys } from './PROVIDERS.mjs';
 import ProviderManager from './ProviderManager.mjs';
-import XMLStream from './XMLStream.mjs';
+import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { configure, getConfig } from './config.mjs';
 function xmllm(pipelineFn) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
@@ -90,7 +90,7 @@ export function stream(promptOrConfig) {
       content: prompt
     });
   }
-  return new XMLStream([['req', _objectSpread(_objectSpread({
+  return new ChainableStreamInterface([['req', _objectSpread(_objectSpread({
     messages: _messages,
     system: system,
     schema: schema,

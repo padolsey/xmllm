@@ -21,12 +21,26 @@ const FAILURE_MESSAGE = "It seems we have encountered issues responding, please 
 // Add this line to create a delay function
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function* waitMessageGenerator() {
-  yield "Apologies for the wait. Still waiting for the provider...";
-}
-
 const CACHE_VERSION = '1.0';
 
+/**
+ * Coordinates high-level stream operations and provider management.
+ * 
+ * Responsibilities:
+ * - Request queueing and concurrency control
+ * - Response caching
+ * - Provider selection via ProviderManager
+ * - Stream initialization and error handling
+ * 
+ * Sits between the client interface and provider layer, managing the flow
+ * of requests and responses.
+ * 
+ * @example
+ * const stream = await APIStream({
+ *   messages: [{role: 'user', content: 'Hello'}],
+ *   model: 'claude:fast'
+ * });
+ */
 export default async function APIStream(payload) {
   const PQueue = (await _PQueue).default;
 

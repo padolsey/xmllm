@@ -38,5 +38,40 @@ describe('Prompts', () => {
       expect(result).toContain('END PROMPT');
       expect(result).toContain(originalPrompt);
     });
+
+    it('should generate complex conversation flow when complex mode is enabled', () => {
+      const scaffold = '<joke><setup>...</setup><punchline>...</punchline></joke>';
+      const originalPrompt = 'Tell me a joke';
+      const result = generateUserPrompt(scaffold, originalPrompt, true);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(3);
+
+      // Check first message (user explaining structure)
+      expect(result[0].role).toBe('user');
+      expect(result[0].content).toContain(scaffold);
+
+      // Check assistant acknowledgment
+      expect(result[1].role).toBe('assistant');
+      expect(result[1].content).toContain('I will abide by that XML structure in my response');
+
+      // Check final prompt message
+      expect(result[2].role).toBe('user');
+      expect(result[2].content).toContain('Tell me a joke');
+    });
+
+    it('should return original behavior when complex mode is disabled', () => {
+      const scaffold = '<joke><setup>...</setup><punchline>...</punchline></joke>';
+      const originalPrompt = 'Tell me a joke';
+
+      const complexResult = generateUserPrompt(scaffold, originalPrompt, true);
+      const standardResult = generateUserPrompt(scaffold, originalPrompt, false);
+      const defaultResult = generateUserPrompt(scaffold, originalPrompt);
+
+      expect(Array.isArray(complexResult)).toBe(true);
+      expect(typeof standardResult).toBe('string');
+      expect(typeof defaultResult).toBe('string');
+      expect(standardResult).toBe(defaultResult);
+    });
   });
 }); 

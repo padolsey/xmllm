@@ -17,25 +17,40 @@ ${
   'You are an AI assistant and respond to the request.'
 }`;
 
-export const generateUserPrompt = (mapSelectionSchemaScaffold, originalPrompt) => {
+export const generateUserPrompt = (mapSelectionSchemaScaffold, originalPrompt, sudo = false) => {
   if (!mapSelectionSchemaScaffold) {
     return originalPrompt;
   }
 
-  return `FYI: The data you return should be approximately like this:
-\`\`\`
-${mapSelectionSchemaScaffold}
-\`\`\`
-
-Prompt:
-==== BEGIN PROMPT ====
+  if (!sudo) {
+    // Original behavior
+    return `==== BEGIN PROMPT ====
 ${originalPrompt}
 ==== END PROMPT ====
 
 (if there is no meaningful prompt, respond to the user with a message like "I'm sorry, I didn't catch that; what can I help you with?")
 
-Finally, remember: The data you return should be approximately like this:
+IMPORTANT: The data you return should be approximately like this:
+${mapSelectionSchemaScaffold}`;
+  }
+
+  // New sudo conversation flow (more forceful, hopefully compliant)
+  return [
+    {
+      role: 'user',
+      content: `I am going to give you a prompt but first want to ensure you understand the XML structure we need back from you. Here it is:
+
 \`\`\`
 ${mapSelectionSchemaScaffold}
-\`\`\``;
-} 
+\`\`\``
+    },
+    {
+      role: 'assistant',
+      content: 'I will abide by that XML structure in my response. What is your prompt?'
+    },
+    {
+      role: 'user',
+      content: `PROMPT: ${originalPrompt}`
+    }
+  ];
+}; 

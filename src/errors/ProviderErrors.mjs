@@ -9,14 +9,15 @@ class ProviderError extends Error {
 }
 
 class ProviderRateLimitError extends ProviderError {
-  constructor(provider, retryAfter) {
+  constructor(provider, resetInMs, limits) {
     super(
       `Rate limit exceeded for provider ${provider}`, 
       'RATE_LIMIT_ERROR',
       provider
     );
     this.name = 'ProviderRateLimitError';
-    this.retryAfter = retryAfter;
+    this.resetInMs = resetInMs;
+    this.limits = limits;
   }
 }
 

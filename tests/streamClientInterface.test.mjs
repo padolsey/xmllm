@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { stream, ClientProvider, simple } from '../src/xmllm-client.mjs';
-import { configure } from '../src/config.mjs';
+import { configure, resetConfig } from '../src/config.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -24,13 +24,7 @@ describe('Client Stream Interface', () => {
 
   beforeEach(() => {
     // Reset config before each test
-    configure({
-      defaults: {
-        temperature: 0.72,
-        maxTokens: 4000,
-        model: 'claude:good'
-      }
-    });
+    resetConfig();
 
     // Setup mock fetch
     mockFetch = jest.fn().mockResolvedValue({
@@ -405,6 +399,101 @@ describe('Client Stream Interface', () => {
           },
           body: expect.any(String)
         })
+      );
+    });
+  });
+
+  describe('ClientProvider Configuration', () => {
+    beforeEach(() => {
+      // Reset config before each test
+      resetConfig();
+      mockFetch = jest.fn();
+      global.fetch = mockFetch;
+    });
+
+    it('should allow setting clientProvider via configure()', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: {
+          getReader: () => createMockReader([
+            'data: {"content":"<response>Test</response>"}\n\n'
+          ])
+        }
+      });
+      global.fetch = mockFetch;
+
+      const configuredProvider = new ClientProvider('http://configured-endpoint.com');
+      
+      // Set via configure
+      configure({
+        clientProvider: configuredProvider
+      });
+
+      // Should work without passing clientProvider directly
+      await stream('Test query').last();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://configured-endpoint.com',
+        expect.any(Object)
+      );
+    });
+
+    it('should allow overriding configured clientProvider', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: {
+          getReader: () => createMockReader([
+            'data: {"content":"<response>Test</response>"}\n\n'
+          ])
+        }
+      });
+      global.fetch = mockFetch;
+
+      // Set default provider
+      configure({
+        clientProvider: new ClientProvider('http://default-endpoint.com')
+      });
+
+      // Override with direct provider
+      const directProvider = new ClientProvider('http://direct-endpoint.com');
+      await stream('Test query', {
+        clientProvider: directProvider
+      }).last();
+
+      // Should use the direct provider, not the configured one
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://direct-endpoint.com',
+        expect.any(Object)
+      );
+    });
+
+    it('should throw error if no clientProvider configured or provided', async () => {
+      await expect(async () => stream('Test query').last())
+        .rejects
+        .toThrow('clientProvider is required - either pass it directly or set via configure()');
+    });
+
+    it('should work with string endpoint in configure', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: {
+          getReader: () => createMockReader([
+            'data: {"content":"<response>Test</response>"}\n\n'
+          ])
+        }
+      });
+      global.fetch = mockFetch;
+
+      // Configure with string endpoint
+      configure({
+        clientProvider: 'http://string-endpoint.com'
+      });
+
+      await stream('Test query').last();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://string-endpoint.com',
+        expect.any(Object)
       );
     });
   });

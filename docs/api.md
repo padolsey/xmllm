@@ -132,17 +132,78 @@ const result = await simple(
 );
 ```
 
+### configure()
+
+Configures global settings for logging and default parameters.
+
+```typescript
+function configure(options: ConfigureOptions): void
+```
+
+Options:
+```typescript
+interface ConfigureOptions {
+  logging?: {
+    level?: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
+    custom?: (level: string, ...args: any[]) => void;
+  };
+  defaults?: {
+    temperature?: number;              // Default temperature (0-2)
+    maxTokens?: number;               // Default max tokens
+    presencePenalty?: number;         // Default presence penalty
+    topP?: number;                    // Default top_p value
+    mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
+    model?: ModelPreference;          // Default model
+    modelFallbacks?: ModelPreference[]; // Fallback models
+  };
+}
+```
+
+Client-specific additional options:
+```typescript
+interface ClientConfigureOptions extends ConfigureOptions {
+  clientProvider?: ClientProvider | string;  // Required for browser usage
+}
+```
+
+Examples:
+
+```typescript
+// Server-side configuration
+configure({
+  logging: {
+    level: 'DEBUG',
+    custom: (level, ...args) => console.log(`[${level}]`, ...args)
+  },
+  defaults: {
+    temperature: 0.7,
+    model: 'claude:good',
+    modelFallbacks: ['openai:fast', 'claude:fast'],
+    mode: 'root_closed'
+  }
+});
+
+// Client-side configuration
+configure({
+  clientProvider: 'http://localhost:3000/api/stream',
+  defaults: {
+    temperature: 0.8,
+    mode: 'state_open'
+  }
+});
+```
+
 ### stream()
 
 Creates a chainable stream for processing AI responses. Main interface for most use cases.
 
-Returns an [XMLStream](#xmlstream-interface) instance with chainable methods.
+Returns an [ChainableStreamInterface](#xmlstream-interface) instance with chainable methods.
 
 ```typescript
 function stream<T>(
   promptOrConfig: string | StreamConfig,
   options?: StreamOptions
-): XMLStream<T>
+): ChainableStreamInterface<T>
 ```
 
 Modes:
@@ -184,10 +245,11 @@ const browserStream = stream('Query', {
 Configuration:
 ```typescript
 interface StreamConfig {
-  prompt?: string;                    // Prompt text
-  messages?: Message[];               // Alternative to prompt
+  prompt?: string;                   // Prompt text
+  messages?: Message[];              // Alternative to prompt
   schema?: SchemaType;               // Transform schema
   system?: string;                   // System prompt
+  sudoPrompt?: boolean;              // Use sudoPrompt (more forceful) conversation flow
   mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
   model?: ModelPreference;           // Model selection (see Model Configuration below)
   temperature?: number;              // Temperature (0-2)
@@ -200,37 +262,37 @@ interface StreamConfig {
 The schema parameter uses the [Schema Types](#schema-types) format to transform XML into structured data.
 For model configuration options, see [Model Configuration](#model-configuration).
 
-## XMLStream Interface
+## ChainableStreamInterface
 
-The XMLStream class provides a chainable API for transforming and controlling the stream of data from the LLM.
+The ChainableStreamInterface class provides a chainable API for transforming and controlling the stream of data from the LLM.
 
 ### Chainable Methods
 
 ```typescript
-interface XMLStream<T> {
+interface ChainableStreamInterface<T> {
   // Selection & Transformation
-  select(selector: string): XMLStream<XMLElement>     // CSS selector
-  map<U>(fn: (value: T) => U): XMLStream<U>          // Transform values
-  filter(fn: (value: T) => boolean): XMLStream<T>     // Filter values
-  text(): XMLStream<string>                          // Get text content
+  select(selector: string): ChainableStreamInterface<XMLElement>     // CSS selector
+  map<U>(fn: (value: T) => U): ChainableStreamInterface<U>          // Transform values
+  filter(fn: (value: T) => boolean): ChainableStreamInterface<T>     // Filter values
+  text(): ChainableStreamInterface<string>                          // Get text content
   
   // Stream Control
-  closedOnly(): XMLStream<T>                         // Only complete elements
-  take(n: number): XMLStream<T>                      // First n elements
-  skip(n: number): XMLStream<T>                      // Skip n elements
-  batch(size: number): XMLStream<T[]>                // Group into batches
+  closedOnly(): ChainableStreamInterface<T>                         // Only complete elements
+  take(n: number): ChainableStreamInterface<T>                      // First n elements
+  skip(n: number): ChainableStreamInterface<T>                      // Skip n elements
+  batch(size: number): ChainableStreamInterface<T[]>                // Group into batches
   
   // Aggregation
-  merge(): XMLStream<T>                              // Deep merge results
-  mergeAggregate(): XMLStream<T[]>                   // Merge into array
+  merge(): ChainableStreamInterface<T>                              // Deep merge results
+  mergeAggregate(): ChainableStreamInterface<T[]>                   // Merge into array
   reduce<U>(                                         // Reduce values
     fn: (acc: U, value: T) => U, 
     initial: U
-  ): XMLStream<U>
+  ): ChainableStreamInterface<U>
   
   // Debugging
-  debug(label?: string): XMLStream<T>                // Log debug info
-  raw(): XMLStream<string>                          // Raw response chunks
+  debug(label?: string): ChainableStreamInterface<T>                // Log debug info
+  raw(): ChainableStreamInterface<string>                          // Raw response chunks
 }
 ```
 
@@ -239,7 +301,7 @@ interface XMLStream<T> {
 Methods that end the stream and return a Promise:
 
 ```typescript
-interface XMLStream<T> {
+interface ChainableStreamInterface<T> {
   first(): Promise<T>                    // Get first result
   last(n?: number): Promise<T>           // Get last n results
   all(): Promise<T[]>                    // Get all results

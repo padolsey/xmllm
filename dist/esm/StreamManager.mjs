@@ -9,11 +9,26 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 import Logger from './Logger.mjs';
 var logger = new Logger('StreamManager');
+
+/**
+ * Manages streaming responses between the API and client.
+ * 
+ * Responsibilities:
+ * - Handles SSE (Server-Sent Events) formatting
+ * - Manages stream timeouts and cleanup
+ * - Ensures proper response encoding
+ * - Handles stream interruptions and errors
+ * 
+ * @example
+ * const streamManager = new StreamManager({ timeout: 30000 });
+ * await streamManager.createStream(llmStream, response);
+ */
 var StreamManager = /*#__PURE__*/function () {
   function StreamManager() {
     var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
     _classCallCheck(this, StreamManager);
     this.timeout = config.timeout || 30000; // 30 second default timeout
+    this.rateLimitMessage = config.rateLimitMessage || 'Please try again later';
     this.activeStreams = new Set();
   }
   return _createClass(StreamManager, [{
@@ -99,8 +114,8 @@ var StreamManager = /*#__PURE__*/function () {
     value: function handleError(res, error) {
       var errorResponse = {
         error: 'Stream error',
-        code: 'STREAM_ERROR',
-        message: error.message
+        code: error.code || 'STREAM_ERROR',
+        message: error.code === 'GLOBAL_RATE_LIMIT' ? this.rateLimitMessage : error.message
       };
       res.write("event: error\ndata: ".concat(JSON.stringify(errorResponse), "\n\n"));
     }

@@ -180,6 +180,7 @@ describe('Logging Configuration', () => {
     test('should handle client-side logging', async () => {
       mockCustomLogger.mockClear();
       
+      // First configure the logging
       configure({
         logging: { 
           level: 'INFO',
@@ -189,7 +190,10 @@ describe('Logging Configuration', () => {
 
       const client = new ClientProvider('http://test.com');
       
-      // This is what actually gets sent to the proxy
+      // Manually set the logger on the client since we're not using configure() to create it
+      const logger = new Logger('ClientProvider');
+      client.setLogger(logger);
+
       const testPayload = {
         messages: [{
           role: 'user',
@@ -203,32 +207,36 @@ describe('Logging Configuration', () => {
         clientProvider: client
       }).last();
 
-      // Verify the client logged the raw payload before sending to proxy
-      expect(mockCustomLogger).toHaveBeenCalledWith(
+      // Clear the configure() log message
+      const payloadLog = mockCustomLogger.mock.calls.find(
+        call => call[2] === 'Client createStream payload'
+      );
+      expect(payloadLog).toBeTruthy();
+      expect(payloadLog).toEqual([
         'info',
         'ClientProvider',
         'Client createStream payload',
         {
-          "cache": undefined,
-          "fakeDelay": undefined,
-          "max_tokens": 4000,
-            "messages": [
+          cache: undefined,
+          fakeDelay: undefined,
+          max_tokens: 4000,
+          messages: [
             {
-              "content": "",
-              "role": "system",
+              content: '',
+              role: 'system'
             },
             {
-              "content": "Test prompt",
-              "role": "user",
-              },
+              content: 'Test prompt',
+              role: 'user'
+            }
           ],
-          "model": "claude:fast",
-          "presence_penalty": 0,
-          "stop": undefined,
-          "temperature": 0.7,
-          "top_p": 1,
+          model: 'claude:fast',
+          presence_penalty: 0,
+          stop: undefined,
+          temperature: 0.7,
+          top_p: 1
         }
-      );
+      ]);
     });
   });
 

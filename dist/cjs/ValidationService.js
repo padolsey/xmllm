@@ -159,15 +159,15 @@ var ValidationService = /*#__PURE__*/function () {
     }
   }, {
     key: "validateParameters",
-    value: function validateParameters(params) {
+    value: function validateParameters() {
+      var params = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       var temperature = params.temperature,
         max_tokens = params.max_tokens,
         stream = params.stream,
         cache = params.cache;
       if (temperature !== undefined) {
-        // OpenAI allows up to 2.0; let's just use that.
-        if (typeof temperature !== 'number' || temperature < 0 || temperature > 2) {
-          throw new _ValidationErrors.ParameterValidationError('Temperature must be between 0 and 2', {
+        if (typeof temperature !== 'number' || temperature < 0 || temperature > 1) {
+          throw new _ValidationErrors.ParameterValidationError('Temperature must be between 0 and 1', {
             temperature: temperature
           });
         }
