@@ -33,6 +33,7 @@ export interface StreamConfig {
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
   fakeDelay?: number;
+  errorMessages?: ErrorMessages;
 }
 
 // Pipeline helper types
@@ -84,6 +85,13 @@ export interface PipelineHelpers {
   select: (selector: string) => PipelineFunction;
   mapSelect: (schema: SchemaType, includeOpenTags?: boolean, doDedupe?: boolean) => PipelineFunction;
   mapSelectClosed: (schema: SchemaType) => PipelineFunction;
+  combine: <T, U>(
+    stream1: AsyncIterable<T>,
+    stream2: AsyncIterable<U>
+  ) => AsyncGenerator<{
+    stream1: T | null;
+    stream2: U | null;
+  }>;
 }
 
 // Model types
@@ -194,6 +202,7 @@ export interface PromptConfig {
   doMapSelectClosed?: boolean;
   includeOpenTags?: boolean;
   doDedupe?: boolean;
+  errorMessages?: ErrorMessages;
 }
 
 // Add back error types
@@ -294,6 +303,7 @@ export interface StreamOptions extends XmllmOptions {
   temperature?: number;
   maxTokens?: number;
   onChunk?: (chunk: string) => void;
+  errorMessages?: ErrorMessages;
 }
 
 export interface ChainableStreamInterface<T = XMLElement> extends AsyncIterable<T> {
@@ -363,6 +373,7 @@ export interface DefaultsConfig {
   mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
   model?: ModelPreference;
   modelFallbacks?: ModelPreference[];
+  errorMessages?: ErrorMessages;
 }
 
 // Base configure options
@@ -383,5 +394,17 @@ export function configure(options: ConfigureOptions): void;
 export interface ClientProvider {
   createStream(payload: any): Promise<ReadableStream>;
   setLogger?(logger: any): void;
+}
+
+// Add error message types
+export interface ErrorMessages {
+  genericFailure?: string;
+  rateLimitExceeded?: string;
+  invalidRequest?: string;
+  authenticationFailed?: string;
+  resourceNotFound?: string;
+  serviceUnavailable?: string;
+  networkError?: string;
+  unexpectedError?: string;
 }
 

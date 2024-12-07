@@ -34,9 +34,9 @@ try {
     timeout: safeParseInt(getArg('timeout'), 'timeout'),
     debug: args.includes('--debug'),
     verbose: args.includes('--verbose'),
-    globalRateLimit: safeParseInt(
-      getArg('globalRateLimit') || process.env.GLOBAL_RATE_LIMIT,
-      'globalRateLimit'
+    globalRequestsPerMinute: safeParseInt(
+      getArg('globalRequestsPerMinute') || process.env.GLOBAL_RATE_LIMIT,
+      'globalRequestsPerMinute'
     ),
     globalTokensPerMinute: safeParseInt(
       getArg('globalTokensPerMinute') || process.env.GLOBAL_TOKENS_PER_MINUTE,

@@ -330,3 +330,44 @@ expectType<void>(clientConfigure({
     temperature: 0.8
   }
 }));
+
+// Test error message configuration
+expectType<void>(configure({
+  defaults: {
+    errorMessages: {
+      genericFailure: "Custom error",
+      rateLimitExceeded: "Custom rate limit message",
+      networkError: "Custom network error"
+    }
+  }
+}));
+
+// Test error messages in stream config
+const streamWithErrors = stream("Test query", {
+  errorMessages: {
+    genericFailure: "Custom error",
+    rateLimitExceeded: "Custom rate limit message"
+  }
+});
+expectType<ChainableStreamInterface<XMLElement>>(streamWithErrors);
+
+// Test invalid error message keys
+const invalidErrorMessages = {
+  errorMessages: {
+    invalidKey: "This should error"  // Not a valid error message key
+  }
+} as const;
+expectError<ConfigureOptions>({
+  defaults: invalidErrorMessages
+});
+
+// Test client-side error messages
+expectType<void>(clientConfigure({
+  clientProvider: 'http://localhost:3000',
+  defaults: {
+    errorMessages: {
+      rateLimitExceeded: "Custom rate limit message",
+      networkError: "Custom network error"
+    }
+  }
+}));

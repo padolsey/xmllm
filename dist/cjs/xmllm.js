@@ -172,7 +172,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9(input) {
-                  var _config, messages, schema, hints, mapper, system, sudoPrompt, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
+                  var _config, messages, schema, hints, mapper, system, sudoPrompt, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, errorMessages, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
                   return _regeneratorRuntime().wrap(function _callee9$(_context9) {
                     while (1) switch (_context9.prev = _context9.next) {
                       case 0:
@@ -188,7 +188,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, sudoPrompt = _config.sudoPrompt, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt;
+                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, sudoPrompt = _config.sudoPrompt, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt, errorMessages = _config.errorMessages;
                         if (!(mapper && !schema)) {
                           _context9.next = 5;
                           break;
@@ -263,7 +263,8 @@ function _xmllmGen() {
                           retryBackoffMultiplier: retryBackoffMultiplier,
                           cache: cache,
                           generateSystemPrompt: generateSystemPrompt,
-                          generateUserPrompt: generateUserPrompt
+                          generateUserPrompt: generateUserPrompt,
+                          errorMessages: errorMessages
                         }), schema ?
                         // If it's a schema, we need to map the output
                         doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema, includeOpenTags, doDedupe) :
@@ -593,6 +594,7 @@ function _xmllmGen() {
                 _ref8$sudoPrompt = _ref8.sudoPrompt,
                 sudoPrompt = _ref8$sudoPrompt === void 0 ? false : _ref8$sudoPrompt,
                 max_tokens = _ref8.max_tokens,
+                errorMessages = _ref8.errorMessages,
                 maxTokens = _ref8.maxTokens,
                 model = _ref8.model,
                 temperature = _ref8.temperature,
@@ -675,6 +677,7 @@ function _xmllmGen() {
                           top_p: top_p || topP || config.defaults.topP,
                           stop: stop || null,
                           presence_penalty: presence_penalty || presencePenalty || config.defaults.presencePenalty,
+                          errorMessages: errorMessages,
                           messages: [{
                             role: 'system',
                             content: systemPrompt
@@ -754,7 +757,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
-                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
+                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
@@ -773,7 +776,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, errorMessages = _transformedConfig.errorMessages, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
                         if (messages !== null && messages !== void 0 && messages.length) {
                           _context2.next = 8;
                           break;
@@ -788,6 +791,7 @@ function _xmllmGen() {
                           top_p: top_p || topP || globalConfig.defaults.topP,
                           presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
                           stop: stop,
+                          errorMessages: errorMessages,
                           messages: [{
                             role: 'system',
                             content: system || ''

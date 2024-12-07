@@ -256,6 +256,16 @@ interface StreamConfig {
   maxTokens?: number;                // Max tokens
   cache?: boolean;                   // Enable caching
   clientProvider?: ClientProvider;   // Required for browser usage
+  errorMessages?: {
+    genericFailure?: string;      // Default error message
+    rateLimitExceeded?: string;   // Rate limit error message
+    invalidRequest?: string;      // Invalid request error message
+    authenticationFailed?: string; // Auth failure message
+    resourceNotFound?: string;    // 404 error message
+    serviceUnavailable?: string;  // Service unavailable message
+    networkError?: string;        // Network error message
+    unexpectedError?: string;     // Unexpected error message
+  };
 }
 ```
 
@@ -777,3 +787,58 @@ try {
   }
 }
 ``` 
+
+## Error Message Configuration
+
+Error messages can be configured at three levels:
+
+1. Global defaults (via configure):
+
+```javascript
+configure({
+  defaults: {
+    errorMessages: {
+      genericFailure: "Custom generic error message",
+      rateLimitExceeded: "Custom rate limit message",
+      // ... other error messages
+    }
+  }
+});
+```
+
+2. Per-request configuration:
+
+```javascript
+stream('Query', {
+  errorMessages: {
+    rateLimitExceeded: "Custom rate limit message for this request",
+    networkError: "Custom network error for this request"
+  }
+});
+```
+
+3. Proxy-level configuration (for client/browser usage):
+
+```javascript
+createServer({
+  errorMessages: {
+    rateLimitExceeded: "Custom proxy rate limit message",
+    // ... other error messages
+  }
+});
+```
+
+Priority order is:
+1. Request-level messages
+2. Proxy configuration (if using client/browser)
+3. Global defaults
+
+Available error message types:
+- `genericFailure`: Default error message
+- `rateLimitExceeded`: Rate limit exceeded
+- `invalidRequest`: Invalid request format/parameters
+- `authenticationFailed`: Authentication failure
+- `resourceNotFound`: Resource not found (404)
+- `serviceUnavailable`: Service temporarily unavailable
+- `networkError`: Network connection issues
+- `unexpectedError`: Unexpected errors 

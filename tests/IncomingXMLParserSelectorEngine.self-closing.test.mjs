@@ -43,7 +43,6 @@ describe('Self-closing Tags', () => {
     engine.add('</root>');
 
     const result = engine.select('img, lemonade');
-    console.log('<<<rresult', result);
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchNodeData({
       $attr: {

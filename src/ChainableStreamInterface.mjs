@@ -3,13 +3,12 @@ import Logger from './Logger.mjs';
 
 const logger = new Logger('ChainableStreamInterface');
 
-class ChainableStreamInterface {
+export class ChainableStreamInterface {
   constructor(pipeline = [], options = {}) {
     this.pipeline = pipeline;
     this.options = options;
   }
 
-  // Get first matching element
   async first() {
     try {
       const {value, done} = await this[Symbol.asyncIterator]().next();
@@ -364,9 +363,4 @@ function parseError(error) {
   message = message.replace(/\)$/, '');
 
   return { type, message };
-}
-
-function isGenerator(fn) {
-  return fn?.constructor?.name === 'GeneratorFunction' || 
-         fn?.constructor?.name === 'AsyncGeneratorFunction';
 }

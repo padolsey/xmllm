@@ -9,7 +9,8 @@ import type {
   PromptFn,
   Message,
   ModelPreference,
-  ConfigureOptions
+  ConfigureOptions,
+  ErrorMessages
 } from './index';
 
 export type { 
@@ -23,7 +24,8 @@ export type {
   PromptFn,
   Message,
   ModelPreference,
-  ConfigureOptions
+  ConfigureOptions,
+  ErrorMessages
 };
 
 export interface IClientProvider {
@@ -63,9 +65,11 @@ export function stream<T = XMLElement>(
     presence_penalty?: number;
     presencePenalty?: number;
     stop?: string[];
+    errorMessages?: ErrorMessages;
   },
   options?: StreamOptions & {
     clientProvider?: ClientProvider | string;
+    errorMessages?: ErrorMessages;
   }
 ): ChainableStreamInterface<T>;
 

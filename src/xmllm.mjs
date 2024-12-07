@@ -134,6 +134,7 @@ async function* xmllmGen(pipelineFn, {
         topP,
         presence_penalty,
         presencePenalty,
+        errorMessages,
         stop,
         messages
       } = transformedConfig;
@@ -149,6 +150,7 @@ async function* xmllmGen(pipelineFn, {
         top_p: top_p || topP || globalConfig.defaults.topP,
         presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
         stop: stop,
+        errorMessages,
         messages: [
           {
             role: 'system',
@@ -193,6 +195,7 @@ async function* xmllmGen(pipelineFn, {
     messages, 
     sudoPrompt = false,
     max_tokens, 
+    errorMessages,
     maxTokens, 
     model, 
     temperature, 
@@ -275,6 +278,7 @@ async function* xmllmGen(pipelineFn, {
         top_p: top_p || topP || config.defaults.topP,
         stop: stop || null,
         presence_penalty: presence_penalty || presencePenalty || config.defaults.presencePenalty,
+        errorMessages,
         messages: [
           {
             role: 'system',
@@ -443,7 +447,8 @@ async function* xmllmGen(pipelineFn, {
         retryBackoffMultiplier,
         cache,
         generateSystemPrompt,
-        generateUserPrompt
+        generateUserPrompt,
+        errorMessages
       } = config;
 
       if (
@@ -496,7 +501,8 @@ async function* xmllmGen(pipelineFn, {
             retryBackoffMultiplier,
             cache,
             generateSystemPrompt,
-            generateUserPrompt
+            generateUserPrompt,
+            errorMessages
           }),
 
         schema ? 

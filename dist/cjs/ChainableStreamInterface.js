@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports["default"] = void 0;
+exports["default"] = exports.ChainableStreamInterface = void 0;
 var _xmllm = _interopRequireDefault(require("./xmllm.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
@@ -29,7 +29,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 function _asyncIterator(r) { var n, t, o, e = 2; for ("undefined" != typeof Symbol && (t = Symbol.asyncIterator, o = Symbol.iterator); e--;) { if (t && null != (n = r[t])) return n.call(r); if (o && null != (n = r[o])) return new AsyncFromSyncIterator(n.call(r)); t = "@@asyncIterator", o = "@@iterator"; } throw new TypeError("Object is not async iterable"); }
 function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r) { if (Object(r) !== r) return Promise.reject(new TypeError(r + " is not an object.")); var n = r.done; return Promise.resolve(r.value).then(function (r) { return { value: r, done: n }; }); } return AsyncFromSyncIterator = function AsyncFromSyncIterator(r) { this.s = r, this.n = r.next; }, AsyncFromSyncIterator.prototype = { s: null, n: null, next: function next() { return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments)); }, "return": function _return(r) { var n = this.s["return"]; return void 0 === n ? Promise.resolve({ value: r, done: !0 }) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); }, "throw": function _throw(r) { var n = this.s["return"]; return void 0 === n ? Promise.reject(r) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); } }, new AsyncFromSyncIterator(r); }
 var logger = new _Logger["default"]('ChainableStreamInterface');
-var ChainableStreamInterface = /*#__PURE__*/function () {
+var ChainableStreamInterface = exports.ChainableStreamInterface = /*#__PURE__*/function () {
   function ChainableStreamInterface() {
     var pipeline = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
     var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
@@ -37,8 +37,6 @@ var ChainableStreamInterface = /*#__PURE__*/function () {
     this.pipeline = pipeline;
     this.options = options;
   }
-
-  // Get first matching element
   return _createClass(ChainableStreamInterface, [{
     key: "first",
     value: function () {
@@ -659,8 +657,4 @@ function parseError(error) {
     type: type,
     message: message
   };
-}
-function isGenerator(fn) {
-  var _fn$constructor, _fn$constructor2;
-  return (fn === null || fn === void 0 || (_fn$constructor = fn.constructor) === null || _fn$constructor === void 0 ? void 0 : _fn$constructor.name) === 'GeneratorFunction' || (fn === null || fn === void 0 || (_fn$constructor2 = fn.constructor) === null || _fn$constructor2 === void 0 ? void 0 : _fn$constructor2.name) === 'AsyncGeneratorFunction';
 }

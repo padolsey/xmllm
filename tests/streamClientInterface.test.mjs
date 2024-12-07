@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { stream, ClientProvider, simple } from '../src/xmllm-client.mjs';
-import { configure, resetConfig } from '../src/config.mjs';
+import { configure, resetConfig, getConfig } from '../src/config.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -234,14 +234,21 @@ describe('Client Stream Interface', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle fetch errors', async () => {
+    it('should handle network errors as stream content', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(
-        stream('Test query', {
-          clientProvider
-        }).last()
-      ).rejects.toThrow('Network error');
+      const updates = [];
+      const stream1 = stream('Test query', {
+        clientProvider
+      });
+
+      for await (const update of stream1) {
+        updates.push(update);
+      }
+
+      expect(updates).toEqual([
+        getConfig().defaults.errorMessages.networkError
+      ]);
     });
 
     it('should handle malformed server responses', async () => {
@@ -260,6 +267,26 @@ describe('Client Stream Interface', () => {
       }
       
       expect(results).toEqual(['']);
+    });
+
+    it('should handle HTTP errors as stream content', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429
+      });
+
+      const updates = [];
+      const stream1 = stream('Test query', {
+        clientProvider
+      });
+
+      for await (const update of stream1) {
+        updates.push(update);
+      }
+
+      expect(updates).toEqual([
+        getConfig().defaults.errorMessages.rateLimitExceeded
+      ]);
     });
   });
 
@@ -495,6 +522,112 @@ describe('Client Stream Interface', () => {
         'http://string-endpoint.com',
         expect.any(Object)
       );
+    });
+  });
+
+  describe('Error Message Handling', () => {
+    beforeEach(() => {
+      resetConfig();  // Reset to default config
+      mockFetch = jest.fn();
+      global.fetch = mockFetch;
+    });
+
+    it('should use default error messages', async () => {
+      // Mock a rate limit error response
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429
+      });
+
+      const clientProvider = new ClientProvider('http://test-endpoint.com');
+      const streamResult = await clientProvider.createStream({});
+      
+      // Read the error message from the stream
+      const reader = streamResult.getReader();
+      const {value} = await reader.read();
+      const message = new TextDecoder().decode(value);
+
+      // Should match default config message
+      expect(message).toBe(getConfig().defaults.errorMessages.rateLimitExceeded);
+    });
+
+    it('should allow overriding error messages via config', async () => {
+      const customMessage = "Custom rate limit message";
+      
+      configure({
+        defaults: {
+          errorMessages: {
+            rateLimitExceeded: customMessage
+          }
+        }
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429
+      });
+
+      const clientProvider = new ClientProvider('http://test-endpoint.com');
+      const streamResult = await clientProvider.createStream({});
+      
+      const reader = streamResult.getReader();
+      const {value} = await reader.read();
+      const message = new TextDecoder().decode(value);
+
+      expect(message).toBe(customMessage);
+    });
+
+    it('should allow overriding error messages per request', async () => {
+      const customMessage = "Request-specific rate limit message";
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429
+      });
+
+      const clientProvider = new ClientProvider('http://test-endpoint.com');
+      const streamResult = await clientProvider.createStream({
+        errorMessages: {
+          rateLimitExceeded: customMessage
+        }
+      });
+      
+      const reader = streamResult.getReader();
+      const {value} = await reader.read();
+      const message = new TextDecoder().decode(value);
+
+      expect(message).toBe(customMessage);
+    });
+
+    it('should prioritize request-specific messages over config defaults', async () => {
+      const configMessage = "Config rate limit message";
+      const requestMessage = "Request-specific rate limit message";
+      
+      configure({
+        defaults: {
+          errorMessages: {
+            rateLimitExceeded: configMessage
+          }
+        }
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429
+      });
+
+      const clientProvider = new ClientProvider('http://test-endpoint.com');
+      const streamResult = await clientProvider.createStream({
+        errorMessages: {
+          rateLimitExceeded: requestMessage
+        }
+      });
+      
+      const reader = streamResult.getReader();
+      const {value} = await reader.read();
+      const message = new TextDecoder().decode(value);
+
+      expect(message).toBe(requestMessage);
     });
   });
 });

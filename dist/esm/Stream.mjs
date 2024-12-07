@@ -19,6 +19,8 @@ import { get as getCache, set as setCache } from './mainCache.mjs';
 import Logger from './Logger.mjs';
 import ProviderManager from './ProviderManager.mjs';
 import { DEFAULT_CONFIG } from './mainCache.mjs';
+import { getConfig } from './config.mjs';
+import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
 var logger = new Logger('APIStream');
 var queue;
 var providerManager = new ProviderManager();
@@ -29,7 +31,6 @@ var DEFAULT_WAIT_MESSAGE_DELAY = 10000; // 10 seconds
 var DEFAULT_RETRY_MAX = 3;
 var DEFAULT_RETRY_START_DELAY = 1000; // 1 second
 var DEFAULT_RETRY_BACKOFF_MULTIPLIER = 2;
-var FAILURE_MESSAGE = "It seems we have encountered issues responding, please try again later or get in touch with the website owner.";
 
 // Add this line to create a delay function
 var delay = function delay(ms) {
@@ -141,7 +142,7 @@ function _APIStream() {
                   return _context3.abrupt("return", new ReadableStream({
                     start: function start(controller) {
                       return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize;
+                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize, _payload$errorMessage, _payload$errorMessage2, config, errorMessage;
                         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                           while (1) switch (_context2.prev = _context2.next) {
                             case 0:
@@ -228,7 +229,9 @@ function _APIStream() {
                               logger.error('Error in stream:', _context2.t0);
                               if (waitMessageTimer) clearTimeout(waitMessageTimer);
                               if (!waitMessageSent) {
-                                controller.enqueue(encoder.encode(FAILURE_MESSAGE));
+                                config = getConfig();
+                                errorMessage = _context2.t0 instanceof ProviderRateLimitError ? (payload === null || payload === void 0 || (_payload$errorMessage = payload.errorMessages) === null || _payload$errorMessage === void 0 ? void 0 : _payload$errorMessage.rateLimitExceeded) || config.defaults.errorMessages.rateLimitExceeded : (payload === null || payload === void 0 || (_payload$errorMessage2 = payload.errorMessages) === null || _payload$errorMessage2 === void 0 ? void 0 : _payload$errorMessage2.genericFailure) || config.defaults.errorMessages.genericFailure;
+                                controller.enqueue(encoder.encode(errorMessage));
                               }
                             case 39:
                               _context2.prev = 39;

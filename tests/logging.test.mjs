@@ -234,7 +234,8 @@ describe('Logging Configuration', () => {
           presence_penalty: 0,
           stop: undefined,
           temperature: 0.7,
-          top_p: 1
+          top_p: 1,
+          errorMessages: getConfig().defaults.errorMessages
         }
       ]);
     });

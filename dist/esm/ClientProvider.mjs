@@ -3,6 +3,9 @@ function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyri
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
@@ -29,6 +32,8 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
  *   model: 'claude:fast'
  * });
  */
+
+import { getConfig } from './config.mjs';
 export var ClientProvider = /*#__PURE__*/function () {
   function ClientProvider(proxyEndpoint) {
     _classCallCheck(this, ClientProvider);
@@ -43,17 +48,28 @@ export var ClientProvider = /*#__PURE__*/function () {
       this.logger = logger;
     }
   }, {
+    key: "createErrorStream",
+    value: function createErrorStream(message) {
+      return new ReadableStream({
+        start: function start(controller) {
+          controller.enqueue(new TextEncoder().encode(message));
+          controller.close();
+        }
+      });
+    }
+  }, {
     key: "createStream",
     value: function () {
       var _createStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(payload) {
-        var response;
+        var response, config, errorMessage, errorMessages, errorBody, _config, _errorMessages;
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
               if (this.logger) {
                 this.logger.info('Client createStream payload', payload);
               }
-              _context2.next = 3;
+              _context2.prev = 1;
+              _context2.next = 4;
               return fetch(this.endpoint, {
                 method: 'POST',
                 headers: {
@@ -61,8 +77,51 @@ export var ClientProvider = /*#__PURE__*/function () {
                 },
                 body: JSON.stringify(payload)
               });
-            case 3:
+            case 4:
               response = _context2.sent;
+              if (response.ok) {
+                _context2.next = 32;
+                break;
+              }
+              config = getConfig();
+              errorMessages = _objectSpread(_objectSpread({}, config.defaults.errorMessages), payload.errorMessages);
+              _context2.t0 = response.status;
+              _context2.next = _context2.t0 === 429 ? 11 : _context2.t0 === 400 ? 13 : _context2.t0 === 401 ? 15 : _context2.t0 === 403 ? 15 : _context2.t0 === 404 ? 17 : _context2.t0 === 502 ? 19 : _context2.t0 === 503 ? 19 : _context2.t0 === 504 ? 19 : 21;
+              break;
+            case 11:
+              errorMessage = errorMessages.rateLimitExceeded;
+              return _context2.abrupt("break", 22);
+            case 13:
+              errorMessage = errorMessages.invalidRequest;
+              return _context2.abrupt("break", 22);
+            case 15:
+              errorMessage = errorMessages.authenticationFailed;
+              return _context2.abrupt("break", 22);
+            case 17:
+              errorMessage = errorMessages.resourceNotFound;
+              return _context2.abrupt("break", 22);
+            case 19:
+              errorMessage = errorMessages.serviceUnavailable;
+              return _context2.abrupt("break", 22);
+            case 21:
+              errorMessage = errorMessages.unexpectedError;
+            case 22:
+              _context2.prev = 22;
+              _context2.next = 25;
+              return response.json();
+            case 25:
+              errorBody = _context2.sent;
+              if (errorBody !== null && errorBody !== void 0 && errorBody.message) {
+                errorMessage = errorBody.message;
+              }
+              _context2.next = 31;
+              break;
+            case 29:
+              _context2.prev = 29;
+              _context2.t1 = _context2["catch"](22);
+            case 31:
+              return _context2.abrupt("return", this.createErrorStream(errorMessage));
+            case 32:
               return _context2.abrupt("return", new ReadableStream({
                 start: function start(controller) {
                   var _this = this;
@@ -125,11 +184,17 @@ export var ClientProvider = /*#__PURE__*/function () {
                   }))();
                 }
               }));
-            case 5:
+            case 35:
+              _context2.prev = 35;
+              _context2.t2 = _context2["catch"](1);
+              _config = getConfig();
+              _errorMessages = _objectSpread(_objectSpread({}, _config.defaults.errorMessages), payload.errorMessages);
+              return _context2.abrupt("return", this.createErrorStream(_errorMessages.networkError));
+            case 40:
             case "end":
               return _context2.stop();
           }
-        }, _callee2, this);
+        }, _callee2, this, [[1, 35], [22, 29]]);
       }));
       function createStream(_x) {
         return _createStream.apply(this, arguments);

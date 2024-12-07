@@ -226,4 +226,70 @@ const colors = stream('List colors', {
 // Yields objects like:
 // { color: ['red'], count: 1, complete: true }
 // { color: ['red', 'blue'], count: 2, complete: true }
+```
+
+## Error Handling with Schemas
+
+When using schemas, you can handle errors by configuring `errorMessages` to include a specific tag such as `<error>`. This allows you to process errors in the same stream as schema data. 
+
+```javascript
+// Configure error messages to use XML tags
+configure({
+  defaults: {
+    errorMessages: {
+      rateLimitExceeded: "<error>Rate limit exceeded</error>",
+      networkError: "<error>Network connection failed</error>",
+      genericFailure: "<error>An unexpected error occurred</error>"
+    }
+  }
+});
+
+// Then use schema and error handling together
+// NOTE: don't include the error tag in the schema
+// (There is no need, and it will mislead the LLM)
+const mainStream = stream('Get user data', {
+  schema: {
+    user: [{
+      name: String,
+      age: Number
+    }]
+  }
+});
+
+// E.g. Get the 'end state' schema data
+const userData = await mainStream.last();
+// { user: [{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }] }
+
+// E.g. Get any errors that were streamed in:
+const errors = await mainStream
+  .select('error')
+  .text()
+  .collect();
+// ['Rate limit exceeded']
+
+// Or handle both in real-time:
+for await (const update of mainStream) {
+  console.log('Update:', update);
+}
+for await (const errorUpdate of mainStream.select('error').text()) {
+  console.log('Error:', errorUpdate);
+}
+```
+
+BTW: You can also configure error messages per-request; you don't have to do it with a global `configure()` call.
+
+```javascript
+stream('Make users', {
+  schema: {
+    user: [{
+      name: String
+    }]
+  },
+  errorMessages: {
+    rateLimitExceeded: "<error>Custom rate limit message</error>",
+    networkError: "<error>Custom network error message</error>"
+  }
+});
+```
+
 ``` 

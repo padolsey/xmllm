@@ -4,6 +4,8 @@ import { get as getCache, set as setCache } from './mainCache.mjs';
 import Logger from './Logger.mjs';
 import ProviderManager from './ProviderManager.mjs';
 import { DEFAULT_CONFIG } from './mainCache.mjs';
+import { getConfig } from './config.mjs';
+import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
 
 const logger = new Logger('APIStream');
 let queue;
@@ -16,7 +18,6 @@ const DEFAULT_WAIT_MESSAGE_DELAY = 10000; // 10 seconds
 const DEFAULT_RETRY_MAX = 3;
 const DEFAULT_RETRY_START_DELAY = 1000; // 1 second
 const DEFAULT_RETRY_BACKOFF_MULTIPLIER = 2;
-const FAILURE_MESSAGE = "It seems we have encountered issues responding, please try again later or get in touch with the website owner.";
 
 // Add this line to create a delay function
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -125,6 +126,7 @@ export default async function APIStream(payload) {
             retryStartDelay,
             retryBackoffMultiplier
           });
+
           const reader = stream.getReader();
 
           if (waitMessageTimer) clearTimeout(waitMessageTimer);
@@ -150,7 +152,13 @@ export default async function APIStream(payload) {
           logger.error('Error in stream:', error);
           if (waitMessageTimer) clearTimeout(waitMessageTimer);
           if (!waitMessageSent) {
-            controller.enqueue(encoder.encode(FAILURE_MESSAGE));
+            const config = getConfig();
+
+            const errorMessage = error instanceof ProviderRateLimitError 
+              ? (payload?.errorMessages?.rateLimitExceeded || config.defaults.errorMessages.rateLimitExceeded)
+              : (payload?.errorMessages?.genericFailure || config.defaults.errorMessages.genericFailure);
+
+              controller.enqueue(encoder.encode(errorMessage));
           }
         } finally {
           controller.close();

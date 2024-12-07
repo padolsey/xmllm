@@ -303,7 +303,7 @@ const result = await stream('Query', {
 The proxy server supports multiple types of rate limiting that can be combined:
 
 - **Global Limits**: Apply across all clients
-  - `globalRateLimit`: Max requests per minute
+  - `globalRequestsPerMinute`: Max requests per minute
   - `globalTokensPerMinute`: Max tokens per minute
   - `globalTokensPerHour`: Max tokens per hour
   - `globalRequestsPerHour`: Max requests per hour
@@ -353,7 +353,7 @@ The proxy server can be started via CLI with various configuration options:
 xmllm-proxy \
   --port=3124 \
   --corsOrigins="http://localhost:3000" \
-  --globalRateLimit=20 \
+  --globalRequestsPerMinute=20 \
   --globalTokensPerMinute=1000 \
   --globalTokensPerHour=10000 \
   --globalRequestsPerHour=1000 \
@@ -370,13 +370,12 @@ xmllm-proxy \
 |--------|---------------------|---------|-------------|
 | port | PORT | 3124 | Port to run the proxy server on |
 | corsOrigins | - | * | CORS allowed origins (string or array) |
-| globalRateLimit | GLOBAL_RATE_LIMIT | - | Max requests per minute |
+| globalRequestsPerMinute | GLOBAL_RATE_LIMIT | - | Max requests per minute |
 | globalTokensPerMinute | GLOBAL_TOKENS_PER_MINUTE | - | Max tokens per minute |
 | globalTokensPerHour | GLOBAL_TOKENS_PER_HOUR | - | Max tokens per hour |
 | globalRequestsPerHour | GLOBAL_REQUESTS_PER_HOUR | - | Max requests per hour |
 | maxRequestSize | - | 1MB | Max request size in bytes |
 | timeout | - | 30000 | Request timeout in ms |
-| rateLimitMessage | - | "Please try again later" | Custom rate limit error message |
 | debug | - | false | Enable debug logging |
 | verbose | - | false | Enable verbose logging |
 

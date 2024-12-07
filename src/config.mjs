@@ -20,7 +20,17 @@ const DEFAULT_CONFIG = {
       'openai:good',
       'claude:fast',
       'openai:fast'
-    ]
+    ],
+    errorMessages: {
+      genericFailure: "It seems we have encountered issues responding, please try again later or get in touch with the website owner.",
+      rateLimitExceeded: "Rate limit exceeded. Please try again later.",
+      invalidRequest: "Invalid request. Please check your input.",
+      authenticationFailed: "Authentication failed. Please check your credentials.",
+      resourceNotFound: "The requested resource was not found.",
+      serviceUnavailable: "The service is temporarily unavailable. Please try again later.",
+      networkError: "Failed to connect to the service. Please check your connection and try again.",
+      unexpectedError: "An unexpected error occurred. Please try again later."
+    }
   }
 };
 

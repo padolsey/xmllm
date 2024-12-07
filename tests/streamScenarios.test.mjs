@@ -1,5 +1,12 @@
 import { jest } from '@jest/globals';
 import { stream, simple } from '../src/xmllm-main.mjs';
+import { getConfig, resetConfig } from '../src/config.mjs';
+import {
+  ProviderError,
+  ProviderRateLimitError,
+  ProviderTimeoutError
+} from '../src/errors/ProviderErrors.mjs';
+import ProviderManager from '../src/ProviderManager.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -468,4 +475,208 @@ describe('Common xmllm Scenarios', () => {
     });
   });
 
+});
+
+describe('Error Handling Scenarios', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  it('should handle provider errors as stream content', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        getConfig().defaults.errorMessages.genericFailure
+      ])
+    }));
+
+    const updates = [];
+    const stream1 = stream('Test query', {
+      llmStream: TestStream
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual([
+      getConfig().defaults.errorMessages.genericFailure
+    ]);
+  });
+
+  it('should handle rate limit errors as stream content', async () => {
+    // Mock ProviderManager instead of raw stream
+    jest.spyOn(ProviderManager.prototype, 'streamRequest').mockImplementation(() => {
+      console.log('Mocked streamRequest');
+      throw new ProviderRateLimitError('test-provider', 1000, [{
+        type: 'rpm',
+        resetInMs: 1000
+      }]);
+    });
+
+    const updates = [];
+    const stream1 = stream('Test query', {
+      errorMessages: {
+        rateLimitExceeded: "Custom rate limit error"
+      }
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual(["Custom rate limit error"]);
+
+    // Clean up
+    jest.restoreAllMocks();
+  });
+
+  it('should handle timeout errors as stream content', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        getConfig().defaults.errorMessages.genericFailure
+      ])
+    }));
+
+    const updates = [];
+    const stream1 = stream('Test query', {
+      llmStream: TestStream
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual([
+      getConfig().defaults.errorMessages.genericFailure
+    ]);
+  });
+});
+
+describe('Schema and Error Handling', () => {
+  it('should handle both schema data and errors in single stream', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<user><name>Alice</name></user>',  // Valid schema data
+        '<error>Rate limit exceeded</error>',  // Error message
+        '<user><name>Bob</name></user>',    // More schema data
+      ])
+    }));
+
+    const schema = {
+      user: [{
+        name: String
+      }]
+    };
+    
+    const baseStream = stream('Get users', {
+      llmStream: TestStream,
+      schema
+    });
+
+    const final = await baseStream.last();
+
+    expect(final).toEqual({
+      user: [
+        { name: 'Alice' },
+        { name: 'Bob' }
+      ]
+    });
+
+    const errors = await baseStream.select('error').text().last();
+
+    expect(errors).toEqual('Rate limit exceeded');
+  });
+  
+  // Could also show alternative using stream operations
+  it('should handle schema and errors using stream operations', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<thinking>',
+        '<user><name>Alice</name></user>',
+        '<error>Rate limit exceeded</error>',
+        '<user><name>Bob</name></user>',
+        '</thinking>'
+      ])
+    }));
+
+    const baseStream = stream('Get users', {
+      llmStream: TestStream
+    });
+
+    // Get errors
+    const errors = await baseStream
+      .select('error')
+      .text()
+      .collect();
+
+    // Get user data
+    const users = await baseStream
+      .select('user name')
+      .text()
+      .collect();
+
+    expect(errors).toEqual(['Rate limit exceeded']);
+    expect(users).toEqual(['Alice', 'Bob']);
+  });
+
+  async function* combineStreams(schemaStream, errorStream) {
+    const schemaIterator = schemaStream[Symbol.asyncIterator]();
+    const errorIterator = errorStream[Symbol.asyncIterator]();
+    
+    let schemaNext = schemaIterator.next();
+    let errorNext = errorIterator.next();
+
+    while (true) {
+      const [schema, error] = await Promise.all([schemaNext, errorNext]);
+      
+      if (schema.done && error.done) break;
+      
+      yield {
+        schema: schema.done ? null : schema.value,
+        error: error.done ? null : error.value
+      };
+
+      if (!schema.done) schemaNext = schemaIterator.next();
+      if (!error.done) errorNext = errorIterator.next();
+    }
+  }
+
+  it('should handle parallel streams with generator helper', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<user><name>Alice</name></user>',
+        '<error>Rate limit exceeded</error>',
+        '<user><name>Bob</name></user>'
+      ])
+    }));
+
+    const mainStream = stream('Get users', {
+      llmStream: TestStream,
+      schema: {
+        user: [{
+          name: String
+        }]
+      }
+    });
+
+    const updates = [];
+    const errors = [];
+
+    for await (const { schema, error } of combineStreams(
+      mainStream,
+      mainStream.select('error').text()
+    )) {
+      if (schema) updates.push(schema);
+      if (error) errors.push(error);
+    }
+
+    expect(updates).toEqual([
+      { user: [{ name: 'Alice' }] },
+      // Since there are three chunk updates (due to our <error/>)
+      // we do receive 3 updates (this is expected)
+      { user: [{ name: 'Alice' }] }, // redundant
+      { user: [{ name: 'Alice' }, { name: 'Bob' }] } // final state
+    ]);
+    expect(errors).toEqual(['Rate limit exceeded']);
+  });
 });

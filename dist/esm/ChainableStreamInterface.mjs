@@ -22,7 +22,7 @@ function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r
 import xmllm from './xmllm.mjs';
 import Logger from './Logger.mjs';
 var logger = new Logger('ChainableStreamInterface');
-var ChainableStreamInterface = /*#__PURE__*/function () {
+export var ChainableStreamInterface = /*#__PURE__*/function () {
   function ChainableStreamInterface() {
     var pipeline = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
     var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
@@ -30,8 +30,6 @@ var ChainableStreamInterface = /*#__PURE__*/function () {
     this.pipeline = pipeline;
     this.options = options;
   }
-
-  // Get first matching element
   return _createClass(ChainableStreamInterface, [{
     key: "first",
     value: function () {
@@ -652,8 +650,4 @@ function parseError(error) {
     type: type,
     message: message
   };
-}
-function isGenerator(fn) {
-  var _fn$constructor, _fn$constructor2;
-  return (fn === null || fn === void 0 || (_fn$constructor = fn.constructor) === null || _fn$constructor === void 0 ? void 0 : _fn$constructor.name) === 'GeneratorFunction' || (fn === null || fn === void 0 || (_fn$constructor2 = fn.constructor) === null || _fn$constructor2 === void 0 ? void 0 : _fn$constructor2.name) === 'AsyncGeneratorFunction';
 }

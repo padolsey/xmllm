@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { stream, simple, configure } from '../src/xmllm-main.mjs';
+import { resetConfig, getConfig } from '../src/config.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -1387,5 +1388,81 @@ describe('Config', () => {
         model: 'openai:good'  // Should use override
       })
     );
+  });
+});
+
+describe('Error Message Handling', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  it('should use default generic failure message', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        getConfig().defaults.errorMessages.genericFailure
+      ])
+    }));
+
+    const updates = [];
+    const stream1 = stream('Test query', {
+      llmStream: TestStream
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual([
+      getConfig().defaults.errorMessages.genericFailure
+    ]);
+  });
+
+  it('should allow overriding generic failure message via config', async () => {
+    const customMessage = "Custom failure message";
+    
+    configure({
+      defaults: {
+        errorMessages: {
+          genericFailure: customMessage
+        }
+      }
+    });
+
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([customMessage])
+    }));
+
+    const updates = [];
+    const stream1 = stream('Test query', {
+      llmStream: TestStream
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual([customMessage]);
+  });
+
+  it('should allow overriding generic failure message per request', async () => {
+    const customMessage = "Request-specific failure message";
+    
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([customMessage])
+    }));
+
+    const updates = [];
+    const stream1 = stream('Test query', {
+      llmStream: TestStream,
+      errorMessages: {
+        genericFailure: customMessage
+      }
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    expect(updates).toEqual([customMessage]);
   });
 }); 

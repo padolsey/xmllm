@@ -24,9 +24,9 @@ function validateProxyConfig(config) {
   // Check for unknown configuration keys
   const validKeys = new Set([
     'port', 'corsOrigins', 'maxRequestSize', 'timeout',
-    'debug', 'verbose', 'globalRateLimit', 'globalTokensPerMinute',
+    'debug', 'verbose', 'globalRequestsPerMinute', 'globalTokensPerMinute',
     'globalTokensPerHour', 'globalRequestsPerHour', 'rateLimitMessage',
-    'listen'
+    'listen', 'errorMessages'
   ]);
 
   Object.keys(config).forEach(key => {
@@ -42,7 +42,7 @@ function validateProxyConfig(config) {
   }
 
   // Rate limit validations
-  validateLimit('globalRateLimit', config.globalRateLimit);
+  validateLimit('globalRequestsPerMinute', config.globalRequestsPerMinute);
   validateLimit('globalTokensPerMinute', config.globalTokensPerMinute);
   validateLimit('globalTokensPerHour', config.globalTokensPerHour);
   validateLimit('globalRequestsPerHour', config.globalRequestsPerHour);
@@ -108,8 +108,8 @@ function createServer(config = {}) {
 
   // Initialize global resource limiter with proxy-wide constraints
   const globalLimiter = new ResourceLimiter({
-    rpm: config.globalRateLimit ? {
-      limit: config.globalRateLimit,
+    rpm: config.globalRequestsPerMinute ? {
+      limit: config.globalRequestsPerMinute,
       window: 60000 // 1 minute
     } : null,
     tpm: config.globalTokensPerMinute ? {
@@ -138,8 +138,6 @@ function createServer(config = {}) {
 
   console.log('Starting Proxy Server with config', config, 'Port:', port);
 
-  const rateLimitMessage = config.rateLimitMessage || 'Please try again later';
-
   app.post('/api/stream', async (req, res) => {
     console.log('Stream request', req.body);
     try {
@@ -160,11 +158,20 @@ function createServer(config = {}) {
         topP,
         presence_penalty,
         presencePenalty,
+        errorMessages,
         fakeDelay,
         stop,
         cache,
         stream
       } = req.body;
+
+      // Fall back to proxy level error message configuration
+      const errorMessagesConfig = {
+        ...(config.errorMessages || {}),
+        ...(errorMessages || {})
+      };
+
+      const rateLimitMessage = errorMessagesConfig.rateLimitExceeded || 'Please try again later';
 
       try {
         // Validate all inputs
@@ -223,6 +230,8 @@ function createServer(config = {}) {
         'Connection': 'keep-alive'
       });
 
+      console.log('Error messages config:', errorMessagesConfig);
+
       const theStream = await Stream({
         messages,
         max_tokens,
@@ -232,6 +241,7 @@ function createServer(config = {}) {
         topP,
         presence_penalty,
         presencePenalty,
+        errorMessages: errorMessagesConfig,
         stop,
         fakeDelay,
         model,
