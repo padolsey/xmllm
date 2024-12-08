@@ -20,7 +20,6 @@ Fork and play with the **[xmllm demos](https://github.com/padolsey/xmllm_demos)*
 
 ### 🔥 See it live here: **[xmllm.j11y.io](https://xmllm.j11y.io)**
 
-
 ## Provider-agnostic & high compliance on many models!
 
 xmllm is able to be run against most conceivable endpoints since you can define [custom providers](./docs/providers.md). Out of the box we've hard-coded some models just to play with like Claude Haiku/Sonnet, GPT-4o (+mini), and Qwen2.5-7B-Instruct via TogetherAI.
@@ -87,6 +86,12 @@ Which transforms into structured data:
   final_answer: "There are 3 Rs in the word 'strawberry'."
 }
 ```
+
+## ➠ [Model Compliance Dashboard](https://xmllm.j11y.io/model-testing)
+
+View the [Model Compliance Matrix](https://xmllm.j11y.io/model-testing) to see how well xmllm works with different models. It includes toggles for sudo-prompting (`sudoPrompt:true`) and hinting, both of which can be used to improve compliance.
+
+![Model Compliance](https://j11y.io/public_images/xmllm2.png)
 
 ## How does it work?
 
