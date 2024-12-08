@@ -3,6 +3,8 @@ import type {
   XmllmOptions, 
   SchemaType, 
   HintType, 
+  BaseStreamConfig,
+  SchemaStreamConfig,
   StreamOptions, 
   ChainableStreamInterface,
   XMLElement,
@@ -10,14 +12,17 @@ import type {
   Message,
   ModelPreference,
   ConfigureOptions,
-  ErrorMessages
+  ErrorMessages,
+  DefaultsConfig
 } from './index';
 
 export type { 
   PipelineHelpers, 
   XmllmOptions, 
   SchemaType, 
-  HintType, 
+  HintType,
+  BaseStreamConfig,
+  SchemaStreamConfig,
   StreamOptions, 
   ChainableStreamInterface,
   XMLElement,
@@ -25,7 +30,8 @@ export type {
   Message,
   ModelPreference,
   ConfigureOptions,
-  ErrorMessages
+  ErrorMessages,
+  DefaultsConfig
 };
 
 export interface IClientProvider {
@@ -48,28 +54,9 @@ export function xmllm<T = any>(
 ): AsyncGenerator<T>;
 
 export function stream<T = XMLElement>(
-  promptOrConfig: string | { 
-    prompt?: string;
-    schema?: SchemaType;
-    system?: string;
-    sudoPrompt?: boolean;
-    mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
-    onChunk?: (chunk: string) => void;
-    messages?: Message[];
-    model?: ModelPreference;
-    temperature?: number;
-    max_tokens?: number;
-    maxTokens?: number;
-    top_p?: number;
-    topP?: number;
-    presence_penalty?: number;
-    presencePenalty?: number;
-    stop?: string[];
-    errorMessages?: ErrorMessages;
-  },
+  promptOrConfig: string | SchemaStreamConfig,
   options?: StreamOptions & {
     clientProvider?: ClientProvider | string;
-    errorMessages?: ErrorMessages;
   }
 ): ChainableStreamInterface<T>;
 

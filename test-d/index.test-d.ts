@@ -12,7 +12,11 @@ import xmllm, {
   HintType,
   configure,
   ConfigureOptions,
-  ClientProvider
+  ClientProvider,
+  BaseStreamConfig,
+  SchemaStreamConfig,
+  StreamOptions,
+  DefaultsConfig
 } from '../index';
 import { xmllm as clientXmllm } from '../client';
 
@@ -288,8 +292,7 @@ expectType<void>(configure({
   defaults: {
     temperature: 0.7,
     maxTokens: 4000,
-    model: 'claude:good',
-    modelFallbacks: ['openai:fast', 'claude:fast'],
+    model: ['claude:good', 'openai:fast'],
     mode: 'root_closed' as const
   }
 }));
@@ -371,3 +374,103 @@ expectType<void>(clientConfigure({
     }
   }
 }));
+
+// Test BaseStreamConfig
+const validBaseConfig: BaseStreamConfig = {
+  messages: [{ role: 'user', content: 'hello' }],
+  temperature: 0.7,
+  max_tokens: 1000,
+  cache: true,
+  model: 'claude:fast'
+};
+expectType<BaseStreamConfig>(validBaseConfig);
+
+// Test SchemaStreamConfig extends BaseStreamConfig properly
+const validSchemaConfig: SchemaStreamConfig = {
+  ...validBaseConfig,
+  schema: { answer: String },
+  hints: { answer: 'The answer to the question' },
+  mode: 'state_open',
+  prompt: 'What is 2+2?'
+};
+expectType<SchemaStreamConfig>(validSchemaConfig);
+
+// Test that stream() accepts both string and SchemaStreamConfig
+const streamWithString = stream('What is 2+2?');
+const streamWithConfig = stream(validSchemaConfig);
+expectType<ChainableStreamInterface<XMLElement>>(streamWithString);
+expectType<ChainableStreamInterface<XMLElement>>(streamWithConfig);
+
+// Test that stream() options extend SchemaStreamConfig properly
+const streamWithOptions = stream('prompt', {
+  schema: { answer: String },
+  Stream: async () => new ReadableStream(),
+  apiKeys: {
+    ANTHROPIC_API_KEY: 'key'
+  }
+});
+expectType<ChainableStreamInterface<XMLElement>>(streamWithOptions);
+
+// Test that DefaultsConfig matches SchemaStreamConfig
+const defaults: DefaultsConfig = {
+  temperature: 0.7,
+  mode: 'state_closed',
+  model: ['claude:fast', 'openai:fast'],
+  schema: { answer: String }
+};
+expectType<DefaultsConfig>(defaults);
+
+// Test error cases for configuration types
+expectError<BaseStreamConfig>({
+  temperature: 'hot'  // Should be number
+});
+
+expectError<SchemaStreamConfig>({
+  mode: 'invalid_mode'  // Should be one of the valid modes
+});
+
+expectError<StreamOptions>({
+  Stream: 'not a function'  // Should be a StreamFunction
+});
+
+// Test that client-side types work properly
+import { stream as clientStream } from '../client';
+
+const clientStreamResult = clientStream('prompt', {
+  clientProvider: 'http://localhost:3000',
+  schema: { answer: String },
+  mode: 'state_open'
+});
+expectType<ChainableStreamInterface<XMLElement>>(clientStreamResult);
+
+// Test that client configuration extends properly
+expectError<ClientConfigureOptions>({
+  clientProvider: 123  // Should be string or ClientProvider
+});
+
+// Test custom prompt generators
+const withCustomPromptGenerators: SchemaStreamConfig = {
+  prompt: "What is 2+2?",
+  generateSystemPrompt: (system) => `Custom system: ${system || ''}`,
+  generateUserPrompt: (scaffold, prompt) => `Custom user: ${prompt}`
+};
+expectType<SchemaStreamConfig>(withCustomPromptGenerators);
+
+// Test that generateUserPrompt can return Message[]
+const withMessageGenerator: SchemaStreamConfig = {
+  prompt: "What is 2+2?",
+  generateUserPrompt: (scaffold, prompt, sudo) => [{
+    role: 'user',
+    content: prompt
+  }]
+};
+expectType<SchemaStreamConfig>(withMessageGenerator);
+
+// Test invalid prompt generators
+expectError<SchemaStreamConfig>({
+  generateSystemPrompt: "not a function"  // Should be a function
+});
+
+expectError<SchemaStreamConfig>({
+  generateUserPrompt: () => 42  // Should return string or Message[]
+});

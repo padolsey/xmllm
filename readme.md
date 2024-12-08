@@ -16,7 +16,9 @@ Here's an example of a UI being progressively populated by a streaming LLM 'alie
 
 ## Demo Repo
 
-Fork and play with **[xmllm demos](https://github.com/padolsey/xmllm_demos)** (SOON: shall have this up and running publicly!)
+Fork and play with the **[xmllm demos](https://github.com/padolsey/xmllm_demos)** repo, or:
+
+### 🔥 See it live here: **[xmllm.j11y.io](https://xmllm.j11y.io)**
 
 
 ## Provider-agnostic & high compliance on many models!

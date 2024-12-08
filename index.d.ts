@@ -179,30 +179,62 @@ export type HintType = {
   [key: string]: string | string[] | HintType
 };
 
-// Update PromptConfig interface
-export interface PromptConfig {
+// The most primitive stream configuration (from req())
+export interface BaseStreamConfig {
   messages?: Message[];
-  schema?: SchemaType;
-  hints?: HintType;
-  sudoPrompt?: boolean;
-  mapper?: (input: any, output: any) => any;
-  system?: string;
   model?: ModelPreference;
   temperature?: number;
-  maxTokens?: number;
   max_tokens?: number;
+  maxTokens?: number;  // alias for max_tokens
+  top_p?: number;
+  topP?: number;  // alias for top_p
+  presence_penalty?: number;
+  presencePenalty?: number;  // alias for presence_penalty
+  stop?: string[];
+  errorMessages?: ErrorMessages;
   cache?: boolean;
-  fakeResponse?: string;
+  fakeDelay?: number;
   waitMessageString?: string;
   waitMessageDelay?: number;
   retryMax?: number;
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
+}
+
+// Schema-aware stream configuration (from xmlReq())
+export interface SchemaStreamConfig extends BaseStreamConfig {
+  prompt?: string;
+  schema?: SchemaType;
+  hints?: HintType;
+  system?: string;
+  sudoPrompt?: boolean;
   onChunk?: (chunk: string) => void;
+  mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
+  generateSystemPrompt?: (system?: string) => string;
+  generateUserPrompt?: (scaffold: string, prompt: string, sudoPrompt?: boolean) => string | Message[];
+}
+
+// Default configuration (used in configure())
+export interface DefaultsConfig extends SchemaStreamConfig {}
+
+// Stream options (additional options for stream setup)
+export interface StreamOptions extends SchemaStreamConfig {
+  Stream?: StreamFunction;
+  streamConfig?: StreamConfig;
+  apiKeys?: {
+    ANTHROPIC_API_KEY?: string;
+    OPENAI_API_KEY?: string;
+    TOGETHERAI_API_KEY?: string;
+    PERPLEXITYAI_API_KEY?: string;
+  };
+}
+
+// Update PromptConfig to use the schema-aware base
+export interface PromptConfig extends SchemaStreamConfig {
+  mapper?: (input: any, output: any) => any;
   doMapSelectClosed?: boolean;
   includeOpenTags?: boolean;
   doDedupe?: boolean;
-  errorMessages?: ErrorMessages;
 }
 
 // Add back error types
@@ -331,25 +363,7 @@ export interface ChainableStreamInterface<T = XMLElement> extends AsyncIterable<
 
 // Add these function declarations
 export function stream<T = XMLElement>(
-  promptOrConfig: string | { 
-    prompt?: string;
-    schema?: SchemaType;
-    system?: string;
-    sudoPrompt?: boolean;
-    mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
-    onChunk?: (chunk: string) => void;
-    messages?: Message[];
-    model?: ModelPreference;
-    temperature?: number;
-    max_tokens?: number;
-    maxTokens?: number;
-    top_p?: number;
-    topP?: number;
-    presence_penalty?: number;
-    presencePenalty?: number;
-    stop?: string[];
-    [key: string]: any;
-  },
+  promptOrConfig: string | BaseStreamConfig,
   options?: StreamOptions
 ): ChainableStreamInterface<T>;
 
@@ -372,7 +386,6 @@ export interface DefaultsConfig {
   topP?: number;
   mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
   model?: ModelPreference;
-  modelFallbacks?: ModelPreference[];
   errorMessages?: ErrorMessages;
 }
 

@@ -154,7 +154,6 @@ interface ConfigureOptions {
     topP?: number;                    // Default top_p value
     mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
     model?: ModelPreference;          // Default model
-    modelFallbacks?: ModelPreference[]; // Fallback models
   };
 }
 ```
@@ -178,7 +177,6 @@ configure({
   defaults: {
     temperature: 0.7,
     model: 'claude:good',
-    modelFallbacks: ['openai:fast', 'claude:fast'],
     mode: 'root_closed'
   }
 });
@@ -245,27 +243,33 @@ const browserStream = stream('Query', {
 Configuration:
 ```typescript
 interface StreamConfig {
-  prompt?: string;                   // Prompt text
+  // Core streaming parameters
   messages?: Message[];              // Alternative to prompt
-  schema?: SchemaType;               // Transform schema
-  system?: string;                   // System prompt
-  sudoPrompt?: boolean;              // Use sudoPrompt (more forceful) conversation flow
-  mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
-  model?: ModelPreference;           // Model selection (see Model Configuration below)
+  model?: ModelPreference;           // Model selection
   temperature?: number;              // Temperature (0-2)
   maxTokens?: number;                // Max tokens
   cache?: boolean;                   // Enable caching
-  clientProvider?: ClientProvider;   // Required for browser usage
-  errorMessages?: {
-    genericFailure?: string;      // Default error message
-    rateLimitExceeded?: string;   // Rate limit error message
-    invalidRequest?: string;      // Invalid request error message
-    authenticationFailed?: string; // Auth failure message
-    resourceNotFound?: string;    // 404 error message
-    serviceUnavailable?: string;  // Service unavailable message
-    networkError?: string;        // Network error message
-    unexpectedError?: string;     // Unexpected error message
+  errorMessages?: {                  // Custom error messages
+    genericFailure?: string;         // Default error message
+    rateLimitExceeded?: string;      // Rate limit error message
+    invalidRequest?: string;         // Invalid request error message
+    authenticationFailed?: string;   // Auth failure message
+    resourceNotFound?: string;       // 404 error message
+    serviceUnavailable?: string;     // Service unavailable message
+    networkError?: string;           // Network error message
+    unexpectedError?: string;        // Unexpected error message
   };
+  
+  // Schema-related options
+  prompt?: string;                   // Prompt text
+  schema?: SchemaType;               // Transform schema
+  hints?: HintType;                  // Schema hints
+  system?: string;                   // System prompt
+  sudoPrompt?: boolean;              // Use sudoPrompt conversation flow
+  mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
+  onChunk?: (chunk: string) => void; // Chunk callback
+  generateSystemPrompt?: (system?: string) => string;  // Custom system prompt generator
+  generateUserPrompt?: (scaffold: string, prompt: string, sudoPrompt?: boolean) => string | Message[];
 }
 ```
 

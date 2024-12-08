@@ -1,6 +1,6 @@
 {
   "name": "xmllm",
-  "version": "0.1.4",
+  "version": "0.1.51",
   "main": "./dist/cjs/xmllm-main.js",
   "module": "./dist/esm/xmllm-main.mjs",
   "types": "index.d.ts",
@@ -14,7 +14,9 @@
   "files": [
     "src",
     "dist",
-    "index.d.ts"
+    "client.d.ts",
+    "index.d.ts",
+    "src/**/*"
   ],
   "scripts": {
     "build": "npm run build:cjs && npm run build:esm",
@@ -27,11 +29,13 @@
   "exports": {
     ".": {
       "import": "./src/xmllm-main.mjs",
-      "require": "./dist/cjs/xmllm-main.js"
+      "require": "./dist/cjs/xmllm-main.js",
+      "types": "./index.d.ts"
     },
     "./client": {
       "import": "./src/xmllm-client.mjs",
-      "require": "./dist/cjs/xmllm-client.js"
+      "require": "./dist/cjs/xmllm-client.js",
+      "types": "./client.d.ts"
     },
     "./proxy": {
       "import": "./src/xmllm-proxy.mjs",
@@ -47,7 +51,6 @@
     "express": "^4.19.2",
     "htmlparser2": "^9.1.0",
     "lru-cache": "^11.0.0",
-    "p-limit": "^6.1.0",
     "p-queue": "^8.0.1",
     "streamops": "^0.1.20"
   },
