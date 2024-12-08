@@ -199,6 +199,7 @@ export interface BaseStreamConfig {
   retryMax?: number;
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
+  onChunk?: (chunk: string) => void;
 }
 
 // Schema-aware stream configuration (from xmlReq())
@@ -215,7 +216,16 @@ export interface SchemaStreamConfig extends BaseStreamConfig {
 }
 
 // Default configuration (used in configure())
-export interface DefaultsConfig extends SchemaStreamConfig {}
+export interface DefaultsConfig extends SchemaStreamConfig {
+  temperature?: number;
+  maxTokens?: number;
+  presencePenalty?: number;
+  topP?: number;
+  mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
+  model?: ModelPreference;
+  errorMessages?: ErrorMessages;
+  onChunk?: (chunk: string) => void;
+}
 
 // Stream options (additional options for stream setup)
 export interface StreamOptions extends SchemaStreamConfig {
@@ -387,6 +397,14 @@ export interface DefaultsConfig {
   mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
   model?: ModelPreference;
   errorMessages?: ErrorMessages;
+  onChunk?: (chunk: string) => void;
+  schema?: SchemaType;
+  hints?: HintType;
+  system?: string;
+  sudoPrompt?: boolean;
+  prompt?: string;
+  generateSystemPrompt?: (system?: string) => string;
+  generateUserPrompt?: (scaffold: string, prompt: string, sudoPrompt?: boolean) => string | Message[];
 }
 
 // Base configure options

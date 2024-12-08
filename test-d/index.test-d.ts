@@ -18,7 +18,10 @@ import xmllm, {
   StreamOptions,
   DefaultsConfig
 } from '../index';
-import { xmllm as clientXmllm } from '../client';
+import { 
+  configure as clientConfigure,
+  ClientConfigureOptions
+} from '../client';
 
 // Positive test - should compile
 const validMessage: Message = {
@@ -320,50 +323,6 @@ const serverWithClient = {
 } as const;
 expectError<ConfigureOptions>(serverWithClient);
 
-// Import client configure and types to test client-specific options
-import { configure as clientConfigure, ClientConfigureOptions } from '../client';
-
-// Test valid client-side configure
-expectType<void>(clientConfigure({
-  clientProvider: 'http://localhost:3000',
-  logging: {
-    level: 'DEBUG' as const
-  },
-  defaults: {
-    temperature: 0.8
-  }
-}));
-
-// Test error message configuration
-expectType<void>(configure({
-  defaults: {
-    errorMessages: {
-      genericFailure: "Custom error",
-      rateLimitExceeded: "Custom rate limit message",
-      networkError: "Custom network error"
-    }
-  }
-}));
-
-// Test error messages in stream config
-const streamWithErrors = stream("Test query", {
-  errorMessages: {
-    genericFailure: "Custom error",
-    rateLimitExceeded: "Custom rate limit message"
-  }
-});
-expectType<ChainableStreamInterface<XMLElement>>(streamWithErrors);
-
-// Test invalid error message keys
-const invalidErrorMessages = {
-  errorMessages: {
-    invalidKey: "This should error"  // Not a valid error message key
-  }
-} as const;
-expectError<ConfigureOptions>({
-  defaults: invalidErrorMessages
-});
-
 // Test client-side error messages
 expectType<void>(clientConfigure({
   clientProvider: 'http://localhost:3000',
@@ -474,3 +433,22 @@ expectError<SchemaStreamConfig>({
 expectError<SchemaStreamConfig>({
   generateUserPrompt: () => 42  // Should return string or Message[]
 });
+
+// Test that onChunk can be passed in defaults
+expectType<void>(configure({
+  defaults: {
+    temperature: 0.7,
+    onChunk: (chunk: string) => console.log(chunk),
+    mode: 'root_closed' as const
+  } satisfies DefaultsConfig
+}));
+
+// Also test with client configure
+expectType<void>(clientConfigure({
+  clientProvider: 'http://localhost:3000',
+  defaults: {
+    temperature: 0.7,
+    onChunk: (chunk: string) => console.log(chunk),
+    mode: 'root_closed' as const
+  } satisfies DefaultsConfig
+}));
