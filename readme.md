@@ -344,17 +344,17 @@ await analysis.last();
 // }
 ```
 
-See the [Pipeline Guide](./docs/pipelines.md) for more advanced usage like parallel processing, complex transformations, and error handling.
+See the [Pipeline Guide](https://github.com/padolsey/xmllm/blob/main/docs/pipelines.md) for more advanced usage like parallel processing, complex transformations, and error handling.
 
 ## In-Depth Documentation
 
-* [Schema Guide](./docs/schemas.md)
-* [Provider Setup](./docs/providers.md)
-* [Stream Interface](./docs/stream.md)
-* [Streaming with a Schema](./docs/schema_streaming.md)
-* [Raw Streaming](./docs/raw_streaming.md)
-* [Advanced Pipeline Guide](./docs/pipelines.md)
-* [Complete API Reference](./docs/api.md)
+* [Schema Guide](https://github.com/padolsey/xmllm/blob/main/docs/schemas.md)
+* [Provider Setup](https://github.com/padolsey/xmllm/blob/main/docs/providers.md)
+* [Stream Interface](https://github.com/padolsey/xmllm/blob/main/docs/stream.md)
+* [Streaming with a Schema](https://github.com/padolsey/xmllm/blob/main/docs/schema_streaming.md)
+* [Raw Streaming](https://github.com/padolsey/xmllm/blob/main/docs/raw_streaming.md)
+* [Advanced Pipeline Guide](https://github.com/padolsey/xmllm/blob/main/docs/pipelines.md)
+* [Complete API Reference](https://github.com/padolsey/xmllm/blob/main/docs/api.md)
 
 ## License
 
