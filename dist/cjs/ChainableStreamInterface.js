@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", {
 exports["default"] = exports.ChainableStreamInterface = void 0;
 var _xmllm = _interopRequireDefault(require("./xmllm.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
+var _ValidationService = _interopRequireDefault(require("./ValidationService.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
@@ -321,7 +322,9 @@ var ChainableStreamInterface = exports.ChainableStreamInterface = /*#__PURE__*/f
                           case 'batch':
                             return batch.call(_this, arg, arg2);
                           case 'req':
-                            return arg.schema ? promptComplex.call(_this, arg) : req.call(_this, arg);
+                            {
+                              return arg.schema ? promptComplex.call(_this, arg) : req.call(_this, arg);
+                            }
                         }
                         throw new Error("Unknown pipeline type: ".concat(type));
                       });

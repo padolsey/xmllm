@@ -426,7 +426,16 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           if (map === String) {
             return String(element.$text);
           }
-          // Pass full element to custom functions (including Boolean)
+          if (map === Boolean) {
+            var _element$$text2, _element$$text2$trim;
+            var text = ((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2).toLowerCase()) || '';
+
+            // Anything that's not obviously false is considered true
+            var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
+            var isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
+            return !isEssentiallyFalsey;
+          }
+          // Pass full element to custom functions
           return map(element);
         }
         if (_typeof(map) !== 'object') {
@@ -532,12 +541,16 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           // Skip attribute markers
           if (key.startsWith('$')) continue;
 
-          // Handle string literals and functions (including primitives)
-          if (typeof value === 'string' || typeof value === 'function') {
-            // If there's an explicit hint, use it
-            // Otherwise if it's a string literal in schema, use that as hint
-            // Otherwise use generic placeholder
-            var content = hint || (typeof value === 'string' ? value : '...text content...');
+          // Handle string literals as pure hints
+          if (typeof value === 'string') {
+            xml += "".concat(indentation, "<").concat(key, ">").concat(value, "</").concat(key, ">\n");
+            continue;
+          }
+
+          // Handle functions (including primitives) with optional hints
+          if (typeof value === 'function') {
+            var typeHint = value === String ? '{String}' : value === Number ? '{Number}' : value === Boolean ? '{Boolean}' : '';
+            var content = hint ? hint : typeHint || '...';
             xml += "".concat(indentation, "<").concat(key, ">").concat(content, "</").concat(key, ">\n");
             continue;
           }
@@ -554,13 +567,15 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
               // Handle text content for array items
               if (_typeof(itemValue) !== 'object') {
                 // For primitive arrays, use the hint directly if it's a string
-                var _content = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : '...text content...';
+                var _content = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : itemValue === String ? '{String}' : itemValue === Number ? '{Number}' : itemValue === Boolean ? '{Boolean}' : '...';
                 xml += "".concat(indentation, "  ").concat(_content, "\n");
               } else {
                 // Handle text content from $text in object
-                if (itemValue.$text !== undefined || itemHint !== null && itemHint !== void 0 && itemHint.$text) {
-                  var textHint = (itemHint === null || itemHint === void 0 ? void 0 : itemHint.$text) || (typeof itemValue.$text === 'string' ? itemValue.$text : '...text content...');
-                  xml += "".concat(indentation, "  ").concat(textHint, "\n");
+                if (itemValue.$text !== undefined) {
+                  var textContent = (itemHint === null || itemHint === void 0 ? void 0 : itemHint.$text) || (typeof itemValue.$text === 'function' ? itemValue.$text === String ? '{String}' : itemValue.$text === Number ? '{Number}' : itemValue.$text === Boolean ? '{Boolean}' : '...' : typeof itemValue.$text === 'string' ? itemValue.$text : '...');
+                  xml += "".concat(indentation, "  ").concat(textContent, "\n");
+                } else if (itemHint !== null && itemHint !== void 0 && itemHint.$text) {
+                  xml += "".concat(indentation, "  ").concat(itemHint.$text, "\n");
                 }
                 xml += processObject(itemValue, itemHint, level + 1);
               }
@@ -575,10 +590,12 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             var attrs = getAttributeString(value, hint);
             xml += "".concat(indentation, "<").concat(key).concat(attrs, ">\n");
 
-            // Handle text content
-            if (value.$text !== undefined || hint !== null && hint !== void 0 && hint.$text) {
-              var _textHint = (hint === null || hint === void 0 ? void 0 : hint.$text) || (typeof value.$text === 'string' ? value.$text : '...text content...');
-              xml += "".concat(indentation, "  ").concat(_textHint, "\n");
+            // Handle text content - check if it's explicitly typed
+            if (value.$text !== undefined) {
+              var _textContent = typeof value.$text === 'function' ? value.$text === String ? '{String}' : value.$text === Number ? '{Number}' : value.$text === Boolean ? '{Boolean}' : '...' : typeof value.$text === 'string' ? value.$text : '...';
+              xml += "".concat(indentation, "  ").concat(_textContent, "\n");
+            } else if (hint !== null && hint !== void 0 && hint.$text) {
+              xml += "".concat(indentation, "  ").concat(hint.$text, "\n");
             }
             xml += processObject(value, hint || {}, level + 1);
             xml += "".concat(indentation, "</").concat(key, ">\n");
@@ -593,11 +610,25 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         for (var key in obj) {
           if (key.startsWith('$') && key !== '$text') {
             var attrName = key.slice(1);
-            // First check explicit hints object
-            // Then check if it's a string literal in schema (it's a hint)
-            // Otherwise use placeholder
-            var hint = (hints === null || hints === void 0 ? void 0 : hints[key]) || (typeof obj[key] === 'string' ? obj[key] : '...');
-            attrs += " ".concat(attrName, "=\"").concat(hint, "\"");
+            var value = obj[key];
+            var hint = hints === null || hints === void 0 ? void 0 : hints[key];
+
+            // Handle string literals as pure hints
+            if (typeof value === 'string') {
+              attrs += " ".concat(attrName, "=\"").concat(value, "\"");
+              continue;
+            }
+
+            // Handle functions (including primitives) with optional hints
+            if (typeof value === 'function') {
+              var typeHint = value === String ? '{String}' : value === Number ? '{Number}' : value === Boolean ? '{Boolean}' : '';
+              var content = hint ? hint : typeHint || '...';
+              attrs += " ".concat(attrName, "=\"").concat(content, "\"");
+              continue;
+            }
+
+            // Default case
+            attrs += " ".concat(attrName, "=\"").concat(hint || '...', "\"");
           }
         }
         return attrs;

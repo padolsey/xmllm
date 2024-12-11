@@ -21,6 +21,7 @@ function _asyncIterator(r) { var n, t, o, e = 2; for ("undefined" != typeof Symb
 function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r) { if (Object(r) !== r) return Promise.reject(new TypeError(r + " is not an object.")); var n = r.done; return Promise.resolve(r.value).then(function (r) { return { value: r, done: n }; }); } return AsyncFromSyncIterator = function AsyncFromSyncIterator(r) { this.s = r, this.n = r.next; }, AsyncFromSyncIterator.prototype = { s: null, n: null, next: function next() { return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments)); }, "return": function _return(r) { var n = this.s["return"]; return void 0 === n ? Promise.resolve({ value: r, done: !0 }) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); }, "throw": function _throw(r) { var n = this.s["return"]; return void 0 === n ? Promise.reject(r) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); } }, new AsyncFromSyncIterator(r); }
 import xmllm from './xmllm.mjs';
 import Logger from './Logger.mjs';
+import ValidationService from './ValidationService.mjs';
 var logger = new Logger('ChainableStreamInterface');
 export var ChainableStreamInterface = /*#__PURE__*/function () {
   function ChainableStreamInterface() {
@@ -314,7 +315,9 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
                           case 'batch':
                             return batch.call(_this, arg, arg2);
                           case 'req':
-                            return arg.schema ? promptComplex.call(_this, arg) : req.call(_this, arg);
+                            {
+                              return arg.schema ? promptComplex.call(_this, arg) : req.call(_this, arg);
+                            }
                         }
                         throw new Error("Unknown pipeline type: ".concat(type));
                       });

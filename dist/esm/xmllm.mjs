@@ -27,8 +27,8 @@ function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r
 import createStreaming from 'streamops';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
-import { generateSystemPrompt as defaultSystemPrompt, generateUserPrompt as defaultUserPrompt } from './prompts.mjs';
 import { getConfig, configure } from './config.mjs';
+import { getStrategy } from './strategies.mjs';
 var logger = new Logger('xmllm');
 var text = function text(fn) {
   return function (_ref5) {
@@ -56,11 +56,7 @@ function _xmllmGen() {
   _xmllmGen = _wrapAsyncGenerator(function (pipelineFn) {
     var _ref7 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
       timeout = _ref7.timeout,
-      llmStream = _ref7.llmStream,
-      _ref7$generateSystemP = _ref7.generateSystemPrompt,
-      generateSystemPrompt = _ref7$generateSystemP === void 0 ? defaultSystemPrompt : _ref7$generateSystemP,
-      _ref7$generateUserPro = _ref7.generateUserPrompt,
-      generateUserPrompt = _ref7$generateUserPro === void 0 ? defaultUserPrompt : _ref7$generateUserPro;
+      llmStream = _ref7.llmStream;
     return /*#__PURE__*/_regeneratorRuntime().mark(function _callee13() {
       var streamops, context, pipeline, stream, getCurrentParser, pushNewParser, req, xmlReq, promptClosed, promptStream, promptComplex, mapSelect, mapSelectClosed, select;
       return _regeneratorRuntime().wrap(function _callee13$(_context13) {
@@ -158,7 +154,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9(input) {
-                  var _config, messages, schema, hints, mapper, system, sudoPrompt, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, generateSystemPrompt, generateUserPrompt, errorMessages, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
+                  var _config, messages, schema, hints, strategy, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, genSystemPrompt, genUserPrompt, autoTruncateMessages, errorMessages, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
                   return _regeneratorRuntime().wrap(function _callee9$(_context9) {
                     while (1) switch (_context9.prev = _context9.next) {
                       case 0:
@@ -174,7 +170,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, mapper = _config.mapper, system = _config.system, sudoPrompt = _config.sudoPrompt, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, generateSystemPrompt = _config.generateSystemPrompt, generateUserPrompt = _config.generateUserPrompt, errorMessages = _config.errorMessages;
+                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, strategy = _config.strategy, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, genSystemPrompt = _config.genSystemPrompt, genUserPrompt = _config.genUserPrompt, autoTruncateMessages = _config.autoTruncateMessages, errorMessages = _config.errorMessages;
                         if (!(mapper && !schema)) {
                           _context9.next = 5;
                           break;
@@ -232,8 +228,8 @@ function _xmllmGen() {
                           max_tokens: max_tokens || maxTokens,
                           schema: schema,
                           hints: hints,
+                          strategy: strategy,
                           model: model,
-                          sudoPrompt: sudoPrompt,
                           fakeDelay: fakeDelay,
                           waitMessageString: waitMessageString,
                           waitMessageDelay: waitMessageDelay,
@@ -248,8 +244,9 @@ function _xmllmGen() {
                           retryStartDelay: retryStartDelay,
                           retryBackoffMultiplier: retryBackoffMultiplier,
                           cache: cache,
-                          generateSystemPrompt: generateSystemPrompt,
-                          generateUserPrompt: generateUserPrompt,
+                          genSystemPrompt: genSystemPrompt,
+                          genUserPrompt: genUserPrompt,
+                          autoTruncateMessages: autoTruncateMessages,
                           errorMessages: errorMessages
                         }), schema ?
                         // If it's a schema, we need to map the output
@@ -577,10 +574,7 @@ function _xmllmGen() {
                 hints = _ref8.hints,
                 system = _ref8.system,
                 messages = _ref8.messages,
-                _ref8$sudoPrompt = _ref8.sudoPrompt,
-                sudoPrompt = _ref8$sudoPrompt === void 0 ? false : _ref8$sudoPrompt,
                 max_tokens = _ref8.max_tokens,
-                errorMessages = _ref8.errorMessages,
                 maxTokens = _ref8.maxTokens,
                 model = _ref8.model,
                 temperature = _ref8.temperature,
@@ -597,8 +591,14 @@ function _xmllmGen() {
                 retryStartDelay = _ref8.retryStartDelay,
                 retryBackoffMultiplier = _ref8.retryBackoffMultiplier,
                 onChunk = _ref8.onChunk,
-                localSystemPrompt = _ref8.generateSystemPrompt,
-                localUserPrompt = _ref8.generateUserPrompt;
+                genSystemPrompt = _ref8.genSystemPrompt,
+                genUserPrompt = _ref8.genUserPrompt,
+                errorMessages = _ref8.errorMessages,
+                autoTruncateMessages = _ref8.autoTruncateMessages,
+                strategy = _ref8.strategy;
+              var config = getConfig();
+              var strategyId = strategy || config.defaults.strategy;
+              var selectedStrategy = getStrategy(strategyId);
               messages = (messages || []).slice();
               var prompt = '';
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
@@ -611,12 +611,12 @@ function _xmllmGen() {
                 }
                 prompt = messages.pop().content;
               }
-              var useSystemPrompt = localSystemPrompt || generateSystemPrompt;
-              var useUserPrompt = localUserPrompt || generateUserPrompt;
+              var useSystemPrompt = genSystemPrompt || selectedStrategy.genSystemPrompt;
+              var useUserPrompt = genUserPrompt || selectedStrategy.genUserPrompt;
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(thing) {
                   var _messages3;
-                  var parser, transformedPrompt, mapSelectionSchemaScaffold, userMessages, result, systemPrompt, config, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
+                  var parser, transformedPrompt, mapSelectionSchemaScaffold, userMessages, result, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
                   return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                     while (1) switch (_context3.prev = _context3.next) {
                       case 0:
@@ -627,8 +627,8 @@ function _xmllmGen() {
                           transformedPrompt = transformedPrompt(thing);
                         }
                         if (mapSelectionSchemaScaffold) {
-                          result = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt, sudoPrompt);
-                          if (sudoPrompt && Array.isArray(result)) {
+                          result = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt);
+                          if (Array.isArray(result)) {
                             userMessages = result;
                           } else {
                             userMessages = [{
@@ -655,8 +655,7 @@ function _xmllmGen() {
                         }
                         throw new Error('we need a prompt');
                       case 10:
-                        config = getConfig();
-                        _context3.next = 13;
+                        _context3.next = 12;
                         return _awaitAsyncGenerator(llmStream({
                           max_tokens: max_tokens || maxTokens || config.defaults.maxTokens,
                           temperature: temperature !== null && temperature !== void 0 ? temperature : config.defaults.temperature,
@@ -675,34 +674,35 @@ function _xmllmGen() {
                           retryMax: retryMax,
                           retryStartDelay: retryStartDelay,
                           retryBackoffMultiplier: retryBackoffMultiplier,
+                          autoTruncateMessages: autoTruncateMessages,
                           cache: cache
                         }));
-                      case 13:
+                      case 12:
                         stream = _context3.sent;
                         reader = stream.getReader();
                         accrued = '';
                         cancelled = false;
-                        _context3.next = 19;
+                        _context3.next = 18;
                         return accrued;
+                      case 18:
+                        _context3.prev = 18;
                       case 19:
-                        _context3.prev = 19;
-                      case 20:
                         if (!true) {
-                          _context3.next = 36;
+                          _context3.next = 35;
                           break;
                         }
-                        _context3.next = 23;
+                        _context3.next = 22;
                         return _awaitAsyncGenerator(reader.read());
-                      case 23:
+                      case 22:
                         _yield$_awaitAsyncGen2 = _context3.sent;
                         done = _yield$_awaitAsyncGen2.done;
                         value = _yield$_awaitAsyncGen2.value;
                         if (!(cancelled || done)) {
-                          _context3.next = 28;
+                          _context3.next = 27;
                           break;
                         }
-                        return _context3.abrupt("break", 36);
-                      case 28:
+                        return _context3.abrupt("break", 35);
+                      case 27:
                         _text2 = new TextDecoder().decode(value);
                         if (onChunk) {
                           try {
@@ -713,27 +713,27 @@ function _xmllmGen() {
                         }
                         parser.add(_text2);
                         accrued += _text2;
-                        _context3.next = 34;
+                        _context3.next = 33;
                         return _text2;
-                      case 34:
-                        _context3.next = 20;
+                      case 33:
+                        _context3.next = 19;
                         break;
-                      case 36:
-                        _context3.next = 41;
+                      case 35:
+                        _context3.next = 40;
                         break;
-                      case 38:
-                        _context3.prev = 38;
-                        _context3.t0 = _context3["catch"](19);
+                      case 37:
+                        _context3.prev = 37;
+                        _context3.t0 = _context3["catch"](18);
                         logger.error("Error reading stream:", _context3.t0);
-                      case 41:
-                        _context3.prev = 41;
+                      case 40:
+                        _context3.prev = 40;
                         reader.releaseLock();
-                        return _context3.finish(41);
-                      case 44:
+                        return _context3.finish(40);
+                      case 43:
                       case "end":
                         return _context3.stop();
                     }
-                  }, _callee3, null, [[19, 38, 41, 44]]);
+                  }, _callee3, null, [[18, 37, 40, 43]]);
                 }));
                 return function (_x3) {
                   return _ref2.apply(this, arguments);
@@ -743,7 +743,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
-                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
+                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, autoTruncateMessages, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
@@ -762,7 +762,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, errorMessages = _transformedConfig.errorMessages, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, errorMessages = _transformedConfig.errorMessages, autoTruncateMessages = _transformedConfig.autoTruncateMessages, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
                         if (messages !== null && messages !== void 0 && messages.length) {
                           _context2.next = 8;
                           break;
@@ -778,9 +778,10 @@ function _xmllmGen() {
                           presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
                           stop: stop,
                           errorMessages: errorMessages,
+                          autoTruncateMessages: autoTruncateMessages,
                           messages: [{
                             role: 'system',
-                            content: system || ''
+                            content: system
                           }].concat(_toConsumableArray(messages || [])),
                           model: model || globalConfig.defaults.model,
                           cache: cache

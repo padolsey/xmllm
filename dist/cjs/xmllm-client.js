@@ -24,6 +24,7 @@ var _xmllm = require("./xmllm.js");
 var _ChainableStreamInterface = _interopRequireDefault(require("./ChainableStreamInterface.js"));
 var _ClientProvider = require("./ClientProvider.js");
 var _config = require("./config.js");
+var _ValidationService = _interopRequireDefault(require("./ValidationService.js"));
 var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"],
   _excluded2 = ["mode"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
@@ -59,9 +60,11 @@ function clientLlmStream(clientProvider) {
 function xmllmClient(pipelineFn) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   var llmStream = clientLlmStream(options.clientProvider || (0, _config.getConfig)().clientProvider);
-  return (0, _xmllm.xmllm)(pipelineFn, _objectSpread(_objectSpread({}, options), {}, {
+  var finalConfig = _objectSpread(_objectSpread({}, options), {}, {
     llmStream: llmStream
-  }));
+  });
+  _ValidationService["default"].validateLLMPayload(finalConfig);
+  return (0, _xmllm.xmllm)(pipelineFn, finalConfig);
 }
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
@@ -70,15 +73,17 @@ function stream(promptOrConfig) {
   var config = (0, _config.getConfig)();
   var streamConfig = {};
   if (typeof promptOrConfig === 'string') {
+    _ValidationService["default"].validateLLMPayload(options);
     streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), options), {}, {
-      // Allow overrides
       messages: [{
         role: 'user',
         content: promptOrConfig
       }]
     });
   } else {
-    streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), promptOrConfig), options);
+    var aggConfig = _objectSpread(_objectSpread({}, promptOrConfig), options);
+    _ValidationService["default"].validateLLMPayload(aggConfig);
+    streamConfig = _objectSpread(_objectSpread({}, config.defaults), aggConfig);
   }
 
   // Use default clientProvider if none provided - now checking top-level config

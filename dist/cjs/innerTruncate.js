@@ -4,23 +4,19 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports["default"] = innerTruncate;
-function estimateTokenCount(m) {
-  return m.length / 3;
-}
+var _estimateTokens = require("./utils/estimateTokens.js");
 function innerTruncate(txt, separator, nSplits, totalTokensLimit) {
-  var tokenCount = estimateTokenCount(txt);
+  var tokenCount = (0, _estimateTokens.estimateTokens)(txt);
   if (tokenCount <= totalTokensLimit || nSplits <= 0) {
     return txt;
   }
-
-  // let segmentSize = Math.floor(totalTokensLimit / (nSplits + 1));
-  var segmentSize = 0 | txt.length / tokenCount * totalTokensLimit / nSplits; // estimate
+  var segmentSize = Math.floor(txt.length / nSplits);
+  var desiredSegmentLength = Math.floor(txt.length * (totalTokensLimit / tokenCount) / nSplits);
   var segments = [];
-  var txtSplitted = txt.split('');
-  for (var i = 0; i <= nSplits; i++) {
-    var segmentStart = i * segmentSize;
-    var segment = txtSplitted.splice(0, segmentSize);
-    segments.push(segment.join(''));
+  for (var i = 0; i < nSplits; i++) {
+    var start = i * segmentSize;
+    var segment = txt.substring(start, start + desiredSegmentLength);
+    segments.push(segment);
   }
   return segments.join(separator);
 }

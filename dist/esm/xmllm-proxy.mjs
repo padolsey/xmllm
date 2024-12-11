@@ -156,7 +156,7 @@ function createServer() {
             // Validate all inputs
             ValidationService.validateMessages(messages);
             ValidationService.validateModel(model, PROVIDERS);
-            ValidationService.validateParameters({
+            ValidationService.validateLLMPayload({
               temperature: temperature,
               max_tokens: max_tokens,
               maxTokens: maxTokens,

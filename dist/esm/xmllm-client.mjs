@@ -15,6 +15,7 @@ import { xmllm } from './xmllm.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
 import { getConfig, configure } from './config.mjs';
+import ValidationService from './ValidationService.mjs';
 function clientLlmStream(clientProvider) {
   var provider = typeof clientProvider === 'string' ? new ClientProvider(clientProvider) : clientProvider;
   return /*#__PURE__*/function () {
@@ -37,9 +38,11 @@ function clientLlmStream(clientProvider) {
 function xmllmClient(pipelineFn) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   var llmStream = clientLlmStream(options.clientProvider || getConfig().clientProvider);
-  return xmllm(pipelineFn, _objectSpread(_objectSpread({}, options), {}, {
+  var finalConfig = _objectSpread(_objectSpread({}, options), {}, {
     llmStream: llmStream
-  }));
+  });
+  ValidationService.validateLLMPayload(finalConfig);
+  return xmllm(pipelineFn, finalConfig);
 }
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
@@ -48,15 +51,17 @@ function stream(promptOrConfig) {
   var config = getConfig();
   var streamConfig = {};
   if (typeof promptOrConfig === 'string') {
+    ValidationService.validateLLMPayload(options);
     streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), options), {}, {
-      // Allow overrides
       messages: [{
         role: 'user',
         content: promptOrConfig
       }]
     });
   } else {
-    streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), promptOrConfig), options);
+    var aggConfig = _objectSpread(_objectSpread({}, promptOrConfig), options);
+    ValidationService.validateLLMPayload(aggConfig);
+    streamConfig = _objectSpread(_objectSpread({}, config.defaults), aggConfig);
   }
 
   // Use default clientProvider if none provided - now checking top-level config

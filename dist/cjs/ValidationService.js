@@ -5,6 +5,8 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports["default"] = void 0;
 var _ValidationErrors = require("./errors/ValidationErrors.js");
+var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -112,14 +114,6 @@ var ValidationService = /*#__PURE__*/function () {
           availableProviders: Object.keys(availableModels)
         });
       }
-      if (!availableModels[provider].models[type]) {
-        throw new _ValidationErrors.ModelValidationError('Model type not found for provider', {
-          provider: provider,
-          type: type,
-          index: index,
-          availableTypes: Object.keys(availableModels[provider].models)
-        });
-      }
       return true;
     }
   }, {
@@ -129,28 +123,28 @@ var ValidationService = /*#__PURE__*/function () {
       if (constraints.rpmLimit !== undefined) {
         // First check if it's a number at all
         if (typeof constraints.rpmLimit !== 'number' || Number.isNaN(constraints.rpmLimit)) {
-          throw new _ValidationErrors.ParameterValidationError('rpmLimit must be a whole number', {
+          throw new _ValidationErrors.PayloadValidationError('rpmLimit must be a whole number', {
             rpmLimit: constraints.rpmLimit
           });
         }
 
         // Then check for finite
         if (!Number.isFinite(constraints.rpmLimit)) {
-          throw new _ValidationErrors.ParameterValidationError('rpmLimit must be finite', {
+          throw new _ValidationErrors.PayloadValidationError('rpmLimit must be finite', {
             rpmLimit: constraints.rpmLimit
           });
         }
 
         // Then check for integer
         if (!Number.isInteger(constraints.rpmLimit)) {
-          throw new _ValidationErrors.ParameterValidationError('rpmLimit must be a whole number', {
+          throw new _ValidationErrors.PayloadValidationError('rpmLimit must be a whole number', {
             rpmLimit: constraints.rpmLimit
           });
         }
 
         // Finally check for positive
         if (constraints.rpmLimit <= 0) {
-          throw new _ValidationErrors.ParameterValidationError('rpmLimit must be positive', {
+          throw new _ValidationErrors.PayloadValidationError('rpmLimit must be positive', {
             rpmLimit: constraints.rpmLimit
           });
         }
@@ -158,56 +152,78 @@ var ValidationService = /*#__PURE__*/function () {
       return true;
     }
   }, {
-    key: "validateParameters",
-    value: function validateParameters() {
-      var params = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      var temperature = params.temperature,
-        max_tokens = params.max_tokens,
-        stream = params.stream,
-        cache = params.cache;
+    key: "validateLLMPayload",
+    value: function validateLLMPayload() {
+      var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      var temperature = config.temperature,
+        max_tokens = config.max_tokens,
+        stream = config.stream,
+        cache = config.cache,
+        hints = config.hints,
+        schema = config.schema,
+        strategy = config.strategy,
+        constraints = config.constraints,
+        autoTruncateMessages = config.autoTruncateMessages;
+
+      // Strategy requires schema
+      if (strategy && !schema) {
+        throw new _ValidationErrors.PayloadValidationError('Strategy can only be used with schema-based prompts. For raw prompts, use system/messages directly.', 'STRATEGY_VALIDATION_ERROR', {
+          strategy: strategy
+        });
+      }
+
+      // Hints requires schema
+      if (hints && !schema) {
+        throw new _ValidationErrors.PayloadValidationError('Cannot provide hints without a schema', 'HINT_VALIDATION_ERROR', {
+          hints: hints
+        });
+      }
+
+      // If both provided, validate hints against schema
+      if (hints && schema) {
+        _IncomingXMLParserSelectorEngine["default"].validateHints(schema, hints);
+      }
+
+      // Validate core parameters
       if (temperature !== undefined) {
         if (typeof temperature !== 'number' || temperature < 0 || temperature > 1) {
-          throw new _ValidationErrors.ParameterValidationError('Temperature must be between 0 and 1', {
+          throw new _ValidationErrors.PayloadValidationError('Temperature must be between 0 and 1', {
             temperature: temperature
           });
         }
       }
       if (max_tokens !== undefined) {
         if (!Number.isInteger(max_tokens) || max_tokens <= 0) {
-          throw new _ValidationErrors.ParameterValidationError('max_tokens must be a positive integer', {
+          throw new _ValidationErrors.PayloadValidationError('max_tokens must be a positive integer', {
             max_tokens: max_tokens
           });
         }
       }
       if (stream !== undefined && typeof stream !== 'boolean') {
-        throw new _ValidationErrors.ParameterValidationError('stream must be a boolean', {
+        throw new _ValidationErrors.PayloadValidationError('stream must be a boolean', {
           stream: stream
         });
       }
       if (cache !== undefined && typeof cache !== 'boolean') {
-        throw new _ValidationErrors.ParameterValidationError('cache must be a boolean', {
+        throw new _ValidationErrors.PayloadValidationError('cache must be a boolean', {
           cache: cache
         });
       }
-      if (params.constraints) {
-        this.validateConstraints(params.constraints);
+
+      // Validate constraints if present
+      if (constraints) {
+        this.validateConstraints(constraints);
+      }
+
+      // Validate autoTruncateMessages
+      if (autoTruncateMessages !== undefined) {
+        if (typeof autoTruncateMessages !== 'boolean' && (typeof autoTruncateMessages !== 'number' || autoTruncateMessages <= 0 || !Number.isInteger(autoTruncateMessages))) {
+          throw new _ValidationErrors.PayloadValidationError('autoTruncateMessages must be either boolean or a positive integer', {
+            autoTruncateMessages: autoTruncateMessages
+          });
+        }
       }
       return true;
-    }
-  }, {
-    key: "validateConfig",
-    value: function validateConfig(config) {
-      // ... existing validation ...
-
-      // Hints requires schema
-      if (config.hints && !config.schema) {
-        throw new Error('Cannot provide hints without a schema');
-      }
-
-      // If both provided, validate hints against schema
-      if (config.hints && config.schema) {
-        IncomingXMLParserSelectorEngine.validateHints(config.schema, config.hints);
-      }
     }
   }]);
 }();

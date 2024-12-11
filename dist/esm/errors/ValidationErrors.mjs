@@ -51,15 +51,15 @@ var ModelValidationError = /*#__PURE__*/function (_ValidationError2) {
   _inherits(ModelValidationError, _ValidationError2);
   return _createClass(ModelValidationError);
 }(ValidationError);
-var ParameterValidationError = /*#__PURE__*/function (_ValidationError3) {
-  function ParameterValidationError(message, details) {
+var PayloadValidationError = /*#__PURE__*/function (_ValidationError3) {
+  function PayloadValidationError(message, details) {
     var _this4;
-    _classCallCheck(this, ParameterValidationError);
-    _this4 = _callSuper(this, ParameterValidationError, [message, 'PARAMETER_VALIDATION_ERROR', details]);
-    _this4.name = 'ParameterValidationError';
+    _classCallCheck(this, PayloadValidationError);
+    _this4 = _callSuper(this, PayloadValidationError, [message, 'PAYLOAD_VALIDATION_ERROR', details]);
+    _this4.name = 'PayloadValidationError';
     return _this4;
   }
-  _inherits(ParameterValidationError, _ValidationError3);
-  return _createClass(ParameterValidationError);
+  _inherits(PayloadValidationError, _ValidationError3);
+  return _createClass(PayloadValidationError);
 }(ValidationError);
-export { ValidationError, MessageValidationError, ModelValidationError, ParameterValidationError };
+export { ValidationError, MessageValidationError, ModelValidationError, PayloadValidationError };

@@ -4,7 +4,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.ValidationError = exports.ParameterValidationError = exports.ModelValidationError = exports.MessageValidationError = void 0;
+exports.ValidationError = exports.PayloadValidationError = exports.ModelValidationError = exports.MessageValidationError = void 0;
 function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
@@ -57,14 +57,14 @@ var ModelValidationError = exports.ModelValidationError = /*#__PURE__*/function 
   _inherits(ModelValidationError, _ValidationError2);
   return _createClass(ModelValidationError);
 }(ValidationError);
-var ParameterValidationError = exports.ParameterValidationError = /*#__PURE__*/function (_ValidationError3) {
-  function ParameterValidationError(message, details) {
+var PayloadValidationError = exports.PayloadValidationError = /*#__PURE__*/function (_ValidationError3) {
+  function PayloadValidationError(message, details) {
     var _this4;
-    _classCallCheck(this, ParameterValidationError);
-    _this4 = _callSuper(this, ParameterValidationError, [message, 'PARAMETER_VALIDATION_ERROR', details]);
-    _this4.name = 'ParameterValidationError';
+    _classCallCheck(this, PayloadValidationError);
+    _this4 = _callSuper(this, PayloadValidationError, [message, 'PAYLOAD_VALIDATION_ERROR', details]);
+    _this4.name = 'PayloadValidationError';
     return _this4;
   }
-  _inherits(ParameterValidationError, _ValidationError3);
-  return _createClass(ParameterValidationError);
+  _inherits(PayloadValidationError, _ValidationError3);
+  return _createClass(PayloadValidationError);
 }(ValidationError);
