@@ -200,7 +200,8 @@ describe('Logging Configuration', () => {
           content: 'Test prompt'
         }],
         model: 'claude:fast',
-        temperature: 0.7
+        temperature: 0.7,
+        system: 'BE FRIENDLY'
       };
 
       await clientStream(testPayload, {
@@ -219,17 +220,17 @@ describe('Logging Configuration', () => {
         {
           cache: undefined,
           fakeDelay: undefined,
-          max_tokens: 4000,
-          messages: [
+          max_tokens: 300,
+          messages: expect.arrayContaining([
             {
-              content: '',
+              content: expect.stringContaining('BE FRIENDLY'),
               role: 'system'
             },
             {
-              content: 'Test prompt',
+              content: expect.stringContaining('Test prompt'),
               role: 'user'
             }
-          ],
+          ]),
           model: 'claude:fast',
           presence_penalty: 0,
           stop: undefined,

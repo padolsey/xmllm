@@ -48,17 +48,13 @@ describe('Client Stream Interface', () => {
 
       const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(payload).toMatchObject({
-        messages: [
-          {
-            role: 'system',
-            content: ''
-          },
+        messages: expect.arrayContaining([
           {
             role: 'user',
             content: 'Test query'
           }
-        ],
-        max_tokens: 4000,
+        ]),
+        max_tokens: 300,
         temperature: 0.72,
         top_p: 1,
         presence_penalty: 0,
@@ -80,27 +76,28 @@ describe('Client Stream Interface', () => {
 
     it('should handle config object with prompt', async () => {
       await stream({
-        prompt: 'Test query',
-        temperature: 0.8
+        prompt: 'Test query 666555',
+        temperature: 0.8,
+        system: 'BE FRIENDLY'
       }, {
         clientProvider
       }).last();
 
       const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
-      console.log('p>>>>', payload)
+
       expect(payload).toMatchObject({
-        messages: [
+        messages: expect.arrayContaining([
           {
             role: 'system',
-            content: ''
+            content: expect.stringContaining('BE FRIENDLY')
           },
           {
             role: 'user',
-            content: 'Test query'
+            content: expect.stringContaining('Test query 666555')
           }
-        ],
+        ]),
         temperature: 0.8,
-        max_tokens: 4000,
+        max_tokens: 300,
         model: 'claude:good'
       });
     });
@@ -131,7 +128,7 @@ describe('Client Stream Interface', () => {
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant'
+            content: expect.stringContaining('You are a helpful assistant')
           },
           {
             role: 'user',
@@ -143,10 +140,10 @@ describe('Client Stream Interface', () => {
           },
           {
             role: 'user',
-            content: 'Test query'
+            content: expect.stringContaining('Test query')
           }
         ],
-        max_tokens: 4000,
+        max_tokens: 300,
         temperature: 0.72,
         model: 'claude:good'
       });
@@ -208,14 +205,14 @@ describe('Client Stream Interface', () => {
         messages: [
           {
             role: 'system',
-            content: 'You are a test assistant'
+            content: expect.stringContaining('You are a test assistant')
           },
           {
             role: 'user',
-            content: 'Test query'
+            content: expect.stringContaining('Test query')
           }
         ],
-        max_tokens: 4000,
+        max_tokens: 300,
         temperature: 0.72,
         model: 'claude:good'
       });

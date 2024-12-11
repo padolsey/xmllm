@@ -113,6 +113,34 @@ const providers = {
     },
     payloader: standardPayloader
   },
+  openrouter: {
+    constraints: {
+      rpmLimit: 100
+    },
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    key: process.env.OPENROUTER_API_KEY,
+    models: {
+      superfast: {
+        name: 'mistralai/ministral-3b',
+        maxContextSize: 128000
+      },
+      fast: {
+        name: 'mistralai/ministral-8b',
+        maxContextSize: 128000
+      },
+      good: {
+        name: 'mistralai/mistral-large-2411',
+        maxContextSize: 128000
+      }
+    },
+    headerGen() {
+      return {
+        Authorization: `Bearer ${this.key}`,
+        'Content-Type': 'application/json'
+      };
+    },
+    payloader: standardPayloader
+  },
   togetherai: {
     constraints: {
       rpmLimit: 100
@@ -165,6 +193,9 @@ export function createProvidersWithKeys(keys = {}) {
   }
   if (keys.OPENAI_API_KEY) {
     newProviders.openai.key = keys.OPENAI_API_KEY;
+  }
+  if (keys.OPENROUTER_API_KEY) {
+    newProviders.openrouter.key = keys.OPENROUTER_API_KEY;
   }
   if (keys.TOGETHER_API_KEY) {
     newProviders.togetherai.key = keys.TOGETHER_API_KEY;

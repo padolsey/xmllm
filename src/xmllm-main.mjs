@@ -4,6 +4,7 @@ import { createProvidersWithKeys } from './PROVIDERS.mjs';
 import ProviderManager from './ProviderManager.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { configure, getConfig } from './config.mjs';
+import ValidationService from './ValidationService.mjs';
 
 function xmllm(pipelineFn, options = {}) {
   let providerManager;
@@ -12,6 +13,8 @@ function xmllm(pipelineFn, options = {}) {
     const providers = createProvidersWithKeys(options.apiKeys);
     providerManager = new ProviderManager(providers);
   }
+
+  ValidationService.validateLLMPayload(options);
 
   return xmllmCore(pipelineFn, { 
     ...options, 
@@ -27,16 +30,26 @@ export function stream(promptOrConfig, options = {}) {
   const globalConfig = getConfig();
   
   if (typeof promptOrConfig === 'string') {
+
+    ValidationService.validateLLMPayload(options);
+
     config = {
       ...globalConfig.defaults,
       prompt: promptOrConfig,
       ...options
     };
   } else {
-    config = {
-      ...globalConfig.defaults,
+
+    const aggConfig = {
       ...promptOrConfig,
       ...options
+    };
+
+    ValidationService.validateLLMPayload(aggConfig);
+
+    config = {
+      ...globalConfig.defaults,
+      ...aggConfig
     };
   }
 
@@ -47,6 +60,7 @@ export function stream(promptOrConfig, options = {}) {
     system, 
     mode = 'state_open',  // Default to state mode
     onChunk, 
+    strategy,
     ...restOptions 
   } = config;
 
@@ -91,12 +105,14 @@ export function stream(promptOrConfig, options = {}) {
       content: prompt
     });
   }
+
   return new ChainableStreamInterface([
     ['req', {
       messages: _messages,
       system,
       schema,
       onChunk,
+      strategy,
       ...modeParams,
       ...restOptions
     }]

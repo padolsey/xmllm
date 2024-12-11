@@ -1,8 +1,9 @@
 import {
   MessageValidationError,
   ModelValidationError,
-  ParameterValidationError
+  PayloadValidationError
 } from './errors/ValidationErrors.mjs';
+import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 
 class ValidationService {
   static validateMessages(messages) {
@@ -92,13 +93,6 @@ class ValidationService {
       );
     }
 
-    if (!availableModels[provider].models[type]) {
-      throw new ModelValidationError(
-        'Model type not found for provider',
-        { provider, type, index, availableTypes: Object.keys(availableModels[provider].models) }
-      );
-    }
-
     return true;
   }
 
@@ -108,7 +102,7 @@ class ValidationService {
     if (constraints.rpmLimit !== undefined) {
       // First check if it's a number at all
       if (typeof constraints.rpmLimit !== 'number' || Number.isNaN(constraints.rpmLimit)) {
-        throw new ParameterValidationError(
+        throw new PayloadValidationError(
           'rpmLimit must be a whole number',
           { rpmLimit: constraints.rpmLimit }
         );
@@ -116,7 +110,7 @@ class ValidationService {
 
       // Then check for finite
       if (!Number.isFinite(constraints.rpmLimit)) {
-        throw new ParameterValidationError(
+        throw new PayloadValidationError(
           'rpmLimit must be finite',
           { rpmLimit: constraints.rpmLimit }
         );
@@ -124,7 +118,7 @@ class ValidationService {
 
       // Then check for integer
       if (!Number.isInteger(constraints.rpmLimit)) {
-        throw new ParameterValidationError(
+        throw new PayloadValidationError(
           'rpmLimit must be a whole number',
           { rpmLimit: constraints.rpmLimit }
         );
@@ -132,7 +126,7 @@ class ValidationService {
 
       // Finally check for positive
       if (constraints.rpmLimit <= 0) {
-        throw new ParameterValidationError(
+        throw new PayloadValidationError(
           'rpmLimit must be positive',
           { rpmLimit: constraints.rpmLimit }
         );
@@ -143,19 +137,46 @@ class ValidationService {
     return true;
   }
 
-  static validateParameters(params = {}) {
+  static validateLLMPayload(config = {}) {
     const {
       temperature,
       max_tokens,
       stream,
-      cache
-    } = params;
+      cache,
+      hints,
+      schema,
+      strategy,
+      constraints,
+      autoTruncateMessages
+    } = config;
 
+    // Strategy requires schema
+    if (strategy && !schema) {
+      throw new PayloadValidationError(
+        'Strategy can only be used with schema-based prompts. For raw prompts, use system/messages directly.',
+        'STRATEGY_VALIDATION_ERROR',
+        { strategy }
+      );
+    }
+
+    // Hints requires schema
+    if (hints && !schema) {
+      throw new PayloadValidationError(
+        'Cannot provide hints without a schema',
+        'HINT_VALIDATION_ERROR',
+        { hints }
+      );
+    }
+
+    // If both provided, validate hints against schema
+    if (hints && schema) {
+      IncomingXMLParserSelectorEngine.validateHints(schema, hints);
+    }
+
+    // Validate core parameters
     if (temperature !== undefined) {
-      if (typeof temperature !== 'number' || 
-          temperature < 0 || 
-          temperature > 1) {
-        throw new ParameterValidationError(
+      if (typeof temperature !== 'number' || temperature < 0 || temperature > 1) {
+        throw new PayloadValidationError(
           'Temperature must be between 0 and 1',
           { temperature }
         );
@@ -164,7 +185,7 @@ class ValidationService {
 
     if (max_tokens !== undefined) {
       if (!Number.isInteger(max_tokens) || max_tokens <= 0) {
-        throw new ParameterValidationError(
+        throw new PayloadValidationError(
           'max_tokens must be a positive integer',
           { max_tokens }
         );
@@ -172,38 +193,38 @@ class ValidationService {
     }
 
     if (stream !== undefined && typeof stream !== 'boolean') {
-      throw new ParameterValidationError(
+      throw new PayloadValidationError(
         'stream must be a boolean',
         { stream }
       );
     }
 
     if (cache !== undefined && typeof cache !== 'boolean') {
-      throw new ParameterValidationError(
+      throw new PayloadValidationError(
         'cache must be a boolean',
         { cache }
       );
     }
 
-    if (params.constraints) {
-      this.validateConstraints(params.constraints);
+    // Validate constraints if present
+    if (constraints) {
+      this.validateConstraints(constraints);
+    }
+
+    // Validate autoTruncateMessages
+    if (autoTruncateMessages !== undefined) {
+      if (typeof autoTruncateMessages !== 'boolean' && 
+          (typeof autoTruncateMessages !== 'number' || 
+           autoTruncateMessages <= 0 || 
+           !Number.isInteger(autoTruncateMessages))) {
+        throw new PayloadValidationError(
+          'autoTruncateMessages must be either boolean or a positive integer',
+          { autoTruncateMessages }
+        );
+      }
     }
 
     return true;
-  }
-
-  static validateConfig(config) {
-    // ... existing validation ...
-
-    // Hints requires schema
-    if (config.hints && !config.schema) {
-      throw new Error('Cannot provide hints without a schema');
-    }
-
-    // If both provided, validate hints against schema
-    if (config.hints && config.schema) {
-      IncomingXMLParserSelectorEngine.validateHints(config.schema, config.hints);
-    }
   }
 }
 

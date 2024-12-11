@@ -410,15 +410,15 @@ expectError<ClientConfigureOptions>({
 // Test custom prompt generators
 const withCustomPromptGenerators: SchemaStreamConfig = {
   prompt: "What is 2+2?",
-  generateSystemPrompt: (system) => `Custom system: ${system || ''}`,
-  generateUserPrompt: (scaffold, prompt) => `Custom user: ${prompt}`
+  genSystemPrompt: (system) => `Custom system: ${system || ''}`,
+  genUserPrompt: (scaffold, prompt) => `Custom user: ${prompt}`
 };
 expectType<SchemaStreamConfig>(withCustomPromptGenerators);
 
-// Test that generateUserPrompt can return Message[]
+// Test that genUserPrompt can return Message[]
 const withMessageGenerator: SchemaStreamConfig = {
   prompt: "What is 2+2?",
-  generateUserPrompt: (scaffold, prompt, sudo) => [{
+  genUserPrompt: (scaffold, prompt) => [{
     role: 'user',
     content: prompt
   }]
@@ -427,11 +427,11 @@ expectType<SchemaStreamConfig>(withMessageGenerator);
 
 // Test invalid prompt generators
 expectError<SchemaStreamConfig>({
-  generateSystemPrompt: "not a function"  // Should be a function
+  genSystemPrompt: "not a function"  // Should be a function
 });
 
 expectError<SchemaStreamConfig>({
-  generateUserPrompt: () => 42  // Should return string or Message[]
+  genUserPrompt: () => 42  // Should return string or Message[]
 });
 
 // Test that onChunk can be passed in defaults

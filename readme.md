@@ -30,43 +30,45 @@ In addition to OpenAI and Anthropic models, xmllm has impressive schema complian
 Here's an example:
 
 ```javascript
-const analysis = await stream(
+import { simple } from 'xmllm';
+
+const analysis = await simple(
   `
     How many Rs are in the word strawberry?
     Count the letters prior to your answer.
-    And add in some philosophical stuff too.
   `,
   {
-    schema: {
-      approach: 'the approach you will use',
-      letter: ['each letter'],
-      philosophical_arguments_on_strawberry_math: {
-        argument: [{
-          $text: 'the argument',
-          $lang: 'the language of the argument'
-        }]
-      },
-      final_answer: String
-    }
+    approach: 'the approach you will use for counting',
+    letter: [{
+      character: String,
+      is_r_letter: Boolean
+    }],
+    final_answer: String
+  },
+  {
+    model: 'openrouter:mistralai/ministral-3b',
+    max_tokens: 1000
   }
-).value();
+);
 ```
 
 The LLM responds naturally with XML:
 ```xml
-<approach>To solve this problem, I will first count the number of 'R' letters 
-in the word 'strawberry'. Then, I will provide some abstract and philosophical
-reflections...</approach>
-<letter>s</letter>
-<letter>t</letter>
-<letter>r</letter>
+<approach>To solve this problem, I will count the number of R/r letters 
+in the word 'strawberry'.</approach>
+<letter>
+  <character>s</character>
+  <is_r_letter>false</is_r_letter>
+</letter>
+<letter>
+  <character>t</character>
+  <is_r_letter>false</is_r_letter>
+</letter>
+<letter>
+  <character>r</character>
+  <is_r_letter>true</is_r_letter>
+</letter>
 <!-- ... more letters ... -->
-<philosophical_arguments_on_strawberry_math>
-  <argument lang="Existential">
-    The letters that make up the word 'strawberry' are more than just symbols...
-  </argument>
-  <!-- more arguments... -->
-</philosophical_arguments_on_strawberry_math>
 <final_answer>There are 3 Rs in the word 'strawberry'.</final_answer>
 ```
 
@@ -74,22 +76,19 @@ Which transforms into structured data:
 ```javascript
 {
   approach: "To solve this problem, I will first count...",
-  letter: ["s", "t", "r", "a", "w", "b", "e", "r", "r", "y"],
-  philosophical_arguments_on_strawberry_math: {
-    argument: [{
-      text: "The letters that make up the word 'strawberry'...",
-      lang: "Existential"
-    },
-    // more arguments...
-    ]
-  },
+  letter: [
+    {"character": "s", "is_r_letter": false},
+    {"character": "t", "is_r_letter": false},
+    {"character": "r", "is_r_letter": true},
+    //....
+  ],
   final_answer: "There are 3 Rs in the word 'strawberry'."
 }
 ```
 
 ## ➠ [Model Compliance Dashboard](https://xmllm.j11y.io/model-testing)
 
-View the [Model Compliance Matrix](https://xmllm.j11y.io/model-testing) to see how well xmllm works with different models. It includes toggles for sudo-prompting (`sudoPrompt:true`) and hinting, both of which can be used to improve compliance.
+View the [Model Compliance Matrix](https://xmllm.j11y.io/model-testing) to see how well xmllm works with different models and prompting strategies.
 
 ![Model Compliance](https://j11y.io/public_images/xmllm2.png)
 
@@ -97,11 +96,11 @@ View the [Model Compliance Matrix](https://xmllm.j11y.io/model-testing) to see h
 
 TLDR: `Schema-guided prompt`→`Stream XML`→`HTML parser`→`Data`
 
-Under the hood, xmllm uses a specialized system prompt and a seeded-user prompt ([see prompts.mjs](./src/prompts.mjs)) that tells the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, from Claude Haiku to Qwen2.5-7B. Once the stream starts coming in, xmllm uses a streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
+Under the hood, xmllm uses a different prompting strategies, pairing custom system prompts and custom user/assistant pairings. ([See strategies.mjs](./src/strategies.mjs)). These prompts tell the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, including low param models like Ministral-3B and Qwen2.5-7B. Once the stream starts coming in, xmllm uses a lenient streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
 
 ## Resilience & Errors:
 
-LLMs are unquestionably _very_ liberal in what output they give you, despite our best efforts to constrain. Therefore xmllm follows the latter of Postel's Law: "Be liberal in what you accept". Whatever data exists in the shape specified by your schema will be given to you, and it is up to you what to do with it.
+LLMs are usually quite flakey and unstructured in what output they give you, despite our best efforts to constrain. Therefore xmllm follows the latter of Postel's Law: "Be liberal in what you accept". The HTML parser will be flexible in what it accepts and so even if the XML is messy or non-contiguous, xmllm will still give you back what it finds.
 
 ## Quick Start
 
@@ -249,20 +248,19 @@ xmllm supports multiple AI providers. You'll need at least one:
 
 | Provider | Key | Models such as... |
 |----------|-----|-----------|
-| Claude | `ANTHROPIC_API_KEY` | Sonnet, Haiku, Opus |
-| OpenAI | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini |
-| Together.ai | `TOGETHERAI_API_KEY` | Qwen, Mistral, Llama, etc. |
-| Perplexity | `PERPLEXITYAI_API_KEY` | Llama, Mistral, etc. |
+| Anthropic (`anthropic`/`claude`) | `ANTHROPIC_API_KEY` | Claude Sonnet, Haiku, Opus |
+| OpenAI (`openai`) | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini |
+| Together.ai (`togetherai`) | `TOGETHERAI_API_KEY` | Qwen, Mistral, Llama, etc. |
+| Perplexity (`perplexityai`) | `PERPLEXITYAI_API_KEY` | Llama, Mistral, etc. |
+| OpenRouter (`openrouter`) | `OPENROUTER_API_KEY` | Everything! |
 
 See many more details in the [Provider Setup](./docs/providers.md) guide.
 
 ```javascript
 // Configure at runtime or in an `.env` file
-stream('Query', {
-  apiKeys: {
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY
-  },
-  model: 'claude:fast'  // Use Claude's fast model
+stream('My prompt goes here', {
+  apiKeys: { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY },
+  model: 'openrouter:mistralai/ministral-3b'
 })
 ```
 
@@ -290,6 +288,7 @@ xmllm provides a lower-level pipeline API for complex scenarios where you might 
 Contrived example:
 
 ```javascript
+import { xmllm } from 'xmllm';
 
 let results = {};
 
@@ -301,8 +300,6 @@ const analysis = xmllm(({ prompt, promptClosed }) => [
       name: String,
       field: String
     }
-  }, {
-    model: DEFAULT_MODEL
   }),
 
   // Then we get a discovery in a distinct LLM inference
@@ -318,8 +315,7 @@ const analysis = xmllm(({ prompt, promptClosed }) => [
           year: Number,
           description: String
         }
-      },
-      model: DEFAULT_MODEL
+      }
     };
   }),
 
@@ -329,7 +325,7 @@ const analysis = xmllm(({ prompt, promptClosed }) => [
     results.discovery = discovery;
     return results;
   }
-], clientProvider);
+]);
 
 await analysis.last();
 // {

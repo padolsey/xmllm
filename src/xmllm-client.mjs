@@ -2,6 +2,7 @@ import {xmllm} from './xmllm.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
 import { getConfig, configure } from './config.mjs';
+import ValidationService from './ValidationService.mjs';
 
 function clientLlmStream(clientProvider) {
   const provider = typeof clientProvider === 'string' 
@@ -17,7 +18,9 @@ function xmllmClient(pipelineFn, options = {}) {
   const llmStream = clientLlmStream(
     options.clientProvider || getConfig().clientProvider
   );
-  return xmllm(pipelineFn, { ...options, llmStream });
+  const finalConfig = { ...options, llmStream };
+  ValidationService.validateLLMPayload(finalConfig);
+  return xmllm(pipelineFn, finalConfig);
 }
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
@@ -26,19 +29,27 @@ function stream(promptOrConfig, options = {}) {
   let streamConfig = {};
   
   if (typeof promptOrConfig === 'string') {
+    ValidationService.validateLLMPayload(options);
+
     streamConfig = {
-      ...config.defaults,  // Apply defaults first
-      ...options,  // Allow overrides
+      ...config.defaults,
+      ...options,
       messages: [{
         role: 'user',
         content: promptOrConfig
       }],
     };
   } else {
+    const aggConfig = {
+      ...promptOrConfig,
+      ...options
+    };
+
+    ValidationService.validateLLMPayload(aggConfig);
+
     streamConfig = {
-      ...config.defaults,  // Apply defaults first
-      ...promptOrConfig,  // Config object overrides defaults
-      ...options  // Explicit options override everything
+      ...config.defaults,
+      ...aggConfig
     };
   }
 

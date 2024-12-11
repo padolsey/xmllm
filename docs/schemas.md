@@ -51,16 +51,31 @@ The schema structure directly mirrors the XML you want. Each property name becom
 
 ### Basic Type Conversion (String / Number)
 
-The simplest schemas use `String` and `Number` to transform text content:
+The simplest schemas use `String`, `Number`, and `Boolean` to transform text content:
 
 ```javascript
 const schema = {
   title: String,  // Uses String constructor
-  count: Number   // Uses parseFloat for robust number parsing
+  count: Number,  // Uses parseFloat for robust number parsing
+  active: Boolean // Special handling for truthy/falsy values
 }
 ```
 
-`Number` uses `parseFloat` under the hood, which handles scientific notation, trailing units, and whitespace. See [parseFloat on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat) for details.
+IMPORTANT: `Number` uses `parseFloat` under the hood, which handles scientific notation, trailing units, and whitespace. See [parseFloat on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat) for details.
+
+IMPORTANT: `Boolean` treats the following as false:
+- Empty or whitespace-only content
+- The strings "false", "no", or "null" (case insensitive)
+- Numeric zero (0, 0.00, etc)
+
+Otherwise the value is deemed true. If you don't like this behavior, you can use your own function (custom "transformer" as we call it):
+
+```javascript
+// Custom boolean transformer example:
+const schema = {
+  enabled: ({ $text }) => $text.trim().toLowerCase() === 'true'  // Only 'true' is true
+}
+```
 
 ## Array Structure
 
@@ -69,7 +84,10 @@ The most important pattern in xmllm schemas is how repeated elements are handled
 ```javascript
 // ❌ Incorrect - seems intuitive but won't work reliably
 const badSchema = {
+  // Attempt to ask for an array of tags:
   tags: [String],   // Don't do this
+
+  // Attempt to ask for an array of comment objects:
   comments: [{      // Don't do this either
     author: String,
     text: String
@@ -229,9 +247,11 @@ const result = await stream('Analyze security issues', {
   schema: {
     analysis: {
       severity: String,
+      enabled: Boolean,
       findings: {
         finding: [{
           $impact: Number,
+          $active: Boolean,
           $text: String
         }]
       }
@@ -240,9 +260,11 @@ const result = await stream('Analyze security issues', {
   hints: {
     analysis: {
       severity: "Must be 'High', 'Medium', or 'Low'",
+      enabled: "true/false indicating if analysis is active",
       findings: {
         finding: [{
           $impact: "Impact score from 1-10",
+          $active: "true/false - is this finding still relevant",
           $text: "Detailed description of the security issue"
         }]
       }
@@ -258,11 +280,12 @@ The hints create a template that guides the AI. For the above schema, the AI see
 ```xml
 <analysis>
   <severity>Must be 'High', 'Medium', or 'Low'</severity>
+  <enabled>true/false indicating if analysis is active</enabled>
   <findings>
-    <finding impact="Impact score from 1-10">
+    <finding impact="Impact score from 1-10" active="true/false - is this finding still relevant">
       Detailed description of the security issue
     </finding>
-    <finding impact="Impact score from 1-10">
+    <finding impact="Impact score from 1-10" active="true/false - is this finding still relevant">
       Detailed description of the security issue
     </finding>
     /*etc.*/

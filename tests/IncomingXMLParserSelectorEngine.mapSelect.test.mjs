@@ -421,11 +421,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
 
     const expectedXML = `
-  <person id="...">
-    <name>...text content...</name>
-    <age>...text content...</age>
-    <address type="...">
-      ...text content...
+  <person id="{Number}">
+    <name>{String}</name>
+    <age>{Number}</age>
+    <address type="{String}">
+      {String}
     </address>
   </person>
     `.trim().replace(/\s+/g, '');
@@ -441,7 +441,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
           topic: String
         })
         .replace(/\s+/g, '')
-    ).toBe('<topic>...textcontent...</topic>');
+    ).toBe('<topic>{String}</topic>');
 
   });
 
@@ -465,18 +465,18 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
     const expectedXML = `
   <book>
-    <title>...text content...</title>
-    <author>...text content...</author>
+    <title>...</title>
+    <author>{String}</author>
     <reviews>
-      <review>...text content...</review>
-      <review>...text content...</review>
+      <review>{String}</review>
+      <review>{String}</review>
       /*etc.*/
     </reviews>
     <isbn>
-      <number>...text content...</number>
+      <number>...</number>
     </isbn>
     <isbn>
-      <number>...text content...</number>
+      <number>...</number>
     </isbn>
     /*etc.*/
   </book>
@@ -512,25 +512,25 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
 
     const expectedXML = `
-  <book id="...">
-    <title lang="...">
-      ...text content...
+  <book id="{Number}">
+    <title lang="{String}">
+      {String}
     </title>
-    <author>...text content...</author>
+    <author>{String}</author>
     <reviews>
-      <review rating="...">
-        ...text content...
+      <review rating="{Number}">
+        {String}
       </review>
-      <review rating="...">
-        ...text content...
+      <review rating="{Number}">
+        {String}
       </review>
       /*etc.*/
     </reviews>
-    <isbn type="...">
-      ...text content...
+    <isbn type="{String}">
+      ...
     </isbn>
-    <isbn type="...">
-      ...text content...
+    <isbn type="{String}">
+      ...
     </isbn>
     /*etc.*/
   </book>
@@ -693,7 +693,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     expect(normalized).toContain(`<name>The person's full name</name>`);
-    expect(normalized).toContain(`<age>...text content...</age>`);
+    expect(normalized).toContain(`<age>{Number}</age>`);
     expect(normalized).toContain(`<occupation>The person's current job title</occupation>`);
     expect(normalized).toContain(`<hobby> A hobby </hobby>`);
   });
@@ -717,7 +717,6 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       user: {
         emails: {
           email: [({$text: email}) => {
-            console.log('>>>>email', email);
             return email.toUpperCase();
           }]
         },

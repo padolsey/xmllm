@@ -10,11 +10,12 @@ const DEFAULT_CONFIG = {
   clientProvider: null,
   defaults: {
     temperature: 0.72,
-    maxTokens: 4000,
+    maxTokens: 300,
     presencePenalty: 0,
     topP: 1,
     mode: 'state_open',
     model: 'claude:good',
+    strategy: 'default',
     modelFallbacks: [
       'claude:good',
       'openai:good',

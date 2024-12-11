@@ -33,6 +33,7 @@ interface XmlLmOptions {
     OPENAI_API_KEY?: string;
     TOGETHERAI_API_KEY?: string;
     PERPLEXITYAI_API_KEY?: string;
+    OPENROUTER_API_KEY?: string;
   };
 }
 ```
@@ -249,6 +250,7 @@ interface StreamConfig {
   temperature?: number;              // Temperature (0-2)
   maxTokens?: number;                // Max tokens
   cache?: boolean;                   // Enable caching
+  autoTruncateMessages?: boolean | number; // Token limit control for message
   errorMessages?: {                  // Custom error messages
     genericFailure?: string;         // Default error message
     rateLimitExceeded?: string;      // Rate limit error message
@@ -265,11 +267,10 @@ interface StreamConfig {
   schema?: SchemaType;               // Transform schema
   hints?: HintType;                  // Schema hints
   system?: string;                   // System prompt
-  sudoPrompt?: boolean;              // Use sudoPrompt conversation flow
   mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
   onChunk?: (chunk: string) => void; // Chunk callback
   generateSystemPrompt?: (system?: string) => string;  // Custom system prompt generator
-  generateUserPrompt?: (scaffold: string, prompt: string, sudoPrompt?: boolean) => string | Message[];
+  generateUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
 }
 ```
 
@@ -846,3 +847,116 @@ Available error message types:
 - `serviceUnavailable`: Service temporarily unavailable
 - `networkError`: Network connection issues
 - `unexpectedError`: Unexpected errors 
+
+## Token Management
+
+The `autoTruncateMessages` parameter controls how message history is managed when the total token count exceeds the model's context size or a specified limit.
+
+```typescript
+// Use model's maxContextSize
+stream('Query', {
+  autoTruncateMessages: true
+});
+
+// Specify exact token limit
+stream('Query', {
+  autoTruncateMessages: 4000  // Truncate at 4000 tokens
+});
+```
+
+### Truncation Logic:
+
+When `autoTruncateMessages` is enabled, the library ensures that the input messages fit within the allowed token limit by proportionally truncating historical messages while preserving critical context.
+
+**Key Points:**
+
+- **System Message Preservation:**
+  - The system message (`system`) is always included and is not truncated.
+- **Latest User Message Preservation:**
+  - The latest user message is always included and is not truncated.
+- **Historical Messages Handling:**
+  - If the total tokens of historical messages exceed the available token budget (after accounting for the system message, latest user message, and expected response tokens), the following steps are taken:
+    - **Proportional Truncation:**
+      - Each historical message is truncated proportionally based on its original token count relative to the total historical tokens.
+      - This approach aims to retain as much meaningful content from each message as possible.
+    - **Minimum Token Retention:**
+      - Each message retains at least one token to avoid empty messages.
+    - **Truncation Indicator:**
+      - Truncated messages include a separator (e.g., `'[...]'`) to indicate where content has been omitted.
+- **Error Handling:**
+  - If the combined tokens of the system message, latest user message, and expected response tokens exceed the token limit, an error is thrown.
+    - This ensures that essential components are always present for the model to generate a meaningful response.
+
+### Example of Truncation:
+
+Suppose you have a conversation history that exceeds the token limit. Note that actual token counts will vary depending on the strategy used (default, minimal, structured, etc.) as each strategy adds different system prompts and message structures.
+
+Example with default strategy:
+- **System message:** ~500-800 tokens (varies by strategy)
+- **Latest user message:** 100 tokens
+- **Historical messages:** 3000 tokens (across several messages)
+- **Desired response tokens:** 500 tokens
+- **Token limit (`autoTruncateMessages`):** 4000 tokens
+
+**Calculation:**
+
+1. **Minimum required tokens:**
+   - System message: ~500-800 tokens (strategy-dependent)
+   - Latest user message: 100 tokens
+   - Expected response: 500 tokens
+   - **Total minimum required:** Variable, but approximately 1100-1400 tokens
+
+2. **Available tokens for historical messages:**
+   - Total token limit: 4000 tokens
+   - Available for history: 4000 (limit) - minimum required
+   - Example: 4000 - 1400 = **2600 tokens** with default strategy
+   - Note: Available tokens will be higher with minimal strategy, lower with more verbose strategies
+
+3. **Truncation Process:**
+   - Total tokens in historical messages: 3000 tokens
+   - Since 3000 > available tokens, truncation is needed
+   - **Ratio calculation:**
+     - Ratio = Available tokens / Total historical tokens
+     - Example: 2600 / 3000 ≈ 0.87 with default strategy
+   - **Proportional truncation:**
+     - Each historical message is truncated proportionally based on this ratio
+
+### Notes:
+
+- **Flexibility:**
+  - By adjusting the `autoTruncateMessages` value, you can control how much of the conversation history to retain.
+- **Preservation of Context:**
+  - The proportional truncation aims to preserve essential context across all historical messages rather than removing entire messages.
+- **Customization:**
+  - If you need custom truncation logic, you can preprocess your messages before passing them to the `stream` function.
+- **Approximate Token Estimation:**
+  - Token counts are estimated using heuristics. Actual tokenization by the model may vary slightly.
+
+### Usage Considerations:
+
+- **Setting `max_tokens`:**
+  - Ensure that your `max_tokens` (for the response) is set appropriately relative to the `autoTruncateMessages` limit.
+- **Understanding Token Limits:**
+  - Be aware that if the system message, latest user message, and expected response tokens exceed the `autoTruncateMessages` limit, an error will be thrown.
+
+### Example Code:
+
+```javascript
+const conversationHistory = [
+  { role: 'user', content: 'Hello, how are you today?' },
+  { role: 'assistant', content: 'I am good, thank you! How can I assist you?' },
+  // ... more messages ...
+];
+// Example with automatic truncation to fit model's context size
+const responseStream = stream('Tell me about our previous discussions.', {
+  messages: conversationHistory,
+  autoTruncateMessages: true,
+  max_tokens: 500
+});
+// Example with custom token limit
+const responseStream = stream('Provide a summary of our conversation.', {
+  messages: conversationHistory,
+  autoTruncateMessages: 3000,
+  max_tokens: 500
+});
+```

@@ -29,14 +29,77 @@ const result = await stream('What is 2+2?', {
 
 ## Supported Providers & Models
 
-Current model mappings (as of 2024):
+You can specify models in three formats:
 
-| Provider | Models | Context Size | Notes |
-|----------|---------|-------------|-------|
-| Claude (Anthropic) | `claude:superfast` (claude-3-haiku)<br>`claude:fast` (claude-3-haiku)<br>`claude:good` (claude-3-sonnet) | 100k tokens | Best for structured responses |
-| OpenAI | `openai:superfast` (gpt-4o-mini)<br>`openai:fast` (gpt-4o-mini)<br>`openai:good` (gpt-4o) | 128k tokens | Good all-around performance |
-| Together.ai | `togetherai:superfast` (Qwen 7B)<br>`togetherai:fast` (Qwen 7B)<br>`togetherai:good` (Qwen 72B) | Varies | Cost-effective alternative |
-| Perplexity | `perplexityai:superfast` (sonar-small)<br>`perplexityai:fast` (sonar-small)<br>`perplexityai:good` (sonar-large) | 128k tokens | Newer provider |
+1. Using predefined aliases:
+   ```javascript
+   stream('Query', {
+     model: 'claude:fast'  // Uses claude-3-haiku
+   })
+   ```
+
+2. Using specific model names:
+   ```javascript
+   stream('Query', {
+     model: 'openrouter:mistralai/mistral-7b'  // Uses exact model name
+   })
+   ```
+
+3. Using a custom model configuration object (see "Custom Model Configuration" section below):
+   ```javascript
+   stream('Query', {
+     model: {
+       inherit: 'claude',  // Inherit base provider settings
+       name: 'claude-3-opus-20240229',
+       endpoint: 'https://custom-claude-endpoint.com/v1',
+       key: process.env.CUSTOM_CLAUDE_KEY,
+       constraints: {
+         rpmLimit: 50,
+         maxContextSize: 150_000
+       }
+     }
+   })
+   ```
+
+The format is either:
+- `provider:model` string where:
+  - `provider` is one of: claude, openai, togetherai, perplexityai, openrouter
+  - `model` can be either:
+    - A predefined alias: `superfast`, `fast`, or `good`
+    - The actual model name used by the provider (e.g. `mistralai/mistral-7b`, `claude-3-haiku-20240307`)
+- Or a custom model configuration object (see [Custom Model Configuration](#custom-model-configuration) section below for details)
+
+Current predefined model mappings (as of 2024):
+
+| Provider | Alias | Actual Model | Context Size | Notes |
+|----------|-------|--------------|--------------|-------|
+| Claude (Anthropic) | `claude:superfast`<br>`claude:fast`<br>`claude:good` | claude-3-haiku<br>claude-3-haiku<br>claude-3-sonnet | 100k tokens | Best for structured responses |
+| OpenAI | `openai:superfast`<br>`openai:fast`<br>`openai:good` | gpt-4o-mini<br>gpt-4o-mini<br>gpt-4o | 128k tokens | Good all-around performance |
+| Together.ai | `togetherai:superfast`<br>`togetherai:fast`<br>`togetherai:good` | Qwen 7B<br>Qwen 7B<br>Qwen 72B | Varies | Cost-effective alternative |
+| Perplexity | `perplexityai:superfast`<br>`perplexityai:fast`<br>`perplexityai:good` | sonar-small<br>sonar-small<br>sonar-large | 128k tokens | Newer provider |
+
+### Examples
+
+```javascript
+// Using predefined aliases
+stream('Query', {
+  model: 'claude:fast'  // Uses claude-3-haiku
+})
+
+// Using specific model names
+stream('Query', {
+  model: 'openrouter:mistralai/mistral-7b'  // Uses exact model name
+})
+
+// Using fallbacks with mix of aliases and specific models
+stream('Query', {
+  model: [
+    'claude:fast',                          // Try Claude's fast alias first
+    'openrouter:mistralai/mistral-7b',     // Then specific Mistral model
+    'togetherai:Qwen/Qwen2.5-7B-Instruct'  // Finally specific Qwen model
+  ]
+})
+```
 
 ## Model Parameters
 
@@ -410,23 +473,21 @@ Response:
 
 ## Custom Model Configuration
 
-xmllm supports highly customized model configurations for providers with non-standard parameters or unique requirements.
-
-### A wild example...
+For advanced use cases, you can define custom model configurations that inherit from existing providers while overriding specific behaviors:
 
 ```javascript
-import { stream } from 'xmllm';
-
-// Example with a model that uses non-standard parameters
-const result = await stream('What is 2+2?', {
+stream('Query', {
   model: {
-    inherit: 'claude',  // Inherit base provider settings
-    name: 'custom-weird-model',
+    inherit: 'claude',  // Base provider to inherit from
+    name: 'custom-model-name', // Required: The model identifier
     
-    // Custom endpoint if needed
-    endpoint: 'https://custom-api.example.com/v2/chat',
+    // Optional: Override the endpoint
+    endpoint: 'https://custom-api.example.com/v1/chat',
     
-    // Custom header generation
+    // Optional: Custom API key
+    key: process.env.CUSTOM_API_KEY,
+    
+    // Optional: Custom header generation
     headerGen: function() {
       return {
         'x-custom-auth': this.key,
@@ -435,7 +496,7 @@ const result = await stream('What is 2+2?', {
       };
     },
 
-    // Handle non-standard parameter mappings
+    // Optional: Handle non-standard parameter mappings
     payloader: function(payload) {
       return {
         // Transform standard temperature (0-1) to custom range (-100 to 100)
@@ -452,13 +513,11 @@ const result = await stream('What is 2+2?', {
           speaker: msg.role === 'user' ? 'human' : 'ai',
           utterance: msg.content,
           timestamp: Date.now()
-        })),
-
-        // etc.
+        }))
       };
     },
 
-    // Custom constraints
+    // Optional: Custom constraints
     constraints: {
       rpmLimit: 50,
       maxContextSize: 150_000,
@@ -473,7 +532,7 @@ const result = await stream('What is 2+2?', {
 
 ### Parameter Mapping Examples
 
-For models with unique parameter requirements:
+For models with unique parameter requirements you can use the `payloader` function to map your parameters to the provider's requirements.
 
 ```javascript
 // Example: Model that uses percentages instead of 0-1 ranges

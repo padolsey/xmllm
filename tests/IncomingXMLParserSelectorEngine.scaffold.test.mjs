@@ -50,7 +50,7 @@ describe('Schema and Hints Scaffold Generation', () => {
     expect(normalized).toContain('severity="Either \'High\', \'Medium\', or \'Low\'"');
     expect(normalized).toContain('impact="Impact score from 1-10"');
     expect(normalized).toContain('<mitigation>Steps to fix the issue</mitigation>');
-    expect(normalized).toContain('<timeline>...text content...</timeline>');
+    expect(normalized).toContain('<timeline>{String}</timeline>');
 
     // Should include example structure
     expect(normalized).toContain('<finding');
@@ -99,7 +99,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       user: {
         $id: Number,
         profile: {
-          $tagname: String,
+          $name: String,
           $age: Number,
           $text: String
         }
@@ -110,7 +110,7 @@ describe('Schema and Hints Scaffold Generation', () => {
     const hints = {
       user: {
         profile: {
-          $tagname: "User's full name",
+          $name: "User's full name",
           // No hints for other fields
         }
       }
@@ -123,9 +123,9 @@ describe('Schema and Hints Scaffold Generation', () => {
     expect(normalized).toContain('name="User\'s full name"');
     
     // Should use generic placeholders for missing hints
-    expect(normalized).toContain('id="..."');
-    expect(normalized).toContain('age="..."');
-    expect(normalized).toContain('...text content...');
+    expect(normalized).toContain('id="{Number}"');
+    expect(normalized).toContain('age="{Number}"');
+    expect(normalized).toContain('{String}');
   });
 
   test('should handle complex nested structures', () => {
@@ -177,5 +177,139 @@ describe('Schema and Hints Scaffold Generation', () => {
     expect(normalized).toContain('<title>Chapter title</title>');
     expect(normalized).toContain('id="Section identifier');
     expect(normalized).toContain('Section content with proper academic language');
+  });
+
+  test('should show type hints in curly braces and combine with explicit hints', () => {
+    const schema = {
+      person: {
+        name: String,
+        age: Number,
+        active: Boolean,
+        details: {
+          $type: String,
+          $score: Number,
+          bio: String
+        }
+      }
+    };
+
+    // Test without hints first
+    const basicScaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const normalized = basicScaffold.replace(/\s+/g, ' ').trim();
+
+    // Should show type hints in curly braces
+    expect(normalized).toContain('<name>{String}</name>');
+    expect(normalized).toContain('<age>{Number}</age>');
+    expect(normalized).toContain('<active>{Boolean}</active>');
+    expect(normalized).toContain('type="{String}"');
+    expect(normalized).toContain('score="{Number}"');
+    expect(normalized).toContain('<bio>{String}</bio>');
+
+    // Now test with hints
+    const hints = {
+      person: {
+        name: "The person's full name",
+        age: "Age in years",
+        details: {
+          bio: "A brief biography"
+        }
+      }
+    };
+
+    const hintedScaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const normalizedHinted = hintedScaffold.replace(/\s+/g, ' ').trim();
+
+    // Should combine type hints with explicit hints
+    expect(normalizedHinted).toContain('<name>The person\'s full name</name>');
+    expect(normalizedHinted).toContain('<age>Age in years</age>');
+  expect(normalizedHinted).toContain('<active>{Boolean}</active>'); // No hint, just type
+    expect(normalizedHinted).toContain('<bio>A brief biography</bio>');
+  });
+
+  test('should handle array types with curly hints', () => {
+    const schema = {
+      tags: {
+        tag: [String]
+      },
+      scores: {
+        score: [Number]
+      }
+    };
+
+    const hints = {
+      tags: {
+        tag: "A descriptive tag"
+      }
+    };
+
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    // Array items should show type + hint when available
+    expect(normalized).toContain('<tag> A descriptive tag </tag>');
+    // Array items without hints should just show type
+    expect(normalized).toContain('<score> {Number} </score>');
+    // Should still show multiple examples
+    expect(normalized.match(/<tag>/g).length).toBe(2);
+    expect(normalized.match(/<score>/g).length).toBe(2);
+  });
+
+  test('should handle string literals as pure hints without type annotations', () => {
+    const schema = {
+      person: {
+        name: 'Full name',                    // Pure hint
+        age: Number,                          // Type only
+        status: String,                       // Type only
+        role: 'Admin/User/Guest',             // Pure hint
+        details: {
+          $type: 'Basic/Premium',             // Pure hint for attribute
+          $level: Number,                     // Type for attribute
+          bio: String,                        // Type only
+          notes: 'Additional observations'     // Pure hint
+        }
+      }
+    };
+
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    // String literals should appear as pure hints without type annotations
+    expect(normalized).toContain('<name>Full name</name>');
+    expect(normalized).toContain('<role>Admin/User/Guest</role>');
+    expect(normalized).toContain('type="Basic/Premium"');
+    expect(normalized).toContain('<notes>Additional observations</notes>');
+
+    // Regular types should have type annotations
+    expect(normalized).toContain('<age>{Number}</age>');
+    expect(normalized).toContain('<status>{String}</status>');
+    expect(normalized).toContain('level="{Number}"');
+    expect(normalized).toContain('<bio>{String}</bio>');
+  });
+
+  test('should combine explicit hints with types but use string literals as pure hints', () => {
+    const schema = {
+      user: {
+        name: 'Full name here',           // Pure hint
+        age: Number,                      // Type only
+        bio: String                       // Type only
+      }
+    };
+
+    const hints = {
+      user: {
+        age: "STRING!! User's age in years",
+        bio: "Brief biography"
+      }
+    };
+
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    // String literal should be used directly without type annotation
+    expect(normalized).toContain('<name>Full name here</name>');
+    
+    // Types with hints should show both
+    expect(normalized).toContain('<age>STRING!! User\'s age in years</age>');
+    expect(normalized).toContain('<bio>Brief biography</bio>');
   });
 }); 

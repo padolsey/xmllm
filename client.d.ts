@@ -50,7 +50,9 @@ export interface ClientConfigureOptions extends ConfigureOptions {
 
 export function xmllm<T = any>(
   pipelineFn: (helpers: PipelineHelpers) => any[],
-  options?: Omit<XmllmOptions, 'clientProvider'>
+  options?: XmllmOptions & {
+    clientProvider?: ClientProvider | string;
+  }
 ): AsyncGenerator<T>;
 
 export function stream<T = XMLElement>(
@@ -65,7 +67,6 @@ export function simple<T = any>(
   schema: SchemaType,
   options?: Omit<StreamOptions, 'schema'> & {
     clientProvider?: ClientProvider | string;
-    sudoPrompt?: boolean;
   }
 ): Promise<T>;
 

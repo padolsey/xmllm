@@ -1,15 +1,16 @@
 import { jest } from '@jest/globals';
 import Provider from '../src/Provider.mjs';
 import ProviderManager from '../src/ProviderManager.mjs';
-import xmllm from '../src/xmllm-main.mjs';
 import { createProvidersWithKeys } from '../src/PROVIDERS.mjs';
 import {
   ProviderRateLimitError,
   ProviderAuthenticationError,
-  ProviderTimeoutError,
-  ProviderNetworkError,
   ModelValidationError
 } from '../src/errors/ProviderErrors.mjs';
+import { 
+  estimateTokens, 
+  estimateMessageTokens 
+} from '../src/utils/estimateTokens.mjs';
 
 describe('Provider Error Handling', () => {
   let provider;
@@ -857,5 +858,234 @@ describe('Provider Payloader Error Handling', () => {
     // Verify cleanup occurred
     expect(mockReader.releaseLock).not.toHaveBeenCalled(); // Should never get to this point
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('Context Size Management', () => {
+  let provider;
+  let mockFetch;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    Provider.setGlobalFetch(mockFetch);
+  });
+
+  afterEach(() => {
+    Provider.setGlobalFetch(fetch);
+  });
+
+  test('respects maxContextSize when preparing payload', async () => {
+    provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { 
+        fast: { 
+          name: 'test-model',
+          maxContextSize: 1000 // Small context size for testing
+        } 
+      }
+    });
+
+    const longMessages = Array(10).fill({
+      role: 'user',
+      content: 'A'.repeat(400) // Each message is ~133 tokens
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+
+    await provider.makeRequest({
+      messages: longMessages,
+      system: 'Be helpful',
+      max_tokens: 300
+    });
+
+    // Verify the payload sent to fetch
+    const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
+    
+    // Verify system message is included
+    expect(payload.messages[0]).toEqual({
+      role: 'system',
+      content: 'Be helpful'
+    });
+
+    // Verify most recent messages are kept (from the end)
+    const lastOriginalMessage = longMessages[longMessages.length - 1];
+    const lastTruncatedMessage = payload.messages[payload.messages.length - 1];
+    expect(lastTruncatedMessage).toEqual(lastOriginalMessage);
+  });
+
+  test('prioritizes recent messages when truncating', async () => {
+    provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { 
+        fast: { 
+          name: 'test-model',
+          maxContextSize: 1000
+        } 
+      }
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+
+    const messages = [
+      { role: 'user', content: 'First message' },
+      { role: 'assistant', content: 'A'.repeat(400) }, // Long middle message
+      { role: 'user', content: 'Last message' }  // Should be kept
+    ];
+
+    await provider.makeRequest({
+      messages,
+      system: 'Be helpful',
+      max_tokens: 300
+    });
+
+    const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
+    
+    // Verify last message is in-tact
+    expect(payload.messages[payload.messages.length - 1].content).toEqual(messages[messages.length - 1].content);
+  });
+});
+
+describe('autoTruncateMessages', () => {
+  let provider;
+  let mockFetch;
+
+  beforeEach(() => {
+    mockFetch = jest.fn();
+    Provider.setGlobalFetch(mockFetch);
+  });
+
+  test('throws when context size is too small for minimum requirements', async () => {
+    provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { 
+        fast: { 
+          name: 'test-model',
+          maxContextSize: 1000
+        } 
+      }
+    });
+
+    const longSystemMessage = 'S'.repeat(900); // ~300 tokens
+    const longUserMessage = 'U'.repeat(900);   // ~300 tokens
+
+    await expect(provider.makeRequest({
+      messages: [{ role: 'user', content: longUserMessage }],
+      system: longSystemMessage,
+      max_tokens: 500,  // Would require 1100 tokens total
+      autoTruncateMessages: 1000
+    })).rejects.toThrow('Context size too small');
+  });
+
+  test('truncates history when autoTruncateMessages is true', async () => {
+    provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { 
+        fast: { 
+          name: 'test-model',
+          maxContextSize: 1000
+        } 
+      }
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+
+    const messages = [
+      { role: 'user', content: 'First' },
+      { role: 'assistant', content: 'A'.repeat(400) },
+      { role: 'user', content: 'Last message' }
+    ];
+
+    await provider.makeRequest({
+      messages,
+      system: 'Be helpful',
+      max_tokens: 300,
+      autoTruncateMessages: true
+    });
+
+    const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
+
+    console.log('>>payload', payload);
+    
+    // Should keep system + last message at minimum intact
+    // Should maintain all messages in some fashion
+    expect(payload.messages[0].content).toBe('Be helpful');
+    expect(payload.messages[payload.messages.length - 1]).toEqual(messages[messages.length - 1]);
+    expect(payload.messages.length).toEqual(messages.length + 1); //+1 due to system message
+  });
+
+  test('truncates to specific token count when autoTruncateMessages is number', async () => {
+    provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { fast: { name: 'test-model' } }
+    });
+  
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
+    });
+  
+    const messages = [];
+    messages.push({
+      role: 'user',
+      content: 'A'.repeat(3000) // ~1000 tokens
+    });
+    messages.push({
+      role: 'assistant',
+      content: 'A'.repeat(3000) // ~1000 tokens
+    });
+    messages.push({
+      role: 'user',
+      content: 'A'.repeat(3000) // ~1000 tokens
+    });
+    messages.push({
+      role: 'assistant',
+      content: 'A'.repeat(3000) // ~1000 tokens
+    });
+    messages.push({
+      role: 'user',
+      content: 'A'.repeat(3000) // ~1000 tokens
+    });
+  
+    await provider.makeRequest({
+      messages,
+      system: 'Be helpful',
+      max_tokens: 100,
+      autoTruncateMessages: 2000 // Should allow ~2000 tokens total for input
+    });
+  
+    const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
+  
+    // Verify total input tokens is under limit
+    const totalInputTokens = payload.messages.reduce((sum, msg) =>
+      sum + estimateTokens(msg.content),
+    0);
+    expect(totalInputTokens).toBeLessThanOrEqual(2000);
+  
+    // Verify that messages are truncated proportionally
+    const historicalMessages = payload.messages.slice(1, -1); // Exclude system and latest message
+    historicalMessages.forEach((msg, index) => {
+      const originalTokens = estimateTokens(messages[index].content);
+      const truncatedTokens = estimateTokens(msg.content);
+      expect(truncatedTokens).toBeLessThan(originalTokens);
+      expect(truncatedTokens).toBeGreaterThan(0);
+      expect(msg.content.includes('[...]')).toBe(true);
+    });
+  
+    // Verify that the latest message is not truncated
+    expect(payload.messages[payload.messages.length - 1].content).toEqual(messages[messages.length - 1].content);
   });
 }); 

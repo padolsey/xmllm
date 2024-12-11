@@ -89,7 +89,7 @@ describe('Self-closing Tags', () => {
           'Second paragraph', 
           'Third paragraph'
         ],
-        hr: [true],
+        hr: [false], // it is empty
         img: [{
           $src: 'test.jpg'
         }]
@@ -138,8 +138,7 @@ describe('Self-closing Tags', () => {
           input: [
             {
               $type: 'text',
-              $name: 'username',
-              $value: undefined
+              $name: 'username'
             },
             {
               $type: 'password',
@@ -152,7 +151,7 @@ describe('Self-closing Tags', () => {
               $value: 'Login'
             }
           ],
-          br: [true]
+          br: [false]
         }
       }
     });

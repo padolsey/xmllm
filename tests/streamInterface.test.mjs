@@ -736,7 +736,8 @@ describe('Stream Function Signatures', () => {
 
   it('should handle string prompt', async () => {
     await stream('Test query', {
-      llmStream: TestStream
+      llmStream: TestStream,
+      system: 'BE FRIENDLY'
     }).last();
 
     expect(TestStream).toHaveBeenCalledWith(
@@ -744,7 +745,7 @@ describe('Stream Function Signatures', () => {
         messages: [
           {
             role: 'system',
-            content: ''  // Default empty system message
+            content: expect.stringContaining('BE FRIENDLY')
           },
           {
             role: 'user',
@@ -765,16 +766,12 @@ describe('Stream Function Signatures', () => {
 
     expect(TestStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: [
-          {
-            role: 'system',
-            content: ''
-          },
+        messages: expect.arrayContaining([
           {
             role: 'user',
             content: 'Test query'
           }
-        ],
+        ]),
         temperature: 0.8
       })
     );
@@ -785,7 +782,7 @@ describe('Stream Function Signatures', () => {
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant'
+          content: 'You are a helpful astronaut'
         },
         {
           role: 'user',
@@ -799,14 +796,10 @@ describe('Stream Function Signatures', () => {
     // Updated expectation to match actual behavior
     expect(TestStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: expect.arrayContaining([
+        messages: expect.arrayContaining([ // TODO: what do we actually expect when people do this? 
           {
             role: 'system',
-            content: ''  // Default empty system message
-          },
-          {
-            role: 'system',
-            content: 'You are a helpful assistant'
+            content: 'You are a helpful astronaut'
           },
           {
             role: 'user',
@@ -942,134 +935,9 @@ describe('Stream to Provider Parameter Passing', () => {
 
     // Verify default values
     expect(capturedParams).toMatchObject({
-      max_tokens: 4000,      // Default max tokens
+      max_tokens: 300,      // Default max tokens
       temperature: 0.72,     // Default temperature
     });
-  });
-
-  test('sudoPrompt mode generates correct message structure', async () => {
-    let capturedParams = {};
-
-    const TestStream = jest.fn().mockImplementation((payload) => {
-      capturedParams = payload;
-      throw new Error('Payload captured');
-    });
-
-    const streamConfig = {
-      prompt: "Test prompt",
-      schema: {
-        response: String
-      },
-      sudoPrompt: true  // Enable sudoPrompt mode
-    };
-
-    await expect(
-      stream(streamConfig, { llmStream: TestStream }).value()
-    ).rejects.toThrow('Payload captured');
-
-    console.log('CAPTURED MESSAGES', capturedParams.messages);
-
-    // Should have 4 messages in the expected order:
-    // 1. System prompt
-    // 2. User explaining structure
-    // 3. Assistant acknowledgment
-    // 4. Actual prompt
-    expect(capturedParams.messages).toHaveLength(4);
-    
-    // First message: user explaining structure
-    expect(capturedParams.messages[1]).toEqual({
-      role: 'user',
-      content: expect.stringContaining('I am going to give you a prompt')
-    });
-    expect(capturedParams.messages[1].content).toContain('<response>');
-
-    // Second message: assistant acknowledgment
-    expect(capturedParams.messages[2]).toEqual({
-      role: 'assistant',
-      content: expect.stringContaining('abide by')
-    });
-
-    // Third message: actual prompt
-    expect(capturedParams.messages[3]).toEqual({
-      role: 'user',
-      content: expect.stringContaining('PROMPT: Test prompt')
-    });
-  });
-
-  test('sudoPrompt mode works with both stream() and simple() interfaces', async () => {
-    const TestStream = jest.fn().mockImplementation((payload) => {
-      return {
-        getReader: () => ({
-          read: jest.fn()
-            .mockResolvedValueOnce({ 
-              value: new TextEncoder().encode('<response>test</response>'),
-              done: false 
-            })
-            .mockResolvedValueOnce({ done: true }),
-          releaseLock: jest.fn()
-        })
-      };
-    });
-
-    // Test with stream()
-    await stream("Test prompt", {
-      llmStream: TestStream,
-      schema: { response: String },
-      sudoPrompt: true
-    }).value();
-
-    // Verify first call had sudoPrompt message structure
-    expect(TestStream.mock.calls[0][0].messages).toHaveLength(4);
-    
-    TestStream.mockClear();
-
-    // Test with simple()
-    await simple("Test prompt", 
-      { response: String },
-      { llmStream: TestStream, sudoPrompt: true }
-    );
-
-    // Verify second call also had sudoPrompt message structure
-    expect(TestStream.mock.calls[0][0].messages).toHaveLength(4);
-  });
-
-  test('defaults to non-sudoPrompt mode with standard message structure', async () => {
-    let capturedParams = {};
-
-    const TestStream = jest.fn().mockImplementation((payload) => {
-      capturedParams = payload;
-      throw new Error('Payload captured');
-    });
-
-    const streamConfig = {
-      prompt: "Test prompt",
-      schema: {
-        response: String
-      }
-      // sudoPrompt not specified - should default to false
-    };
-
-    await expect(
-      stream(streamConfig, { llmStream: TestStream }).value()
-    ).rejects.toThrow('Payload captured');
-
-    // Should have exactly 2 messages: system and user
-    expect(capturedParams.messages).toHaveLength(2);
-    
-    // First message should be system
-    expect(capturedParams.messages[0]).toEqual({
-      role: 'system',
-      content: expect.any(String)
-    });
-
-    // Second message should be user with standard format
-    expect(capturedParams.messages[1]).toEqual({
-      role: 'user',
-      content: expect.stringContaining('BEGIN PROMPT')
-    });
-    // Should contain scaffold but not in conversation format
-    expect(capturedParams.messages[1].content).toContain('<response>');
-    expect(capturedParams.messages[1].content).not.toContain('I am going to give you a prompt');
   });
 });
 
@@ -1325,7 +1193,7 @@ describe('Config', () => {
     configure({
       defaults: {
         temperature: 0.72,
-        maxTokens: 4000,
+        maxTokens: 300,
         model: 'claude:good'
       }
     });
@@ -1464,5 +1332,73 @@ describe('Error Message Handling', () => {
     }
 
     expect(updates).toEqual([customMessage]);
+  });
+});
+
+describe('Strategy Configuration', () => {
+  it('should pass strategy through to final payload', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader(['<result>test</result>'])
+    }));
+
+    // Test with a specific strategy
+    await stream('Test prompt', {
+      llmStream: TestStream,
+      strategy: 'minimal',
+      schema: { result: String }
+    }).last();
+
+    // Verify the final payload to TestStream
+    expect(TestStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          {
+            role: 'system',
+            content: expect.stringContaining('XML OUTPUT RULES')
+          },
+          {
+            role: 'user',
+            content: expect.stringContaining('Here is the schema to follow:')
+          }
+        ])
+      })
+    );
+
+    // Test that it flows through with schema and other options
+    expect(TestStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Check other expected payload properties
+        model: expect.any(String),
+        temperature: expect.any(Number),
+        max_tokens: expect.any(Number)
+      })
+    );
+  });
+
+  it('should handle partial prompt generator overrides', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader(['<result>test</result>'])
+    }));
+
+    const customUserPrompt = (scaffold, prompt) => `CUSTOM: ${prompt}\nSCAFFOLD: ${scaffold}`;
+
+    await stream('Test prompt', {
+      llmStream: TestStream,
+      strategy: 'minimal',  // Uses minimal strategy's system prompt
+      genUserPrompt: customUserPrompt, // But custom user prompt
+      schema: { result: String }
+    }).last();
+
+    // Should use minimal strategy's system prompt
+    expect(TestStream.mock.calls[0][0].messages[0]).toEqual({
+      role: 'system',
+      content: expect.stringContaining('XML OUTPUT RULES')
+    });
+
+    // But use our custom user prompt
+    expect(TestStream.mock.calls[0][0].messages[1]).toEqual({
+      role: 'user',
+      content: expect.stringContaining('CUSTOM:')
+    });
   });
 }); 

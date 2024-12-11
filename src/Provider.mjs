@@ -11,6 +11,11 @@ import { createParser } from 'eventsource-parser';
 import innerTruncate from './innerTruncate.mjs';
 import ValidationService from './ValidationService.mjs';
 import ResourceLimiter from './ResourceLimiter.mjs';
+import { 
+  estimateTokens, 
+  estimateMessageTokens, 
+  estimateMessagesTokens 
+} from './utils/estimateTokens.mjs';
 
 // Use native AbortController if available (modern environments), otherwise try to import
 const AbortController = globalThis.AbortController || 
@@ -20,15 +25,11 @@ if (!AbortController) {
   throw new Error('AbortController is not available in this environment. Please use a newer version of Node.js or install the abort-controller package.');
 }
 
-function estimateTokenCount(m) { return m.length / 3; }
-
 const logger = new Logger('Provider');
 
-const DEFAULT_ASSUMED_MAX_CONTEXT_SIZE = 8_000;
-const DEFAULT_RESPONSE_TOKEN_LENGTH = 300;
+const DEFAULT_ASSUMED_MAX_CONTEXT_SIZE = 8_000; // input token size
+const DEFAULT_RESPONSE_TOKEN_LENGTH = 300; // max_tokens
 const MAX_TOKEN_HISTORICAL_MESSAGE = 600;
-
-const VALID_ROLES = ['user', 'assistant'];
 
 /**
  * Handles direct communication with LLM APIs.
@@ -147,7 +148,7 @@ class Provider {
     const limitCheck = this.resourceLimiter.consume({
       rpm: 1,
       ...(payload.messages ? {
-        tpm: estimateTokenCount(payload.messages.join(''))
+        tpm: estimateTokens(payload.messages.join(''))
       } : {})
     });
 
@@ -421,7 +422,7 @@ class Provider {
     const limitCheck = this.resourceLimiter.consume({
       rpm: 1,
       ...(payload.messages ? {
-        tpm: estimateTokenCount(payload.messages.join(''))
+        tpm: estimateTokens(payload.messages.join(''))
       } : {})
     });
 
@@ -540,7 +541,7 @@ class Provider {
   preparePayload(customPayload) {
     // Run validation and extract system message if present
     let { systemMessage, messages } = ValidationService.validateMessages(customPayload.messages);
-    ValidationService.validateParameters(customPayload);
+    ValidationService.validateLLMPayload(customPayload);
 
     // Use extracted system message or the one from payload
     const system = systemMessage || customPayload.system || '';
@@ -556,50 +557,133 @@ class Provider {
       );
     }
 
-    // Determine max tokens left after sys message
-    const maxAvailableContextSize = 0 |
-      (
-        model.maxContextSize || DEFAULT_ASSUMED_MAX_CONTEXT_SIZE
-      )
-      - estimateTokenCount(system)
-      - DEFAULT_RESPONSE_TOKEN_LENGTH;
+    // Calculate system message and latest user message token counts
+    const systemTokens = estimateTokens(system);
+    const latestUserMessage = messages[messages.length - 1]?.content || '';
+    const latestUserTokens = estimateTokens(latestUserMessage);
+    const responseTokens = customPayload.max_tokens || DEFAULT_RESPONSE_TOKEN_LENGTH;
 
-    logger.dev('maxAvailableContextSize remaining', maxAvailableContextSize);
+    // Calculate minimum required tokens
+    const minRequiredTokens = systemTokens + latestUserTokens + responseTokens;
 
-    let historyTokenCount = 0;
+    // Handle autoTruncateMessages
+    const maxContextSize = customPayload.autoTruncateMessages === true ? 
+      (model.maxContextSize || DEFAULT_ASSUMED_MAX_CONTEXT_SIZE) :
+      (typeof customPayload.autoTruncateMessages === 'number' ? 
+        customPayload.autoTruncateMessages : 
+        (model.maxContextSize || DEFAULT_ASSUMED_MAX_CONTEXT_SIZE));
 
-    messages = messages.reverse().map((item) => {
-      // We are processing in reverse in order to prioritize
-      // later parts of the chat over earlier parts
-      // (i.e. short term memory)
-
-      const truncated = innerTruncate(
-        item.content,
-        '[...]',
-        10,
-        MAX_TOKEN_HISTORICAL_MESSAGE
+    if (isNaN(maxContextSize)) {
+      throw new ModelValidationError(
+        'Invalid autoTruncateMessages value',
+        { value: JSON.stringify({
+          autoTruncateMessages: customPayload.autoTruncateMessages,
+          model: model.name,
+          maxContextSize: model.maxContextSize
+        }) }
       );
+    }
 
-      historyTokenCount += estimateTokenCount(truncated);
+    // Throw early if context size is too small
+    if (minRequiredTokens > maxContextSize) {
+      throw new ModelValidationError(
+        'Context size too small for system message, latest user message, and response',
+        { 
+          provider: this.name,
+          required: minRequiredTokens,
+          maxSize: maxContextSize,
+          systemTokens,
+          latestUserTokens,
+          responseTokens
+        }
+      );
+    }
 
-      if (historyTokenCount > maxAvailableContextSize) {
-        return null;
+    // Calculate remaining space for historical messages
+    const availableForHistory = maxContextSize - minRequiredTokens;
+
+    // Process historical messages (excluding the latest one)
+    const historicalMessages = messages.slice(0, -1);
+
+    // Estimate total tokens used by historical messages
+    const totalHistoricalTokens = estimateMessagesTokens(historicalMessages);
+
+    const truncatedMessages = [];
+
+    if (totalHistoricalTokens <= availableForHistory) {
+      // Include all historical messages as-is
+      truncatedMessages.push(...historicalMessages);
+    } else {
+      // Start with an optimistic ratio
+      let ratio = availableForHistory / totalHistoricalTokens;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 3;
+
+      while (attempts < MAX_ATTEMPTS) {
+        const tempMessages = [];
+        let currentTotal = 0;
+
+        for (const msg of historicalMessages) {
+          const originalTokens = estimateMessageTokens(msg);
+          const desiredTokens = Math.max(1, Math.floor(originalTokens * ratio));
+
+          const truncatedContent = innerTruncate(
+            msg.content,
+            '[...]',
+            10,
+            desiredTokens
+          );
+
+          const actualTokens = estimateTokens(truncatedContent);
+          currentTotal += actualTokens;
+
+          tempMessages.push({
+            role: msg.role,
+            content: truncatedContent
+          });
+        }
+
+        if (currentTotal <= availableForHistory) {
+          truncatedMessages.push(...tempMessages);
+          break;
+        }
+
+        // Reduce ratio and try again
+        ratio *= 0.75;
+        attempts++;
       }
 
-      return {
-        role: item.role,
-        content: truncated
+      // If we couldn't get under the limit, use minimal messages
+      if (attempts === MAX_ATTEMPTS) {
+        for (const msg of historicalMessages) {
+          truncatedMessages.push({
+            role: msg.role,
+            content: '[...]'
+          });
+        }
       }
-    }).reverse().filter(Boolean);
+    }
 
+    // Always include system message first
+    if (system) {
+      truncatedMessages.unshift({
+        role: 'system',
+        content: system
+      });
+    }
+
+    // Always add the latest message last
+    if (messages.length > 0) {
+      truncatedMessages.push(messages[messages.length - 1]);
+    }
+
+    // Prepare model specific payload
     const modelSpecificPayload = this.payloader({
       system,
       max_tokens: customPayload.max_tokens || customPayload.maxTokens || DEFAULT_RESPONSE_TOKEN_LENGTH,
       ...customPayload,
-      messages,
+      messages: truncatedMessages,
     });
-    
-    logger.dev('successfully derived model specific payload', modelSpecificPayload);
 
     return {
       ...modelSpecificPayload,

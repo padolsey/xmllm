@@ -260,7 +260,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     });
   });
 
-  test('Boolean should be treated as regular transformer', () => {
+  test('Boolean should be treated as special transformer', () => {
     const engine = new IncomingXMLParserSelectorEngine();
     engine.add(`
       <flags>
@@ -280,7 +280,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     // Which will mean its always true since Boolean(Element Object) is true:
     expect(result).toEqual({
       flags: {
-        flag: [true, true, true, true]
+        flag: [true, false, true, false]
       }
     });
 
@@ -295,6 +295,53 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     expect(betterResult).toEqual({
       flags: {
         flag: [true, false, false, false]
+      }
+    });
+  });
+
+  test('Boolean transformer should handle various truthy/falsy formats', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    engine.add(`
+      <flags>
+        <flag>true</flag>
+        <flag>false</flag>
+        <flag>yes</flag>
+        <flag>no</flag>
+        <flag>  TRUE  </flag>
+        <flag>  FALSE  </flag>
+        <flag>null</flag>
+        <flag></flag>
+        <flag>   </flag>
+        <flag>anything else</flag>
+        <flag>0</flag>
+        <flag>0.00</flag>
+        <flag>1</flag>
+      </flags>
+    `);
+
+    const result = engine.mapSelect({
+      flags: {
+        flag: [Boolean]
+      }
+    });
+
+    expect(result).toEqual({
+      flags: {
+        flag: [
+          true,    // "true"
+          false,   // "false" 
+          true,    // "yes"
+          false,   // "no"
+          true,    // "  TRUE  "
+          false,   // "  FALSE  "
+          false,   // "null"
+          false,   // empty
+          false,   // whitespace only
+          true,    // any other non-empty string
+          false,    // "0"
+          false,    // "0.00"
+          true     // "1"
+        ]
       }
     });
   });

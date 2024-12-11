@@ -4,7 +4,7 @@ import {
   ValidationError,
   MessageValidationError,
   ModelValidationError,
-  ParameterValidationError
+  PayloadValidationError
 } from '../src/errors/ValidationErrors.mjs';
 
 describe('ValidationService', () => {
@@ -171,12 +171,12 @@ describe('ValidationService', () => {
         stream: true,
         cache: false
       };
-      expect(() => ValidationService.validateParameters(params)).not.toThrow();
+      expect(() => ValidationService.validateLLMPayload(params)).not.toThrow();
     });
 
     test('accepts undefined optional parameters', () => {
       const params = {};
-      expect(() => ValidationService.validateParameters(params)).not.toThrow();
+      expect(() => ValidationService.validateLLMPayload(params)).not.toThrow();
     });
 
     test('rejects invalid temperature', () => {
@@ -188,9 +188,9 @@ describe('ValidationService', () => {
 
       cases.forEach(params => {
         try {
-          ValidationService.validateParameters(params);
+          ValidationService.validateLLMPayload(params);
         } catch (error) {
-          expect(error).toBeInstanceOf(ParameterValidationError);
+          expect(error).toBeInstanceOf(PayloadValidationError);
           expect(error.details).toEqual({ temperature: params.temperature });
         }
       });
@@ -206,9 +206,9 @@ describe('ValidationService', () => {
 
       cases.forEach(params => {
         try {
-          ValidationService.validateParameters(params);
+          ValidationService.validateLLMPayload(params);
         } catch (error) {
-          expect(error).toBeInstanceOf(ParameterValidationError);
+          expect(error).toBeInstanceOf(PayloadValidationError);
           expect(error.details).toEqual({ max_tokens: params.max_tokens });
         }
       });
@@ -216,18 +216,18 @@ describe('ValidationService', () => {
 
     test('rejects invalid stream flag', () => {
       try {
-        ValidationService.validateParameters({ stream: 'yes' });
+        ValidationService.validateLLMPayload({ stream: 'yes' });
       } catch (error) {
-        expect(error).toBeInstanceOf(ParameterValidationError);
+        expect(error).toBeInstanceOf(PayloadValidationError);
         expect(error.details).toEqual({ stream: 'yes' });
       }
     });
 
     test('rejects invalid cache flag', () => {
       try {
-        ValidationService.validateParameters({ cache: 'yes' });
+        ValidationService.validateLLMPayload({ cache: 'yes' });
       } catch (error) {
-        expect(error).toBeInstanceOf(ParameterValidationError);
+        expect(error).toBeInstanceOf(PayloadValidationError);
         expect(error.details).toEqual({ cache: 'yes' });
       }
     });
@@ -277,7 +277,7 @@ describe('ValidationService', () => {
 
     test('rejects non-integer rpm limits', () => {
       expect(() => ValidationService.validateConstraints({ rpmLimit: 10.5 }))
-        .toThrow(ParameterValidationError);
+        .toThrow(PayloadValidationError);
       
       try {
         ValidationService.validateConstraints({ rpmLimit: 10.5 });
@@ -291,7 +291,7 @@ describe('ValidationService', () => {
       
       invalidValues.forEach(value => {
         expect(() => ValidationService.validateConstraints({ rpmLimit: value }))
-          .toThrow(ParameterValidationError);
+          .toThrow(PayloadValidationError);
         
         try {
           ValidationService.validateConstraints({ rpmLimit: value });
@@ -306,7 +306,7 @@ describe('ValidationService', () => {
       
       invalidValues.forEach(value => {
         expect(() => ValidationService.validateConstraints({ rpmLimit: value }))
-          .toThrow(ParameterValidationError);
+          .toThrow(PayloadValidationError);
         
         try {
           ValidationService.validateConstraints({ rpmLimit: value });
@@ -321,7 +321,7 @@ describe('ValidationService', () => {
       
       invalidValues.forEach(value => {
         expect(() => ValidationService.validateConstraints({ rpmLimit: value }))
-          .toThrow(ParameterValidationError);
+          .toThrow(PayloadValidationError);
         
         try {
           ValidationService.validateConstraints({ rpmLimit: value });

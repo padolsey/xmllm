@@ -412,7 +412,15 @@ class IncomingXMLParserSelectorEngine {
         if (map === String) {
           return String(element.$text);
         }
-        // Pass full element to custom functions (including Boolean)
+        if (map === Boolean) {
+          const text = element.$text?.trim?.().toLowerCase() || '';
+          
+          // Anything that's not obviously false is considered true
+          const isWordedAsFalse = ['false', 'no', 'null'].includes(text);
+          const isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
+          return !isEssentiallyFalsey;
+        }
+        // Pass full element to custom functions
         return map(element);
       }
 
@@ -534,12 +542,18 @@ class IncomingXMLParserSelectorEngine {
         // Skip attribute markers
         if (key.startsWith('$')) continue;
 
-        // Handle string literals and functions (including primitives)
-        if (typeof value === 'string' || typeof value === 'function') {
-          // If there's an explicit hint, use it
-          // Otherwise if it's a string literal in schema, use that as hint
-          // Otherwise use generic placeholder
-          const content = hint || (typeof value === 'string' ? value : '...text content...');
+        // Handle string literals as pure hints
+        if (typeof value === 'string') {
+          xml += `${indentation}<${key}>${value}</${key}>\n`;
+          continue;
+        }
+
+        // Handle functions (including primitives) with optional hints
+        if (typeof value === 'function') {
+          const typeHint = value === String ? '{String}' : 
+                          value === Number ? '{Number}' : 
+                          value === Boolean ? '{Boolean}' : '';
+          const content = hint ? hint : typeHint || '...';
           xml += `${indentation}<${key}>${content}</${key}>\n`;
           continue;
         }
@@ -559,14 +573,24 @@ class IncomingXMLParserSelectorEngine {
               const content =
                 typeof itemHint === 'string' ? itemHint :
                 typeof itemValue === 'string' ? itemValue :
-                '...text content...';
+                itemValue === String ? '{String}' :
+                itemValue === Number ? '{Number}' :
+                itemValue === Boolean ? '{Boolean}' :
+                '...';
               xml += `${indentation}  ${content}\n`;
             } else {
               // Handle text content from $text in object
-              if (itemValue.$text !== undefined || itemHint?.$text) {
-                const textHint = itemHint?.$text || 
-                  (typeof itemValue.$text === 'string' ? itemValue.$text : '...text content...');
-                xml += `${indentation}  ${textHint}\n`;
+              if (itemValue.$text !== undefined) {
+                const textContent = itemHint?.$text || (
+                  typeof itemValue.$text === 'function' ? 
+                    (itemValue.$text === String ? '{String}' :
+                     itemValue.$text === Number ? '{Number}' :
+                     itemValue.$text === Boolean ? '{Boolean}' : '...') :
+                    (typeof itemValue.$text === 'string' ? itemValue.$text : '...')
+                );
+                xml += `${indentation}  ${textContent}\n`;
+              } else if (itemHint?.$text) {
+                xml += `${indentation}  ${itemHint.$text}\n`;
               }
               xml += processObject(itemValue, itemHint, level + 1);
             }
@@ -582,11 +606,16 @@ class IncomingXMLParserSelectorEngine {
           const attrs = getAttributeString(value, hint);
           xml += `${indentation}<${key}${attrs}>\n`;
           
-          // Handle text content
-          if (value.$text !== undefined || hint?.$text) {
-            const textHint = hint?.$text || 
-              (typeof value.$text === 'string' ? value.$text : '...text content...');
-            xml += `${indentation}  ${textHint}\n`;
+          // Handle text content - check if it's explicitly typed
+          if (value.$text !== undefined) {
+            const textContent = typeof value.$text === 'function' ? 
+              (value.$text === String ? '{String}' :
+               value.$text === Number ? '{Number}' :
+               value.$text === Boolean ? '{Boolean}' : '...') :
+              (typeof value.$text === 'string' ? value.$text : '...');
+            xml += `${indentation}  ${textContent}\n`;
+          } else if (hint?.$text) {
+            xml += `${indentation}  ${hint.$text}\n`;
           }
           
           xml += processObject(value, hint || {}, level + 1);
@@ -604,12 +633,27 @@ class IncomingXMLParserSelectorEngine {
       for (const key in obj) {
         if (key.startsWith('$') && key !== '$text') {
           const attrName = key.slice(1);
-          // First check explicit hints object
-          // Then check if it's a string literal in schema (it's a hint)
-          // Otherwise use placeholder
-          const hint = hints?.[key] || 
-            (typeof obj[key] === 'string' ? obj[key] : '...');
-          attrs += ` ${attrName}="${hint}"`;
+          const value = obj[key];
+          const hint = hints?.[key];
+
+          // Handle string literals as pure hints
+          if (typeof value === 'string') {
+            attrs += ` ${attrName}="${value}"`;
+            continue;
+          }
+
+          // Handle functions (including primitives) with optional hints
+          if (typeof value === 'function') {
+            const typeHint = value === String ? '{String}' : 
+                            value === Number ? '{Number}' : 
+                            value === Boolean ? '{Boolean}' : '';
+            const content = hint ? hint : typeHint || '...';
+            attrs += ` ${attrName}="${content}"`;
+            continue;
+          }
+
+          // Default case
+          attrs += ` ${attrName}="${hint || '...'}"`;
         }
       }
       return attrs;

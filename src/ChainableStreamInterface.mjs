@@ -1,5 +1,6 @@
 import xmllm from './xmllm.mjs';
 import Logger from './Logger.mjs';
+import ValidationService from './ValidationService.mjs';
 
 const logger = new Logger('ChainableStreamInterface');
 
@@ -179,7 +180,9 @@ export class ChainableStreamInterface {
                   case 'skip': return skip.call(this, arg);
                   case 'take': return take.call(this, arg);
                   case 'batch': return batch.call(this, arg, arg2);
-                  case 'req': return arg.schema ? promptComplex.call(this, arg) : req.call(this, arg);
+                  case 'req': {
+                    return arg.schema ? promptComplex.call(this, arg) : req.call(this, arg);
+                  }
                 }
 
                 throw new Error(`Unknown pipeline type: ${type}`);

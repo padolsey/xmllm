@@ -1,6 +1,9 @@
 import { jest } from '@jest/globals';
 import { stream, simple } from '../src/xmllm-main.mjs';
 import { getConfig, resetConfig } from '../src/config.mjs';
+import { estimateTokens } from '../src/utils/estimateTokens.mjs';
+import Provider from '../src/Provider.mjs';
+
 import {
   ProviderError,
   ProviderRateLimitError,
@@ -588,7 +591,7 @@ describe('Schema and Error Handling', () => {
   });
   
   // Could also show alternative using stream operations
-  it('should handle schema and errors using stream operations', async () => {
+  it('should handle non-schema XML and errors using stream operations', async () => {
     const TestStream = jest.fn().mockImplementation(() => ({
       getReader: () => createMockReader([
         '<thinking>',
@@ -678,5 +681,74 @@ describe('Schema and Error Handling', () => {
       { user: [{ name: 'Alice' }, { name: 'Bob' }] } // final state
     ]);
     expect(errors).toEqual(['Rate limit exceeded']);
+  });
+});
+
+describe('Token Management', () => {
+
+  it('should distribute truncation proportionally when over token limit', async () => {
+
+    // Mock the provider's fetch method to return our test data
+    const provideFetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      body: {
+        // Mock the response body as a readable stream
+        getReader: () => createMockReader([
+          '<thinking><response>Test response</response></thinking>'
+        ])
+      }
+    });
+
+    Provider.setGlobalFetch(provideFetchMock);
+
+    // Create a Provider instance with the desired configuration
+    const provider = new Provider('test', {
+      endpoint: 'https://test.api',
+      key: 'test-key',
+      models: { 
+        fast: { 
+          name: 'test-model', 
+          maxContextSize: 2000 // Ensure the max context size matches autoTruncateMessages
+        } 
+      }
+    });
+
+    const messages = [
+      { role: 'user', content: 'A'.repeat(3000) },      // ~1000 tokens
+      { role: 'assistant', content: 'B'.repeat(3000) }, // ~1000 tokens
+      { role: 'user', content: 'C'.repeat(3000) },      // ~1000 tokens
+      { role: 'assistant', content: 'D'.repeat(3000) }, // ~1000 tokens
+      { role: 'user', content: 'Final message' }        // ~5 tokens
+    ];
+
+    await stream({
+      messages,
+      system: 'Be helpful',
+      max_tokens: 500,
+      autoTruncateMessages: 2000,
+      provider: provider // Pass the provider instance
+    }).last();
+
+    // Retrieve the payload sent to fetch
+    const payload = JSON.parse(provideFetchMock.mock.calls[0][1].body);
+
+    // Verify total input tokens is under the limit
+    const totalInputTokens = payload.messages.reduce((sum, msg) =>
+      sum + estimateTokens(msg.content),
+    0);
+    expect(totalInputTokens).toBeLessThanOrEqual(2000);
+
+    // Verify that messages are truncated proportionally
+    const historicalMessages = payload.messages.slice(1, -1); // Exclude system and latest message
+    historicalMessages.forEach((msg, index) => {
+      const originalTokens = estimateTokens(messages[index].content);
+      const truncatedTokens = estimateTokens(msg.content);
+      expect(truncatedTokens).toBeLessThanOrEqual(originalTokens);
+      expect(truncatedTokens).toBeGreaterThan(0);
+      expect(msg.content.includes('[...]')).toBe(true);
+    });
+
+    // Verify that the latest message is not truncated
+    expect(payload.messages[payload.messages.length - 1].content).toEqual(messages[messages.length - 1].content);
   });
 });

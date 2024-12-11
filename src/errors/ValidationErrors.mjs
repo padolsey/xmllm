@@ -22,10 +22,10 @@ class ModelValidationError extends ValidationError {
   }
 }
 
-class ParameterValidationError extends ValidationError {
+class PayloadValidationError extends ValidationError {
   constructor(message, details) {
-    super(message, 'PARAMETER_VALIDATION_ERROR', details);
-    this.name = 'ParameterValidationError';
+    super(message, 'PAYLOAD_VALIDATION_ERROR', details);
+    this.name = 'PayloadValidationError';
   }
 }
 
@@ -33,5 +33,5 @@ export {
   ValidationError,
   MessageValidationError,
   ModelValidationError,
-  ParameterValidationError
+  PayloadValidationError
 }; 

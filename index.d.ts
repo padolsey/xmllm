@@ -18,10 +18,14 @@ export interface XmllmOptions {
     OPENAI_API_KEY?: string;
     TOGETHERAI_API_KEY?: string;
     PERPLEXITYAI_API_KEY?: string;
+    OPENROUTER_API_KEY?: string;
   };
   timeout?: number;
   Stream?: StreamFunction;
-  streamConfig?: StreamConfig;
+  strategy?: string;
+  genSystemPrompt?: (system?: string) => string;
+  genUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
+  clientProvider?: ClientProvider | string;
 }
 
 export interface StreamConfig {
@@ -95,7 +99,7 @@ export interface PipelineHelpers {
 }
 
 // Model types
-export type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai';
+export type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai' | 'openrouter';
 export type ModelSpeed = 'superfast' | 'fast' | 'good';
 export type ModelString = `${ModelProvider}:${ModelSpeed}` | `${ModelProvider}:${string}`;
 
@@ -200,6 +204,7 @@ export interface BaseStreamConfig {
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
   onChunk?: (chunk: string) => void;
+  autoTruncateMessages?: boolean | number;  // If true, uses model's maxContextSize. If number, truncates at that token count.
 }
 
 // Schema-aware stream configuration (from xmlReq())
@@ -208,11 +213,11 @@ export interface SchemaStreamConfig extends BaseStreamConfig {
   schema?: SchemaType;
   hints?: HintType;
   system?: string;
-  sudoPrompt?: boolean;
   onChunk?: (chunk: string) => void;
   mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
-  generateSystemPrompt?: (system?: string) => string;
-  generateUserPrompt?: (scaffold: string, prompt: string, sudoPrompt?: boolean) => string | Message[];
+  genSystemPrompt?: (system?: string) => string;
+  genUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
+  strategy?: string;
 }
 
 // Default configuration (used in configure())
@@ -225,18 +230,22 @@ export interface DefaultsConfig extends SchemaStreamConfig {
   model?: ModelPreference;
   errorMessages?: ErrorMessages;
   onChunk?: (chunk: string) => void;
+  strategy?: string;
+  genSystemPrompt?: (system?: string) => string;
+  genUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
 }
 
 // Stream options (additional options for stream setup)
 export interface StreamOptions extends SchemaStreamConfig {
   Stream?: StreamFunction;
-  streamConfig?: StreamConfig;
   apiKeys?: {
     ANTHROPIC_API_KEY?: string;
     OPENAI_API_KEY?: string;
     TOGETHERAI_API_KEY?: string;
     PERPLEXITYAI_API_KEY?: string;
+    OPENROUTER_API_KEY?: string;
   };
+  strategy?: string;
 }
 
 // Update PromptConfig to use the schema-aware base
@@ -264,27 +273,9 @@ export class ModelValidationError extends ValidationError {
   code: 'MODEL_VALIDATION_ERROR';
 }
 
-export class ParameterValidationError extends ValidationError {
-  name: 'ParameterValidationError';
-  code: 'PARAMETER_VALIDATION_ERROR';
-}
-
-// Add back validation service interface
-export interface ValidationService {
-  validateMessages(messages: Message[]): {
-    systemMessage: string;
-    messages: Message[];
-  };
-  validateModel(model: ModelPreference, availableModels: Record<string, any>): boolean;
-  validateSingleModel(model: string, availableModels: Record<string, any>, index?: number | null): boolean;
-  validateConstraints(constraints: { rpmLimit?: number }): boolean;
-  validateParameters(params: {
-    temperature?: number;
-    max_tokens?: number;
-    stream?: boolean;
-    cache?: boolean;
-    constraints?: { rpmLimit?: number };
-  }): boolean;
+export class PayloadValidationError extends ValidationError {
+  name: 'PayloadValidationError';
+  code: 'PAYLOAD_VALIDATION_ERROR';
 }
 
 // Add back provider interfaces
@@ -337,7 +328,6 @@ export interface CacheService {
 export interface StreamOptions extends XmllmOptions {
   schema?: SchemaType;
   hints?: HintType;
-  sudoPrompt?: boolean;
   system?: string;
   closed?: boolean;
   mode?: 'state_open' | 'root_closed' | 'state_closed' | 'root_open';
@@ -346,6 +336,7 @@ export interface StreamOptions extends XmllmOptions {
   maxTokens?: number;
   onChunk?: (chunk: string) => void;
   errorMessages?: ErrorMessages;
+  strategy?: string;
 }
 
 export interface ChainableStreamInterface<T = XMLElement> extends AsyncIterable<T> {
@@ -401,10 +392,10 @@ export interface DefaultsConfig {
   schema?: SchemaType;
   hints?: HintType;
   system?: string;
-  sudoPrompt?: boolean;
   prompt?: string;
-  generateSystemPrompt?: (system?: string) => string;
-  generateUserPrompt?: (scaffold: string, prompt: string, sudoPrompt?: boolean) => string | Message[];
+  genSystemPrompt?: (system?: string) => string;
+  genUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
+  strategy?: string;
 }
 
 // Base configure options
@@ -416,6 +407,7 @@ export interface ConfigureOptions {
 // Client-specific configure options that extends the base
 export interface ClientConfigureOptions extends ConfigureOptions {
   clientProvider?: ClientProvider | string;
+  strategy?: string;
 }
 
 // Add configure function declaration
@@ -438,4 +430,17 @@ export interface ErrorMessages {
   networkError?: string;
   unexpectedError?: string;
 }
+
+// Add PromptStrategy type definition
+export interface PromptStrategy {
+  id: string;
+  name: string;
+  description: string;
+  genSystemPrompt: (subSystemPrompt?: string) => string | Array<{role: string, content: string}>;
+  genUserPrompt: (scaffold: string, originalPrompt: string) => string | Array<{role: 'user' | 'assistant', content: string}>;
+}
+
+// Export strategy-related functions
+export function getStrategy(id: string): PromptStrategy;
+export const STRATEGIES: Record<string, PromptStrategy>;
 

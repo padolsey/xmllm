@@ -1,8 +1,8 @@
 import createStreaming from 'streamops';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
-import { generateSystemPrompt as defaultSystemPrompt, generateUserPrompt as defaultUserPrompt } from './prompts.mjs';
 import { getConfig, configure } from './config.mjs';
+import { getStrategy } from './strategies.mjs';
 
 const logger = new Logger('xmllm');
 
@@ -14,9 +14,7 @@ const parserStack = new WeakMap();
 
 async function* xmllmGen(pipelineFn, {
   timeout, 
-  llmStream,
-  generateSystemPrompt = defaultSystemPrompt,
-  generateUserPrompt = defaultUserPrompt
+  llmStream
 } = {}) {
 
   const streamops = createStreaming({
@@ -135,6 +133,7 @@ async function* xmllmGen(pipelineFn, {
         presence_penalty,
         presencePenalty,
         errorMessages,
+        autoTruncateMessages,
         stop,
         messages
       } = transformedConfig;
@@ -151,10 +150,11 @@ async function* xmllmGen(pipelineFn, {
         presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
         stop: stop,
         errorMessages,
+        autoTruncateMessages,
         messages: [
           {
             role: 'system',
-            content: system || ''
+            content: system
           },
           ...(messages || [])
         ],
@@ -193,12 +193,10 @@ async function* xmllmGen(pipelineFn, {
     hints,
     system,
     messages, 
-    sudoPrompt = false,
-    max_tokens, 
-    errorMessages,
-    maxTokens, 
-    model, 
-    temperature, 
+    max_tokens,
+    maxTokens,
+    model,
+    temperature,
     stop,
     top_p,
     topP,
@@ -212,9 +210,15 @@ async function* xmllmGen(pipelineFn, {
     retryStartDelay,
     retryBackoffMultiplier,
     onChunk,
-    generateSystemPrompt: localSystemPrompt,
-    generateUserPrompt: localUserPrompt
+    genSystemPrompt,
+    genUserPrompt,
+    errorMessages,
+    autoTruncateMessages,
+    strategy
   }) {
+    const config = getConfig();
+    const strategyId = strategy || config.defaults.strategy;
+    const selectedStrategy = getStrategy(strategyId);
 
     messages = (messages || []).slice();
 
@@ -230,8 +234,8 @@ async function* xmllmGen(pipelineFn, {
       prompt = messages.pop().content;
     }
 
-    const useSystemPrompt = localSystemPrompt || generateSystemPrompt;
-    const useUserPrompt = localUserPrompt || generateUserPrompt;
+    const useSystemPrompt = genSystemPrompt || selectedStrategy.genSystemPrompt;
+    const useUserPrompt = genUserPrompt || selectedStrategy.genUserPrompt;
 
     return async function*(thing) {
       const parser = pushNewParser();
@@ -250,8 +254,8 @@ async function* xmllmGen(pipelineFn, {
       let userMessages;
 
       if (mapSelectionSchemaScaffold) {
-        const result = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt, sudoPrompt);
-        if (sudoPrompt && Array.isArray(result)) {
+        const result = useUserPrompt(mapSelectionSchemaScaffold, transformedPrompt);
+        if (Array.isArray(result)) {
           userMessages = result;
         } else {
           userMessages = [{ role: 'user', content: result }];
@@ -270,8 +274,6 @@ async function* xmllmGen(pipelineFn, {
         throw new Error('we need a prompt');
       }
 
-      const config = getConfig();
-      
       const stream = await (llmStream)({
         max_tokens: max_tokens || maxTokens || config.defaults.maxTokens,
         temperature: temperature ?? config.defaults.temperature,
@@ -294,6 +296,7 @@ async function* xmllmGen(pipelineFn, {
         retryMax,
         retryStartDelay,
         retryBackoffMultiplier,
+        autoTruncateMessages,
         cache
       });
 
@@ -422,9 +425,9 @@ async function* xmllmGen(pipelineFn, {
         messages,
         schema,
         hints,
+        strategy,
         mapper,
         system,
-        sudoPrompt,
         max_tokens,
         maxTokens,
         top_p,
@@ -446,8 +449,9 @@ async function* xmllmGen(pipelineFn, {
         retryStartDelay,
         retryBackoffMultiplier,
         cache,
-        generateSystemPrompt,
-        generateUserPrompt,
+        genSystemPrompt,
+        genUserPrompt,
+        autoTruncateMessages,
         errorMessages
       } = config;
 
@@ -484,8 +488,8 @@ async function* xmllmGen(pipelineFn, {
             max_tokens: max_tokens || maxTokens,
             schema: schema,
             hints,
+            strategy,
             model,
-            sudoPrompt,
             fakeDelay,
             waitMessageString,
             waitMessageDelay,
@@ -500,8 +504,9 @@ async function* xmllmGen(pipelineFn, {
             retryStartDelay,
             retryBackoffMultiplier,
             cache,
-            generateSystemPrompt,
-            generateUserPrompt,
+            genSystemPrompt,
+            genUserPrompt,
+            autoTruncateMessages,
             errorMessages
           }),
 
