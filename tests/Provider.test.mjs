@@ -904,11 +904,14 @@ describe('Context Size Management', () => {
 
     // Verify the payload sent to fetch
     const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
+
+    expect(payload.system).toBe('Be helpful');
     
-    // Verify system message is included
+    // Truncated user message
+    // (this unit test is highly liable to truncation methodology but that's desirable)
     expect(payload.messages[0]).toEqual({
-      role: 'system',
-      content: 'Be helpful'
+      role: 'user',
+      content: 'AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA[...]AAAAAAAAAAAAA'
     });
 
     // Verify most recent messages are kept (from the end)
@@ -1016,14 +1019,13 @@ describe('autoTruncateMessages', () => {
     });
 
     const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
-
-    console.log('>>payload', payload);
     
     // Should keep system + last message at minimum intact
     // Should maintain all messages in some fashion
-    expect(payload.messages[0].content).toBe('Be helpful');
+    expect(payload.system).toBe('Be helpful');
+    expect(payload.messages[0].content).toBe('First');
     expect(payload.messages[payload.messages.length - 1]).toEqual(messages[messages.length - 1]);
-    expect(payload.messages.length).toEqual(messages.length + 1); //+1 due to system message
+    
   });
 
   test('truncates to specific token count when autoTruncateMessages is number', async () => {

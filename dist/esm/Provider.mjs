@@ -854,14 +854,6 @@ var Provider = /*#__PURE__*/function () {
         }
       }
 
-      // Always include system message first
-      if (system) {
-        truncatedMessages.unshift({
-          role: 'system',
-          content: system
-        });
-      }
-
       // Always add the latest message last
       if (messages.length > 0) {
         truncatedMessages.push(messages[messages.length - 1]);
