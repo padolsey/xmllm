@@ -7,8 +7,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-import express from 'express';
-import cors from 'cors';
+function _asyncIterator(r) { var n, t, o, e = 2; for ("undefined" != typeof Symbol && (t = Symbol.asyncIterator, o = Symbol.iterator); e--;) { if (t && null != (n = r[t])) return n.call(r); if (o && null != (n = r[o])) return new AsyncFromSyncIterator(n.call(r)); t = "@@asyncIterator", o = "@@iterator"; } throw new TypeError("Object is not async iterable"); }
+function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r) { if (Object(r) !== r) return Promise.reject(new TypeError(r + " is not an object.")); var n = r.done; return Promise.resolve(r.value).then(function (r) { return { value: r, done: n }; }); } return AsyncFromSyncIterator = function AsyncFromSyncIterator(r) { this.s = r, this.n = r.next; }, AsyncFromSyncIterator.prototype = { s: null, n: null, next: function next() { return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments)); }, "return": function _return(r) { var n = this.s["return"]; return void 0 === n ? Promise.resolve({ value: r, done: !0 }) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); }, "throw": function _throw(r) { var n = this.s["return"]; return void 0 === n ? Promise.reject(r) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); } }, new AsyncFromSyncIterator(r); }
+import http from 'http';
 import StreamManager from './StreamManager.mjs';
 import ValidationService from './ValidationService.mjs';
 import Stream from './Stream.mjs';
@@ -78,24 +79,8 @@ function validateProxyConfig(config) {
 }
 
 /**
- * Express server that acts as a proxy between browser clients and LLM APIs.
- * 
- * Responsibilities:
- * - Handles HTTP/SSE connections from browsers
- * - Validates incoming requests
- * - Routes requests to StreamManager
- * - Manages CORS and security
- * - Handles graceful shutdown
- * 
- * Provides a secure way for browser clients to access LLM APIs without
- * exposing API keys.
- * 
- * @example
- * // Start proxy server
- * createServer({
- *   port: 3124,
- *   corsOrigins: '*'
- * });
+ * HTTP server that acts as a proxy between browser clients and LLM APIs.
+ * Uses Node's built-in http module instead of Express.
  */
 function createServer() {
   var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
@@ -103,18 +88,19 @@ function createServer() {
   try {
     validateProxyConfig(config);
   } catch (error) {
-    console.error('\x1b[31m%s\x1b[0m', error.message); // Red error text
+    console.error('\x1b[31m%s\x1b[0m', error.message);
     throw error;
   }
-  var app = express();
   var port = config.port || process.env.PORT || 3124;
   var streamManager = new StreamManager(config);
+  var maxRequestSize = config.maxRequestSize || 1048576; // Default 1MB
+  var timeout = config.timeout || 30000; // Default 30s
 
-  // Initialize global resource limiter with proxy-wide constraints
+  // Initialize global resource limiter
   var globalLimiter = new ResourceLimiter({
     rpm: config.globalRequestsPerMinute ? {
       limit: config.globalRequestsPerMinute,
-      window: 60000 // 1 minute
+      window: 60000
     } : null,
     tpm: config.globalTokensPerMinute ? {
       limit: config.globalTokensPerMinute,
@@ -122,64 +108,223 @@ function createServer() {
     } : null,
     tph: config.globalTokensPerHour ? {
       limit: config.globalTokensPerHour,
-      window: 3600000 // 1 hour
+      window: 3600000
     } : null,
     rph: config.globalRequestsPerHour ? {
       limit: config.globalRequestsPerHour,
       window: 3600000
     } : null
   });
-  var corsOptions = {
-    origin: config.corsOrigins || '*',
-    // all by default
-    methods: ['GET', 'POST'],
-    // Allowed HTTP methods
-    allowedHeaders: ['Content-Type'],
-    // Allowed headers
-    credentials: true // Allow sending credentials (cookies, etc.)
-  };
-  app.use(cors(corsOptions));
-  app.use(express.json());
-  console.log('Starting Proxy Server with config', config, 'Port:', port);
-  app.post('/api/stream', /*#__PURE__*/function () {
+  var server = http.createServer(/*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(req, res) {
-      var _req$body, messages, _req$body$model, model, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, fakeDelay, stop, cache, stream, errorMessagesConfig, rateLimitMessage, tokenEstimate, limitCheck, theStream, errorResponse;
+      var requestOrigin, allowedOrigins, status, buffers, totalSize, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, chunk, data, _data, messages, _data$model, model, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, fakeDelay, stop, cache, stream, normalizedParams, errorMessagesConfig, rateLimitMessage, tokenEstimate, limitCheck, theStream, errorResponse;
       return _regeneratorRuntime().wrap(function _callee$(_context) {
         while (1) switch (_context.prev = _context.next) {
           case 0:
-            console.log('Stream request', req.body);
-            _context.prev = 1;
-            _req$body = req.body, messages = _req$body.messages, _req$body$model = _req$body.model, model = _req$body$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good', 'claude:fast', 'openai:fast', 'togetherai:fast'] : _req$body$model, max_tokens = _req$body.max_tokens, maxTokens = _req$body.maxTokens, temperature = _req$body.temperature, top_p = _req$body.top_p, topP = _req$body.topP, presence_penalty = _req$body.presence_penalty, presencePenalty = _req$body.presencePenalty, errorMessages = _req$body.errorMessages, fakeDelay = _req$body.fakeDelay, stop = _req$body.stop, cache = _req$body.cache, stream = _req$body.stream; // Fall back to proxy level error message configuration
+            // Set timeout
+            req.setTimeout(timeout);
+
+            // Handle CORS with proper origin checking
+            requestOrigin = req.headers.origin;
+            allowedOrigins = Array.isArray(config.corsOrigins) ? config.corsOrigins : [config.corsOrigins || '*'];
+            if (allowedOrigins.includes('*')) {
+              // For wildcard, echo back the requesting origin but don't allow credentials
+              res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
+              res.setHeader('Access-Control-Allow-Credentials', 'false');
+            } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+              // For specific allowed origins, allow credentials
+              res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+              res.setHeader('Access-Control-Allow-Credentials', 'true');
+            } else {
+              // For disallowed origins
+              res.setHeader('Access-Control-Allow-Origin', 'null');
+              res.setHeader('Access-Control-Allow-Credentials', 'false');
+            }
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+            // Handle preflight requests
+            if (!(req.method === 'OPTIONS')) {
+              _context.next = 10;
+              break;
+            }
+            res.writeHead(204);
+            res.end();
+            return _context.abrupt("return");
+          case 10:
+            if (!(req.url === '/api/limits')) {
+              _context.next = 19;
+              break;
+            }
+            if (!(req.method !== 'GET')) {
+              _context.next = 15;
+              break;
+            }
+            res.writeHead(405, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: 'Method not allowed',
+              code: 'METHOD_NOT_ALLOWED'
+            }));
+            return _context.abrupt("return");
+          case 15:
+            status = globalLimiter.checkLimits();
+            res.writeHead(200, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify(status));
+            return _context.abrupt("return");
+          case 19:
+            if (!(req.url === '/api/stream')) {
+              _context.next = 117;
+              break;
+            }
+            if (!(req.method !== 'POST')) {
+              _context.next = 24;
+              break;
+            }
+            res.writeHead(405, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: 'Method not allowed',
+              code: 'METHOD_NOT_ALLOWED'
+            }));
+            return _context.abrupt("return");
+          case 24:
+            _context.prev = 24;
+            // Parse JSON body with size limit
+            buffers = [];
+            totalSize = 0;
+            _context.prev = 27;
+            _iteratorAbruptCompletion = false;
+            _didIteratorError = false;
+            _context.prev = 30;
+            _iterator = _asyncIterator(req);
+          case 32:
+            _context.next = 34;
+            return _iterator.next();
+          case 34:
+            if (!(_iteratorAbruptCompletion = !(_step = _context.sent).done)) {
+              _context.next = 45;
+              break;
+            }
+            chunk = _step.value;
+            totalSize += chunk.length;
+            if (!(totalSize > maxRequestSize)) {
+              _context.next = 41;
+              break;
+            }
+            res.writeHead(413, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: 'Request entity too large',
+              code: 'PAYLOAD_TOO_LARGE',
+              maxSize: maxRequestSize
+            }));
+            return _context.abrupt("return");
+          case 41:
+            buffers.push(chunk);
+          case 42:
+            _iteratorAbruptCompletion = false;
+            _context.next = 32;
+            break;
+          case 45:
+            _context.next = 51;
+            break;
+          case 47:
+            _context.prev = 47;
+            _context.t0 = _context["catch"](30);
+            _didIteratorError = true;
+            _iteratorError = _context.t0;
+          case 51:
+            _context.prev = 51;
+            _context.prev = 52;
+            if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
+              _context.next = 56;
+              break;
+            }
+            _context.next = 56;
+            return _iterator["return"]();
+          case 56:
+            _context.prev = 56;
+            if (!_didIteratorError) {
+              _context.next = 59;
+              break;
+            }
+            throw _iteratorError;
+          case 59:
+            return _context.finish(56);
+          case 60:
+            return _context.finish(51);
+          case 61:
+            _context.next = 68;
+            break;
+          case 63:
+            _context.prev = 63;
+            _context.t1 = _context["catch"](27);
+            res.writeHead(400, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: 'Error reading request body',
+              code: 'INVALID_REQUEST'
+            }));
+            return _context.abrupt("return");
+          case 68:
+            _context.prev = 68;
+            data = JSON.parse(Buffer.concat(buffers).toString());
+            _context.next = 77;
+            break;
+          case 72:
+            _context.prev = 72;
+            _context.t2 = _context["catch"](68);
+            res.writeHead(400, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: 'Invalid JSON in request body',
+              code: 'INVALID_JSON'
+            }));
+            return _context.abrupt("return");
+          case 77:
+            _data = data, messages = _data.messages, _data$model = _data.model, model = _data$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good', 'claude:fast', 'openai:fast', 'togetherai:fast'] : _data$model, max_tokens = _data.max_tokens, maxTokens = _data.maxTokens, temperature = _data.temperature, top_p = _data.top_p, topP = _data.topP, presence_penalty = _data.presence_penalty, presencePenalty = _data.presencePenalty, errorMessages = _data.errorMessages, fakeDelay = _data.fakeDelay, stop = _data.stop, cache = _data.cache, stream = _data.stream; // Normalize parameters
+            normalizedParams = {
+              max_tokens: max_tokens || maxTokens,
+              top_p: top_p || topP,
+              presence_penalty: presence_penalty || presencePenalty
+            }; // Fall back to proxy level error message configuration
             errorMessagesConfig = _objectSpread(_objectSpread({}, config.errorMessages || {}), errorMessages || {});
             rateLimitMessage = errorMessagesConfig.rateLimitExceeded || 'Please try again later';
-            _context.prev = 5;
-            // Validate all inputs
+            _context.prev = 81;
+            // Validate inputs
             ValidationService.validateMessages(messages);
             ValidationService.validateModel(model, PROVIDERS);
-            ValidationService.validateLLMPayload({
-              temperature: temperature,
-              max_tokens: max_tokens,
-              maxTokens: maxTokens,
-              top_p: top_p,
-              topP: topP,
-              presence_penalty: presence_penalty,
-              presencePenalty: presencePenalty,
+            ValidationService.validateLLMPayload(_objectSpread(_objectSpread({
+              temperature: temperature
+            }, normalizedParams), {}, {
               stream: stream,
               cache: cache
-            });
-            _context.next = 14;
-            break;
-          case 11:
-            _context.prev = 11;
-            _context.t0 = _context["catch"](5);
-            return _context.abrupt("return", res.status(400).json({
-              error: _context.t0.message,
-              code: _context.t0.code || 'VALIDATION_ERROR',
-              details: _context.t0.details
             }));
-          case 14:
-            // Check global limits before processing request
-            tokenEstimate = req.body.messages ? req.body.messages.reduce(function (acc, m) {
+            _context.next = 92;
+            break;
+          case 87:
+            _context.prev = 87;
+            _context.t3 = _context["catch"](81);
+            res.writeHead(400, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: _context.t3.message,
+              code: _context.t3.code || 'VALIDATION_ERROR',
+              details: _context.t3.details
+            }));
+            return _context.abrupt("return");
+          case 92:
+            // Check global limits
+            tokenEstimate = messages ? messages.reduce(function (acc, m) {
               return acc + m.content.length / 3;
             }, 0) : 0;
             limitCheck = globalLimiter.checkLimits({
@@ -189,89 +334,103 @@ function createServer() {
               rph: 1
             });
             if (limitCheck.allowed) {
-              _context.next = 18;
+              _context.next = 98;
               break;
             }
-            return _context.abrupt("return", res.status(429).json({
+            res.writeHead(429, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
               error: 'Global rate limit exceeded',
               code: 'GLOBAL_RATE_LIMIT',
               limits: limitCheck.limits,
               message: rateLimitMessage
             }));
-          case 18:
-            // Consume the resources if check passed
+            return _context.abrupt("return");
+          case 98:
+            // Consume resources
             globalLimiter.consume({
               rpm: 1,
               tpm: tokenEstimate,
               tph: tokenEstimate,
               rph: 1
             });
+
+            // Set SSE headers
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               'Connection': 'keep-alive'
             });
-            console.log('Error messages config:', errorMessagesConfig);
-            _context.next = 23;
-            return Stream({
-              messages: messages,
-              max_tokens: max_tokens,
-              maxTokens: maxTokens,
+            _context.next = 102;
+            return Stream(_objectSpread(_objectSpread({
+              messages: messages
+            }, normalizedParams), {}, {
               temperature: temperature,
-              top_p: top_p,
-              topP: topP,
-              presence_penalty: presence_penalty,
-              presencePenalty: presencePenalty,
               errorMessages: errorMessagesConfig,
               stop: stop,
               fakeDelay: fakeDelay,
               model: model,
               cache: cache,
               stream: stream == null ? true : stream
-            });
-          case 23:
+            }));
+          case 102:
             theStream = _context.sent;
-            _context.next = 26;
+            _context.next = 105;
             return streamManager.createStream(theStream, res);
-          case 26:
-            _context.next = 36;
+          case 105:
+            _context.next = 116;
             break;
-          case 28:
-            _context.prev = 28;
-            _context.t1 = _context["catch"](1);
-            console.error('Error in stream request:', _context.t1);
-
-            // Set error status code
-            res.status(500);
-
-            // Ensure proper SSE headers are set
+          case 107:
+            _context.prev = 107;
+            _context.t4 = _context["catch"](24);
+            if (res.headersSent) {
+              _context.next = 113;
+              break;
+            }
             res.writeHead(500, {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive'
+              'Content-Type': 'application/json'
             });
-            errorResponse = {
+            res.end(JSON.stringify({
               error: 'Internal server error',
-              code: _context.t1.code || 'INTERNAL_ERROR',
-              message: _context.t1.message
-            }; // Make sure we're sending a proper SSE event
+              code: _context.t4.code || 'INTERNAL_ERROR',
+              message: _context.t4.message
+            }));
+            return _context.abrupt("return");
+          case 113:
+            // If headers were sent (SSE started), send error event
+            errorResponse = {
+              error: 'Stream error',
+              code: _context.t4.code || 'STREAM_ERROR',
+              message: _context.t4.message
+            };
             res.write("event: error\ndata: ".concat(JSON.stringify(errorResponse), "\n\n"));
             res.end();
-          case 36:
+          case 116:
+            return _context.abrupt("return");
+          case 117:
+            // Handle unknown endpoints
+            res.writeHead(404, {
+              'Content-Type': 'application/json'
+            });
+            res.end(JSON.stringify({
+              error: 'Not found',
+              code: 'NOT_FOUND'
+            }));
+          case 119:
           case "end":
             return _context.stop();
         }
-      }, _callee, null, [[1, 28], [5, 11]]);
+      }, _callee, null, [[24, 107], [27, 63], [30, 47, 51, 61], [52,, 56, 60], [68, 72], [81, 87]]);
     }));
     return function (_x, _x2) {
       return _ref.apply(this, arguments);
     };
   }());
 
-  // Add endpoint to check current rate limit status
-  app.get('/api/limits', function (req, res) {
-    var status = globalLimiter.checkLimits();
-    res.json(status);
+  // Handle server errors
+  server.on('error', function (error) {
+    console.error('Server error:', error);
   });
   process.on('SIGTERM', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
@@ -289,11 +448,10 @@ function createServer() {
     }, _callee2);
   })));
   if (config.listen !== false) {
-    // Allow disabling listen for testing
-    app.listen(port, function () {
+    server.listen(port, function () {
       console.log("Proxy server listening on port ".concat(port));
     });
   }
-  return app;
+  return server;
 }
 export default createServer;
