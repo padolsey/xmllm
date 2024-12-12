@@ -17,7 +17,7 @@ await simple('fun pet names', {name: Array(String)}); // => ["Daisy", "Whiskers"
 
 What actually happened:
 
-```
+```markdown
 ┌─────────────────────┐     ┌───────────────────────────┐     ┌─────────────────────────┐
 │                     │     │      LLM generates        │     │      XML parsed to      │
 │   "fun pet names"   │ ──▶ │    <name>Daisy</name>     │ ──▶ │  structured data via    │
@@ -32,7 +32,7 @@ What actually happened:
 
 Because xmllm uses a rather flexible HTML parser, even LLMs providing weird flourishes or non-contiguous XML will still be able to be parsed, e.g.
 
-```
+```markdown
     Hi im a plucky    and annoying
     little llm and sure i can
     help with      your request for 
@@ -71,7 +71,7 @@ Fork and play with the **[xmllm demos](https://github.com/padolsey/xmllm_demos)*
 
 ## Provider-agnostic & high compliance on many models!
 
-xmllm is able to be run against most conceivable endpoints since you can define [custom providers](./docs/providers.md). We define some providers out of the box like `anthropic`, `openai`, `openrouter`, `togetherai`, `perplexityai`. You will usually put the API keys in a `.env` file but you can also put them inline. Additionally, if you're worried about rate limits or random failures, you can define fallback models.
+xmllm is able to be run against most conceivable endpoints since you can define [custom providers](https://github.com/padolsey/xmllm/blob/main/docs/providers.md). We define some providers out of the box like `anthropic`, `openai`, `openrouter`, `togetherai`, `perplexityai`. You will usually put the API keys in a `.env` file but you can also put them inline. Additionally, if you're worried about rate limits or random failures, you can define fallback models.
 
 ```javascript
 stream('fun pet names', {
@@ -97,7 +97,7 @@ stream('fun pet names', {
 });
 ```
 
-In addition to the big frontier models, xmllm has impressive schema compliance on mid-to-low-param models like: Llama 3.1 8B, Qwen2.5-7B-Instruct-Turbo, Nous Hermes 2 Mixtral, Qwen 2.5 Coder 32B. And, where lacking, compliance can usually be improved by using `hints` in addition to [schemas](./docs/schemas.md) and a bit of experimental prompt-engineering.
+In addition to the big frontier models, xmllm has impressive schema compliance on mid-to-low-param models like: Llama 3.1 8B, Qwen2.5-7B-Instruct-Turbo, Nous Hermes 2 Mixtral, Qwen 2.5 Coder 32B. And, where lacking, compliance can usually be improved by using `hints` in addition to [schemas](https://github.com/padolsey/xmllm/blob/main/docs/schemas.md) and a bit of experimental prompt-engineering.
 
 ---
 
@@ -175,7 +175,7 @@ View the [Model Compliance Matrix](https://xmllm.j11y.io/model-testing) to see h
 
 TLDR: `Schema-guided prompt`→`Stream XML`→`HTML parser`→`Data`
 
-Under the hood, xmllm uses a different prompting strategies, pairing custom system prompts and custom user/assistant pairings. ([See strategies.mjs](./src/strategies.mjs)). These prompts tell the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, including low param models like Ministral-3B and Qwen2.5-7B. Once the stream starts coming in, xmllm uses a lenient streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
+Under the hood, xmllm uses a different prompting strategies, pairing custom system prompts and custom user/assistant pairings. ([See strategies.mjs](https://github.com/padolsey/xmllm/blob/main/src/strategies.mjs)). These prompts tell the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, including low param models like Ministral-3B and Qwen2.5-7B. Once the stream starts coming in, xmllm uses a lenient streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
 
 ## Resilience & Errors:
 
@@ -293,7 +293,7 @@ for await (
 }
 ```
 
-See more details in the [Streaming Guide](./docs/streaming.md).
+See more details in the [Streaming Guide](https://github.com/padolsey/xmllm/blob/main/docs/streaming.md).
 
 ---
 
@@ -368,7 +368,7 @@ This makes things simpler usually.
 
 This plural/singular thing is, tbh, a leaky abstraction. But if you're savvy enough to be dealing with the leakiest and most chaotic abstractions ever -- LLMs -- then hopefully you're not dissuaded.
 
-**See more details in the [Schema Guide](./docs/schemas.md).**
+**See more details in the [Schema Guide](https://github.com/padolsey/xmllm/blob/main/docs/schemas.md).**
 
 ## Provider-Agnostic / Max-configuration
 
@@ -382,7 +382,7 @@ xmllm supports multiple AI providers. You'll need at least one:
 | Perplexity (`perplexityai`) | `PERPLEXITYAI_API_KEY` | Llama, Mistral, etc. |
 | OpenRouter (`openrouter`) | `OPENROUTER_API_KEY` | Everything! |
 
-See many more details in the [Provider Setup](./docs/providers.md) guide.
+See many more details in the [Provider Setup](https://github.com/padolsey/xmllm/blob/main/docs/providers.md) guide.
 
 ```javascript
 // Configure at runtime or in an `.env` file
