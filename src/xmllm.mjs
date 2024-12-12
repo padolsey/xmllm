@@ -135,7 +135,8 @@ async function* xmllmGen(pipelineFn, {
         errorMessages,
         autoTruncateMessages,
         stop,
-        messages
+        messages,
+        onChunk
       } = transformedConfig;
 
       if (!messages?.length) {
@@ -152,10 +153,10 @@ async function* xmllmGen(pipelineFn, {
         errorMessages,
         autoTruncateMessages,
         messages: [
-          {
+          ...(system ? [{
             role: 'system',
             content: system
-          },
+          }] : []),
           ...(messages || [])
         ],
         model: model || globalConfig.defaults.model,
@@ -175,6 +176,13 @@ async function* xmllmGen(pipelineFn, {
           if (cancelled || done) break;
 
           const text = new TextDecoder().decode(value);
+          if (onChunk) {
+            try {
+              onChunk(text);
+            } catch(err) {
+              logger.error('onChunk err', err);
+            }
+          }
           parser.add(text);
           accrued += text;
 
@@ -282,10 +290,10 @@ async function* xmllmGen(pipelineFn, {
         presence_penalty: presence_penalty || presencePenalty || config.defaults.presencePenalty,
         errorMessages,
         messages: [
-          {
+          ...(systemPrompt ? [{
             role: 'system',
             content: systemPrompt
-          },
+          }] : []),
           ...(messages?.length ? messages : []),
           ...userMessages
         ],

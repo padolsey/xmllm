@@ -2,9 +2,58 @@
 
 xmllm is a JS utility that makes it easy to get structured data from LLMs, using a boring, time-tested, semantically enriched human-writable/readable syntax that is resilient and forgiving of human-made (and thus, **LLM-made**) mistakes.
 
+> **PLEASE:** This is very experimental. I <u>have</u> shipped fully operable apps with xmllm but please have patience whenever trying to derive structured data from LLMs. It's not as deterministic as normal programming. You can find demos and examples in the [xmllm_demos](https://github.com/padolsey/xmllm_demos) repo. Shipped live at [xmllm.j11y.io](https://xmllm.j11y.io) if you want to have a play (rate-limited so apologies for any issues!)
+
+> **I'm looking for collaborators and testers to help me improve this library**.
+
+---
+
+Simple example:
+
+```javascript
+import { simple } from 'xmllm';
+await simple('fun pet names', {name: Array(String)}); // => ["Daisy", "Whiskers", "Rocky"]
+```
+
+What actually happened:
+
+```
+┌─────────────────────┐     ┌───────────────────────────┐     ┌─────────────────────────┐
+│                     │     │      LLM generates        │     │      XML parsed to      │
+│   "fun pet names"   │ ──▶ │    <name>Daisy</name>     │ ──▶ │  structured data via    │
+│                     │     │   <name>Whiskers</name>   │     │ schema {name: [String]} │
+│                     │     │     <name>Rocky</name>    │     │                         │
+└─────────────────────┘     └───────────────────────────┘     └─────────────────────────┘
+  Prompt sent to LLM           LLM's natural output                  Final result:
+                                                              ["Daisy", "Whiskers", "Rocky"]
+```
+
+### Even messy XML is recoverable!
+
+Because xmllm uses a rather flexible HTML parser, even LLMs providing weird flourishes or non-contiguous XML will still be able to be parsed, e.g.
+
+```
+    Hi im a plucky    and annoying
+    little llm and sure i can
+    help with      your request for 
+    PET NAMES, how about <name>
+    Charlie</name> or
+    maybe <name>Bella </ IM MESSING THINGS UP ></name>
+    <name>King
+    Julian
+```
+
+... from which we can still recover:
+
+```javascript
+{
+  name: ['Charlie', 'Bella', 'King Julian']
+}
+```
+
 ## XML *{through the eyes of a forgiving HTML parser.}*
 
-*Why XML?* – XML allows LLMs to communicate naturally with the best merits of 'free prose' while still giving you structured data back. In contrast, the norm of deriving JSON from LLMs via 'Function Calling' or 'Tool Use' is (*anecdotally*) biased to more "robotic" transactional completions, arguably lacking some of the more fluid or creative higher-temperature prose we have come to value from language models. And they make streaming a headache. Markup languages like XML, however, excel at this.
+*Why XML?* – XML allows LLMs to communicate naturally with the best merits of 'free prose' while still giving you structured data back. In contrast, the norm of deriving JSON from LLMs via 'Function Calling' or 'Tool Use' is famously brittle. And (*anecdotally*) these approaches are biased to more "robotic" transactional completions, arguably lacking some of the more fluid or creative higher-temperature completions we have come to value from language models. And they make streaming a headache. Markup languages like XML, however, excel at these things.
 
 ---
 
@@ -22,12 +71,39 @@ Fork and play with the **[xmllm demos](https://github.com/padolsey/xmllm_demos)*
 
 ## Provider-agnostic & high compliance on many models!
 
-xmllm is able to be run against most conceivable endpoints since you can define [custom providers](./docs/providers.md). Out of the box we've hard-coded some models just to play with like Claude Haiku/Sonnet, GPT-4o (+mini), and Qwen2.5-7B-Instruct via TogetherAI.
+xmllm is able to be run against most conceivable endpoints since you can define [custom providers](./docs/providers.md). We define some providers out of the box like `anthropic`, `openai`, `openrouter`, `togetherai`, `perplexityai`. You will usually put the API keys in a `.env` file but you can also put them inline. Additionally, if you're worried about rate limits or random failures, you can define fallback models.
 
-In addition to OpenAI and Anthropic models, xmllm has impressive schema compliance on mid-to-low-param models like: Llama 3.1 8B, Qwen2.5-7B-Instruct-Turbo, Nous Hermes 2 Mixtral, Qwen 2.5 Coder 32B. And, where lacking, compliance can usually be improved by using `hints` in addition to [schemas](./docs/schemas.md) and a bit of experimental prompt-engineering.
+```javascript
+stream('fun pet names', {
+  schema: {
+    name: Array(String)
+  },
 
+  // If I am super cautious about network or LLM provider stability,
+  // I can define fallback models:
+  model: [
+    // Preferred model:
+    'openrouter:mistralai/ministral-3b',
+    // Fallback models:
+    'anthropic:claude-3-haiku-20240307',
+    'togetherai:Qwen/Qwen2.5-7B-Instruct-Turbo',
+    // Super-custom fallback model: 
+    {
+      inherit: 'openai', // indicating open-ai endpoint compatibility
+      endpoint: 'https://api.myCustomLLM.com/v1/chat/completions',
+      key: 'sk-...'
+    }
+  ]
+});
+```
 
-Here's an example:
+In addition to the big frontier models, xmllm has impressive schema compliance on mid-to-low-param models like: Llama 3.1 8B, Qwen2.5-7B-Instruct-Turbo, Nous Hermes 2 Mixtral, Qwen 2.5 Coder 32B. And, where lacking, compliance can usually be improved by using `hints` in addition to [schemas](./docs/schemas.md) and a bit of experimental prompt-engineering.
+
+---
+
+## Famous strawberry problem
+
+Here's an example with a slightly more complex schema, which in this case let's us enforce some kind of structured chain-of-thought and the containment of a 'final answer':
 
 ```javascript
 import { simple } from 'xmllm';
@@ -53,6 +129,7 @@ const analysis = await simple(
 ```
 
 The LLM responds naturally with XML:
+
 ```xml
 <approach>To solve this problem, I will count the number of R/r letters 
 in the word 'strawberry'.</approach>
@@ -85,6 +162,8 @@ Which transforms into structured data:
   final_answer: "There are 3 Rs in the word 'strawberry'."
 }
 ```
+
+---
 
 ## ➠ [Model Compliance Dashboard](https://xmllm.j11y.io/model-testing)
 
@@ -187,22 +266,17 @@ const result = await stream('What is 2+2?', {
 
 ---
 
-```javascript
-// See updates in real-time:
-for await (const color of stream('List colors as <color>...</color>').select('color')) {
-  console.log(color.$text);       // "re", "red", "blu", "blue"
-  console.log(color.$tagclosed);  // false, true, false, true
-}
-```
+Here's a more qualified example of the earlier color scenario where we're:
 
----
+1. Defining a schema to increase compliance (i.e. more likely to get XML from the LLM)
+2. Using `closedOnly()` prior to `select()` to ensure we'll only get tags when they're closed.
+3. Configuring a custom model and provider (in this case, inheriting from the togetherai-style payloader).
 
 ```javascript
 const colors = [];
 for await (
   const {color} of
     stream('List colors as <color>...</color>', {
-      clientProvider: client,
       model: {
         inherit: 'togetherai',
         name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
@@ -240,7 +314,61 @@ const schema = {
 };
 ```
 
-See more details in the [Schema Guide](./docs/schemas.md).
+A schema is an object that indicates what kind of object you want _back_ from xmllm at the end of the process. So if you want an array of strings under the key 'color' you'll use: 
+
+```javascript
+{ color: Array(String) }
+```
+
+This will give you something like:
+
+```javascript
+{ color: ['red', 'blue', 'green'] }
+```
+
+You **vital** thing when composing schemas with xmllm is to realize that each key you define becomes an XML element. So, we are using the key 'color' instead of 'colors' because we want this:
+
+```xml
+<color>red</color>
+<color>blue</color>
+<color>green</color>
+```
+
+And **NOT**:
+
+```xml
+<colors>red</colors>
+<colors>blue</colors>
+<colors>green</colors>
+```
+
+And as such the key on the returned data will be `color`, not `colors`. 
+
+The best practice to avoid this mental overhead is to wrap a singular named array in a plurally named container, like this:
+
+```javascript
+schema = {
+  colors: {
+    color: Array(String)
+  }
+}
+```
+
+... which would get you:
+
+```xml
+<colors>
+  <color>red</color>
+  <color>blue</color>
+  <color>green</color>
+</colors>
+```
+
+This makes things simpler usually.
+
+This plural/singular thing is, tbh, a leaky abstraction. But if you're savvy enough to be dealing with the leakiest and most chaotic abstractions ever -- LLMs -- then hopefully you're not dissuaded.
+
+**See more details in the [Schema Guide](./docs/schemas.md).**
 
 ## Provider-Agnostic / Max-configuration
 

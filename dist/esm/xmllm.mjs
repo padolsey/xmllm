@@ -663,10 +663,10 @@ function _xmllmGen() {
                           stop: stop || null,
                           presence_penalty: presence_penalty || presencePenalty || config.defaults.presencePenalty,
                           errorMessages: errorMessages,
-                          messages: [{
+                          messages: [].concat(_toConsumableArray(systemPrompt ? [{
                             role: 'system',
                             content: systemPrompt
-                          }].concat(_toConsumableArray((_messages3 = messages) !== null && _messages3 !== void 0 && _messages3.length ? messages : []), _toConsumableArray(userMessages)),
+                          }] : []), _toConsumableArray((_messages3 = messages) !== null && _messages3 !== void 0 && _messages3.length ? messages : []), _toConsumableArray(userMessages)),
                           model: model,
                           fakeDelay: fakeDelay,
                           waitMessageString: waitMessageString,
@@ -743,7 +743,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
-                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, autoTruncateMessages, stop, messages, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
+                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, autoTruncateMessages, stop, messages, onChunk, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
@@ -762,7 +762,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, errorMessages = _transformedConfig.errorMessages, autoTruncateMessages = _transformedConfig.autoTruncateMessages, stop = _transformedConfig.stop, messages = _transformedConfig.messages;
+                        _transformedConfig = transformedConfig, system = _transformedConfig.system, _transformedConfig$mo = _transformedConfig.model, model = _transformedConfig$mo === void 0 ? globalConfig.defaults.model : _transformedConfig$mo, cache = _transformedConfig.cache, max_tokens = _transformedConfig.max_tokens, maxTokens = _transformedConfig.maxTokens, temperature = _transformedConfig.temperature, top_p = _transformedConfig.top_p, topP = _transformedConfig.topP, presence_penalty = _transformedConfig.presence_penalty, presencePenalty = _transformedConfig.presencePenalty, errorMessages = _transformedConfig.errorMessages, autoTruncateMessages = _transformedConfig.autoTruncateMessages, stop = _transformedConfig.stop, messages = _transformedConfig.messages, onChunk = _transformedConfig.onChunk;
                         if (messages !== null && messages !== void 0 && messages.length) {
                           _context2.next = 8;
                           break;
@@ -779,10 +779,10 @@ function _xmllmGen() {
                           stop: stop,
                           errorMessages: errorMessages,
                           autoTruncateMessages: autoTruncateMessages,
-                          messages: [{
+                          messages: [].concat(_toConsumableArray(system ? [{
                             role: 'system',
                             content: system
-                          }].concat(_toConsumableArray(messages || [])),
+                          }] : []), _toConsumableArray(messages || [])),
                           model: model || globalConfig.defaults.model,
                           cache: cache
                         }));
@@ -801,7 +801,7 @@ function _xmllmGen() {
                         _context2.prev = 17;
                       case 18:
                         if (!true) {
-                          _context2.next = 33;
+                          _context2.next = 34;
                           break;
                         }
                         _context2.next = 21;
@@ -814,32 +814,39 @@ function _xmllmGen() {
                           _context2.next = 26;
                           break;
                         }
-                        return _context2.abrupt("break", 33);
+                        return _context2.abrupt("break", 34);
                       case 26:
                         _text = new TextDecoder().decode(value);
+                        if (onChunk) {
+                          try {
+                            onChunk(_text);
+                          } catch (err) {
+                            logger.error('onChunk err', err);
+                          }
+                        }
                         parser.add(_text);
                         accrued += _text;
-                        _context2.next = 31;
+                        _context2.next = 32;
                         return _text;
-                      case 31:
+                      case 32:
                         _context2.next = 18;
                         break;
-                      case 33:
-                        _context2.next = 38;
+                      case 34:
+                        _context2.next = 39;
                         break;
-                      case 35:
-                        _context2.prev = 35;
+                      case 36:
+                        _context2.prev = 36;
                         _context2.t0 = _context2["catch"](17);
                         logger.error("Error reading stream:", _context2.t0);
-                      case 38:
-                        _context2.prev = 38;
+                      case 39:
+                        _context2.prev = 39;
                         reader.releaseLock();
-                        return _context2.finish(38);
-                      case 41:
+                        return _context2.finish(39);
+                      case 42:
                       case "end":
                         return _context2.stop();
                     }
-                  }, _callee2, null, [[17, 35, 38, 41]]);
+                  }, _callee2, null, [[17, 36, 39, 42]]);
                 }));
                 return function (_x2) {
                   return _ref.apply(this, arguments);

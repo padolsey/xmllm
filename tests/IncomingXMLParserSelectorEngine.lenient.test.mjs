@@ -149,4 +149,26 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
       }
     });
   });
+
+  test('should handle messy LLM output with malformed tags and recover names', () => {
+    engine.add(`
+      Hi im a plucky and annoying
+      little llm and sure i can
+      help with your request for 
+      PET NAMES, how about <name>
+      Charlie</name> or
+      maybe <name>Bella </ IM MESSING THINGS UP ></name>
+      <name>King
+      Julian
+    `);
+
+    const result = engine.mapSelect({
+      name: [({$text}) => $text.trim().replace(/\s+/g, ' ')]
+    });
+
+    // The parser should extract what it can from the messy input
+    expect(result).toEqual({
+      name: ['Charlie', 'Bella', 'King Julian']
+    });
+  });
 }); 
