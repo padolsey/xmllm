@@ -20,7 +20,7 @@ await simple('fun pet names', {
 What actually happened:
 
 ```markdown
-┌─────────────────────┐     ┌───────────────────────────┐     ┌��────────────────────────┐
+┌─────────────────────┐     ┌───────────────────────────┐     ┌─────────────────────────┐
 │                     │     │      LLM generates        │     │      XML parsed to      │
 │   "fun pet names"   │ ──▶ │    <name>Daisy</name>     │ ──▶ │  structured data via    │
 │                     │     │   <name>Whiskers</name>   │     │ schema {name: [String]} │
