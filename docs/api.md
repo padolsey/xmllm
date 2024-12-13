@@ -24,17 +24,16 @@ function xmllm<T>(
 Options:
 ```typescript
 interface XmlLmOptions {
-  timeout?: number;                                    // Request timeout in ms
-  llmStream?: LLMStreamFunction;                      // Custom stream provider
-  generateSystemPrompt?: (system: string) => string;  // Custom prompt generator
-  generateUserPrompt?: (scaffold: string, prompt: string) => string;
-  apiKeys?: {                                         // Provider API keys
+  timeout?: number;                    // Request timeout in ms
+  llmStream?: LLMStreamFunction;       // Custom stream provider
+  apiKeys?: {                         // Provider API keys
     ANTHROPIC_API_KEY?: string;
     OPENAI_API_KEY?: string;
     TOGETHERAI_API_KEY?: string;
     PERPLEXITYAI_API_KEY?: string;
     OPENROUTER_API_KEY?: string;
   };
+  providerManager?: ProviderManager;   // Custom provider manager
 }
 ```
 
@@ -269,8 +268,16 @@ interface StreamConfig {
   system?: string;                   // System prompt
   mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
   onChunk?: (chunk: string) => void; // Chunk callback
-  generateSystemPrompt?: (system?: string) => string;  // Custom system prompt generator
-  generateUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
+  strategy?: string;                 // Prompt strategy ID (see strategies.md)
+  // Valid strategies = default | minimal | structured | assertive | exemplar | seed
+  
+  // Advanced options
+  fakeDelay?: number;               // Simulate delay (testing)
+  waitMessageString?: string;       // Custom wait message
+  waitMessageDelay?: number;        // Wait message delay
+  retryMax?: number;                // Max retry attempts
+  retryStartDelay?: number;         // Initial retry delay
+  retryBackoffMultiplier?: number;  // Retry backoff multiplier
 }
 ```
 
@@ -363,163 +370,11 @@ const analysis = await stream('Analyze text', {
 .last();
 ```
 
-## Pipeline API
-
-The pipeline API provides helper functions for building complex streaming operations. These are available in the `helpers` argument to xmllm().
-
-### Core Prompt Functions
-
-```typescript
-interface PipelineHelpers {
-  // Main prompt functions
-  prompt(
-    prompt: string | PromptConfig,
-    schema?: SchemaType,
-    options?: PromptOptions
-  ): PipelineFunction                // Stream all updates including partial elements
-  
-  promptClosed(
-    prompt: string | PromptConfig,
-    schema?: SchemaType,
-    options?: PromptOptions
-  ): PipelineFunction                // Only yield complete elements
-  
-  // Shorthand aliases
-  p: typeof promptClosed             // Alias for promptClosed
-  ps: typeof prompt                  // Alias for prompt
-  r: typeof req                      // Alias for req
-}
-
-interface PromptOptions {
-  system?: string;                   // System prompt
-  model?: ModelPreference;           // Model selection
-  temperature?: number;              // 0-2, default 0.7
-  maxTokens?: number;                // Max tokens
-  cache?: boolean;                   // Enable caching
-  mapper?: (input: any, output: any) => any;  // Transform results
-}
-```
-
-### Selection Helpers
-
-```typescript
-interface PipelineHelpers {
-  // CSS selector based
-  select(selector: string): PipelineFunction
-  
-  // Schema based selection
-  mapSelect(
-    schema: SchemaType,
-    includeOpenTags?: boolean,      // Include incomplete elements
-    doDedupe?: boolean             // Deduplicate elements
-  ): PipelineFunction
-  
-  mapSelectClosed(
-    schema: SchemaType             // Only complete elements
-  ): PipelineFunction
-}
-```
-
-### Stream Operations
-
-```typescript
-interface PipelineHelpers {
-  // Transformation
-  map<T, U>(fn: (value: T) => U): PipelineFunction
-  filter(fn: (value: T) => boolean): PipelineFunction
-  reduce<T, U>(fn: (acc: U, value: T) => U, initial: U): PipelineFunction
-  
-  // Collection
-  accrue(): PipelineFunction                          // Collect into array
-  mergeAggregate(): PipelineFunction                  // Merge results
-  batch(size: number): PipelineFunction               // Group into batches
-  
-  // Control
-  take(n: number): PipelineFunction                   // Take n items
-  skip(n: number): PipelineFunction                   // Skip n items
-  tap(fn: (value: T) => void): PipelineFunction       // Side effects
-  waitUntil(fn: (value: T) => boolean): PipelineFunction
-}
-```
-
-### Transformer Helpers
-
-Special helpers for transforming XML elements:
-
-```typescript
-// Transform text content
-const text = (fn?: (text: string) => any) => 
-  ({ $text }: XMLElement) => fn ? fn($text) : $text;
-
-// Combine text and attributes  
-const withAttrs = (fn: (text: string, attrs: Record<string, string>) => any) => 
-  ({ $text, $attr }: XMLElement) => fn($text, $attr);
-
-// Only transform complete elements
-const whenClosed = (fn: (el: XMLElement) => any) => 
-  (el: XMLElement) => el.$tagclosed ? fn(el) : undefined;
-```
-
-Examples:
-
-```typescript
-const stream = xmllm(({ prompt, text, withAttrs, whenClosed }) => [
-  prompt('Get product info', {
-    product: {
-      // Transform text only
-      name: text(s => s.toUpperCase()),
-      
-      // Combine text and attributes
-      price: withAttrs((text, attrs) => ({
-        amount: Number(text),
-        currency: attrs.currency
-      })),
-      
-      // Only process when element is complete
-      status: whenClosed(el => 
-        el.$tagclosed ? `Final: ${el.$text}` : undefined
-      )
-    }
-  })
-]);
-```
-
-### Additional Stream Operations
-
-```typescript
-// Collect all results into an array
-accrue(): PipelineFunction
-
-// Example:
-pipeline(({ accrue }) => [
-  function*() {
-    yield 'apple';
-    yield 'banana';
-  },
-  accrue(),
-  function*(everything) {
-    yield everything.join(' ');  // "apple banana"
-  }
-]);
-
-// Merge results into single array
-mergeAggregate(): PipelineFunction
-
-// Manually add XML content
-parse(str?: string): PipelineFunction
-
-// Example:
-xmllm(({ parse, select }) => [
-  parse('<root><item>test</item></root>'),
-  select('item')  // Select from parsed content
-]);
-```
-
-### Examples
+### Some Pipeline Examples
 
 ```typescript
 // Basic transformation pipeline
-const sentiment = xmllm(({ prompt, select, map }) => [
+const sentiment = pipeline(({ prompt, select, map }) => [
   prompt('Analyze the sentiment of: "Great product, highly recommend!"', {
     analysis: {
       score: Number,
@@ -546,7 +401,7 @@ const categoryAnalysis = xmllm(({ promptClosed, mapSelect, reduce }) => [
 ]);
 
 // Complex chained prompts
-const conversation = xmllm(({ p, map }) => [
+const conversation = pipeline(({ p, map }) => [
   // First prompt
   p('Tell me a joke', {
     joke: String
@@ -570,7 +425,7 @@ const conversation = xmllm(({ p, map }) => [
 ]);
 ```
 
-## Common Types
+## Common Types (for TypeScript users and pedants)
 
 ### Schema Types
 
@@ -717,7 +572,28 @@ class ProviderRateLimitError extends ProviderError {}
 class ProviderAuthenticationError extends ProviderError {}
 class ProviderTimeoutError extends ProviderError {}
 class ProviderNetworkError extends ProviderError {}
-class ModelValidationError extends Error {}
+
+// Validation Errors
+class ValidationError extends Error {
+  code: string;
+  details: any;
+  timestamp: string;
+}
+
+class MessageValidationError extends ValidationError {
+  name: 'MessageValidationError';
+  code: 'MESSAGE_VALIDATION_ERROR';
+}
+
+class ModelValidationError extends ValidationError {
+  name: 'ModelValidationError';
+  code: 'MODEL_VALIDATION_ERROR';
+}
+
+class PayloadValidationError extends ValidationError {
+  name: 'PayloadValidationError';
+  code: 'PAYLOAD_VALIDATION_ERROR';
+}
 ```
 
 ## Provider Configuration
@@ -847,6 +723,427 @@ Available error message types:
 - `serviceUnavailable`: Service temporarily unavailable
 - `networkError`: Network connection issues
 - `unexpectedError`: Unexpected errors 
+
+
+## Pipeline Helpers
+
+When creating pipelines using `xmllm()` or `pipeline()`, several helper functions are available within the pipeline context. These helpers allow you to manipulate the data flow, interact with the LLM, and process the AI's responses in flexible ways.
+
+### prompt(promptText, schema?, options?)
+
+Sends a prompt to the AI and processes the response. Allows for streaming and schema-based parsing.
+
+```typescript
+function prompt<T>(
+  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
+  schema?: SchemaType,
+  options?: PromptOptions
+): AsyncGenerator<T>
+```
+
+- **promptText**: The prompt string to send to the AI, or a function that takes the previous input and returns a prompt configuration.
+- **schema**: Optional schema to structure the AI's response.
+- **options**: Additional options for the prompt, such as model preferences, temperature, etc.
+
+Example:
+
+```javascript
+pipeline(({ prompt }) => [
+  prompt('Name a scientist', {
+    scientist: {
+      name: String,
+      field: String
+    }
+  })
+]);
+```
+
+### promptClosed(promptText, schema?, options?)
+
+Similar to `prompt()`, but ensures that only complete (closed) XML tags are processed. Useful when you need to wait for the AI to finish producing a complete structure before proceeding.
+
+```typescript
+function promptClosed<T>(
+  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
+  schema?: SchemaType,
+  options?: PromptOptions
+): AsyncGenerator<T>
+```
+
+### promptStream(promptText, schema?, options?)
+
+Creates a streaming prompt, allowing for real-time processing of the AI's response. You can process partial outputs as they arrive.
+
+```typescript
+function promptStream<T>(
+  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
+  schema?: SchemaType,
+  options?: PromptOptions
+): AsyncGenerator<T>
+```
+
+### parse(xmlString)
+
+Adds an XML string to the parser manually. Useful for testing or adding XML from non-AI sources.
+
+```typescript
+function parse(xmlString: string): AsyncGenerator<void>
+```
+
+Example:
+
+```javascript
+pipeline(({ parse, select }) => [
+  parse('<root><item>Test</item></root>'),
+  select('item')
+]);
+```
+
+### select(selector, mapperFn?)
+
+Selects XML elements from the parsed content using a CSS selector.
+
+```typescript
+function select(
+  selector: string,
+  mapperFn?: (element: XMLElement) => any
+): AsyncGenerator<any>
+```
+
+Example:
+
+```javascript
+pipeline(({ select }) => [
+  select('item', el => el.$text) // Extract text content of <item> elements
+]);
+```
+
+### mapSelect(schema, includeOpenTags?, doDedupe?)
+
+Maps the parsed XML content to a JavaScript object based on the provided schema.
+
+```typescript
+function mapSelect(
+  schema: SchemaType,
+  includeOpenTags?: boolean,
+  doDedupe?: boolean
+): AsyncGenerator<any>
+```
+
+### mapSelectClosed(schema)
+
+Similar to `mapSelect()`, but processes only closed XML elements. Useful when you want to ensure that the data you're processing is complete.
+
+```typescript
+function mapSelectClosed(schema: SchemaType): AsyncGenerator<any>
+```
+
+### map(fn)
+
+Applies a function to each item in the stream.
+
+```typescript
+function map<U>(fn: (value: T) => U): AsyncGenerator<U>
+```
+
+Example:
+
+```javascript
+pipeline(({ map }) => [
+  map(x => x.toUpperCase())
+]);
+```
+
+### filter(predicate)
+
+Filters items in the stream based on a predicate function.
+
+```typescript
+function filter(fn: (value: T) => boolean): AsyncGenerator<T>
+```
+
+Example:
+
+```javascript
+pipeline(({ filter }) => [
+  filter(x => x.startsWith('A'))
+]);
+```
+
+### reduce(reducer, initialValue)
+
+Reduces the stream to a single value using a reducer function.
+
+```typescript
+function reduce<U>(fn: (acc: U, value: T) => U, initialValue: U): AsyncGenerator<U>
+```
+
+Example:
+
+```javascript
+pipeline(({ reduce }) => [
+  reduce((acc, x) => acc + x, 0)
+]);
+```
+
+### accrue()
+
+Accumulates all items in the stream into an array before proceeding. Useful when you need to wait for all data before processing.
+
+```typescript
+function accrue(): AsyncGenerator<T[]>
+```
+
+Example:
+
+```javascript
+pipeline(({ accrue }) => [
+  accrue(),
+  (allItems) => {
+    // Process allItems array
+  }
+]);
+```
+
+### tap(fn)
+
+Runs a side-effect function for each item in the stream without modifying it.
+
+```typescript
+function tap(fn: (value: T) => void): AsyncGenerator<T>
+```
+
+Example:
+
+```javascript
+pipeline(({ tap }) => [
+  tap(x => console.log('Received:', x))
+]);
+```
+
+### waitUntil(conditions)
+
+Waits until certain conditions are met before yielding accumulated items.
+
+```typescript
+function waitUntil(
+  conditions: ((buffer: T[]) => boolean) | string[] | Record<string, any>
+): AsyncGenerator<T[]>
+```
+
+- **conditions**: Can be a function that evaluates the buffer, an array of required keys, or an object with expected key-value pairs.
+
+Example:
+
+```javascript
+pipeline(({ waitUntil }) => [
+  waitUntil(buffer => buffer.length >= 5),
+  (items) => {
+    // Process items once 5 items have been accumulated
+  }
+]);
+```
+
+### mergeAggregate(options?)
+
+Merges objects from the stream into a single object or array.
+
+```typescript
+function mergeAggregate(options?: {
+  removeDuplicates?: boolean;
+  alwaysArray?: boolean;
+}): AsyncGenerator<T>
+```
+
+- **removeDuplicates**: Whether to remove duplicates based on value equality.
+- **alwaysArray**: Whether to always represent aggregated values as arrays.
+
+Example:
+
+```javascript
+pipeline(({ mergeAggregate }) => [
+  mergeAggregate(),
+  (aggregated) => {
+    // Process aggregated result
+  }
+]);
+```
+
+### take(n)
+
+Takes the first `n` items from the stream and then stops processing.
+
+```typescript
+function take(n: number): AsyncGenerator<T>
+```
+
+Example:
+
+```javascript
+pipeline(({ take }) => [
+  take(3)
+]);
+```
+
+### skip(n)
+
+Skips the first `n` items in the stream.
+
+```typescript
+function skip(n: number): AsyncGenerator<T>
+```
+
+Example:
+
+```javascript
+pipeline(({ skip }) => [
+  skip(2)
+]);
+```
+
+### batch(size, options?)
+
+Groups items from the stream into batches of a specified size.
+
+```typescript
+function batch(
+  size: number,
+  options?: { yieldIncomplete?: boolean }
+): AsyncGenerator<T[]>
+```
+
+- **size**: Number of items per batch.
+- **yieldIncomplete**: Whether to yield the last batch even if it's smaller than `size`.
+
+Example:
+
+```javascript
+pipeline(({ batch }) => [
+  batch(10),
+  (batch) => {
+    // Process each batch of 10 items
+  }
+]);
+```
+
+### text(fn?)
+
+Extracts text content from elements. Can apply an optional transformation function.
+
+```typescript
+function text(fn?: (text: string) => any): (element: XMLElement) => any
+```
+
+Example:
+
+```javascript
+pipeline(({ text }) => [
+  text(text => text.toUpperCase())
+]);
+```
+
+### withAttrs(fn)
+
+Processes an element's text and attributes.
+
+```typescript
+function withAttrs(
+  fn: (text: string, attrs: Record<string, string>) => any
+): (element: XMLElement) => any
+```
+
+Example:
+
+```javascript
+pipeline(({ withAttrs }) => [
+  withAttrs((text, attrs) => ({
+    content: text,
+    attributes: attrs
+  }))
+]);
+```
+
+### whenClosed(fn)
+
+Processes an element only when it's fully closed (i.e., no longer being streamed).
+
+```typescript
+function whenClosed(fn: (element: XMLElement) => any): (element: XMLElement) => any
+```
+
+### req(config)
+
+Sends a custom AI request based on the provided configuration. Offers fine-grained control over the AI request.
+
+```typescript
+function req(config: RequestConfig): AsyncGenerator<any>
+```
+
+### Convenience Aliases
+
+For shorthand, the following aliases are available:
+
+- **p**, **pc**: Alias for `promptClosed`
+- **ps**: Alias for `promptStream`
+- **r**: Alias for `req`
+- **val**, **value**, **v**: Alias for `text`
+
+### Some Pipeline Examples
+
+```typescript
+// Basic transformation pipeline
+const sentiment = pipeline(({ prompt, select, map }) => [
+  prompt('Analyze the sentiment of: "Great product, highly recommend!"', {
+    analysis: {
+      score: Number,
+      keywords: [String]
+    }
+  }),
+  mapSelect({ analysis: { score: Number }}),
+  map(({analysis}) => analysis.score > 0.5 ? 'positive' : 'negative')
+]);
+
+// Stateful pipeline with aggregation
+const categoryAnalysis = xmllm(({ promptClosed, mapSelect, reduce }) => [
+  promptClosed('Categorize these products: iPhone, Galaxy, Pixel', {
+    product: [{
+      name: String,
+      category: String,
+      score: Number
+    }]
+  }),
+  mapSelect({ product: [{ score: Number }]}),
+  reduce((avg, {product}) => {
+    return product.reduce((sum, p) => sum + p.score, 0) / product.length;
+  }, 0)
+]);
+
+// Complex chained prompts
+const conversation = pipeline(({ p, map }) => [
+  // First prompt
+  p('Tell me a joke', {
+    joke: String
+  }),
+  
+  // Use result in next prompt
+  map(async ({joke}) => {
+    return p(`Rate this joke: ${joke}`, {
+      rating: {
+        score: Number,
+        explanation: String
+      }
+    });
+  }),
+  
+  // Combine results
+  map(({joke, rating}) => ({
+    joke,
+    rating
+  }))
+]);
+```
+
+---
 
 ## Token Management
 

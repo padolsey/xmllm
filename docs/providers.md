@@ -605,29 +605,3 @@ const nestedParamsModel = {
 };
 ```
 
-### Response Transformation
-
-For models that return responses in non-standard formats:
-
-```javascript
-const customResponseModel = {
-  inherit: 'claude',
-  name: 'custom-response-model',
-  
-  // Transform the model's unique response format
-  responseTransform: function(response) {
-    return {
-      content: response.generated_text,
-      usage: {
-        prompt_tokens: response.metrics.input_token_count,
-        completion_tokens: response.metrics.output_token_count,
-        total_tokens: response.metrics.total_tokens
-      },
-      model_metrics: {
-        generation_time: response.timing.total_ms,
-        tokens_per_second: response.metrics.tokens_per_second
-      }
-    };
-  }
-};
-```

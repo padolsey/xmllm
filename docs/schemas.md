@@ -273,6 +273,8 @@ const result = await stream('Analyze security issues', {
 });
 ```
 
+Use the `hints` configuration to guide the AI's output structure. You can also experiment with different [prompt strategies](./strategies.md) to improve schema compliance.
+
 ### The Scaffold System
 
 The hints create a template that guides the AI. For the above schema, the AI sees something like:

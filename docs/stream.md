@@ -4,15 +4,17 @@ xmllm provides several ways to process AI responses, from simple one-shot reques
 
 ## Quick Results with simple()
 
-For when you just want the final result:
+For when you just want the final result, and are unconcerned about the streaming updates:
 
 ```javascript
 import { simple } from 'xmllm';
 
 // Get a clean, complete result
-const result = await simple('Analyze this text', {
-  sentiment: String,
-  score: Number
+const result = await simple('Analyze this text: ' + TEXT, {
+  schema: {
+    sentiment: String,
+    score: Number
+  }
 });
 
 console.log(result);
@@ -60,12 +62,14 @@ Either a string prompt or configuration object:
 {
   prompt: string,              // The prompt to send
   model?: string | string[],   // Model selection
+  strategy?: string,           // Prompt strategy (see strategies.md)
+  schema?: SchemaType,         // Enable schema processing
+  hints?: HintType,
   temperature?: number,        // 0-2, default 0.72
   maxTokens?: number,         // Max response length
   cache?: boolean,            // Enable caching
   
   // Schema-specific options:
-  schema?: SchemaType,         // Enable schema processing
   system?: string,             // System prompt
   mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed'
 }

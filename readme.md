@@ -20,14 +20,14 @@ await simple('fun pet names', {
 What actually happened:
 
 ```markdown
-┌─────────────────────┐     ┌───────────────────────────┐     ┌─────────────────────────┐
-│                     │     │      LLM generates        │     │      XML parsed to      │
-│   "fun pet names"   │ ──▶ │    <name>Daisy</name>     │ ──▶ │  structured data via    │
-│                     │     │   <name>Whiskers</name>   │     │ schema {name: [String]} │
-│                     │     │     <name>Rocky</name>    │     │                         │
-└─────────────────────┘     └───────────────────────────┘     └─────────────────────────┘
-  Prompt sent to LLM           LLM's natural output                  Final result:
-                                                              ["Daisy", "Whiskers", "Rocky"]
+┌───────────────────┐     ┌─────────────────────────┐     ┌─────────────────────────┐
+│                   │     │     LLM generates       │     │      XML parsed to      │
+│  "fun pet names"  │ ──▶ │   <name>Daisy</name>    │ ──▶ │  structured data via    │
+│                   │     │  <name>Whiskers</name>  │     │ schema {name: [String]} │
+│                   │     │    <name>Rocky</name>   │     │                         │
+└───────────────────┘     └─────────────────────────┘     └─────────────────────────┘
+ Prompt sent to LLM          LLM's natural output                Final result:
+                                                        ["Daisy", "Whiskers", "Rocky"]
 ```
 
 ### Even messy XML is recoverable!
@@ -177,7 +177,7 @@ View the [Model Compliance Matrix](https://xmllm.j11y.io/model-testing) to see h
 
 TLDR: `Schema-guided prompt`→`Stream XML`→`HTML parser`→`Data`
 
-Under the hood, xmllm uses a different prompting strategies, pairing custom system prompts and custom user/assistant pairings. ([See strategies.mjs](https://github.com/padolsey/xmllm/blob/main/src/strategies.mjs)). These prompts tell the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, including low param models like Ministral-3B and Qwen2.5-7B. Once the stream starts coming in, xmllm uses a lenient streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
+Under the hood, xmllm uses different [prompting strategies](docs/strategies.md), pairing custom system prompts and custom user/assistant pairings. These prompts tell the LLM the structure of the XML it must output using your provided schemas (and optional hints). This prompting method has been tested with a variety of models, including low param models like Ministral-3B and Qwen2.5-7B. Once the stream starts coming in, xmllm uses a lenient streaming HTML parser (htmlparser2) to extract the data then reflect it back to you in the structure of your schema. This data can be reflected in real time or you can wait until the stream completes and then get the final value.
 
 ## Resilience & Errors:
 
@@ -466,6 +466,7 @@ See the [Pipeline Guide](https://github.com/padolsey/xmllm/blob/main/docs/pipeli
 * [Stream Interface](https://github.com/padolsey/xmllm/blob/main/docs/stream.md)
 * [Streaming with a Schema](https://github.com/padolsey/xmllm/blob/main/docs/schema_streaming.md)
 * [Raw Streaming](https://github.com/padolsey/xmllm/blob/main/docs/raw_streaming.md)
+* [Prompt Strategies](docs/strategies.md)
 * [Advanced Pipeline Guide](https://github.com/padolsey/xmllm/blob/main/docs/pipelines.md)
 * [Complete API Reference](https://github.com/padolsey/xmllm/blob/main/docs/api.md)
 

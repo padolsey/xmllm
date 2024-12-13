@@ -181,52 +181,6 @@ pipeline(({ prompt }) => [
 ]);
 ```
 
-## Error Handling
+## In-built Pipeline Helpers
 
-```javascript
-pipeline(({ prompt }) => [
-  prompt('Complex query'),
-  
-  // Handle errors in pipeline
-  async function*(data) {
-    try {
-      const result = await processData(data);
-      yield result;
-    } catch (error) {
-      console.error('Processing error:', error);
-      yield fallbackProcess(data);
-    }
-  },
-
-  // Filter out errors
-  (result) => result || null
-]);
-```
-
-## Best Practices
-
-1. **Use Functions for Simple Transforms**
-   - One-to-one transformations
-   - No state needed
-   - Simple async operations
-
-2. **Use Generators for Complex Operations**
-   - Maintaining state
-   - Multiple outputs per input
-   - Complex flow control
-   - Stateful error handling
-
-3. **Parallel Processing**
-   - Use arrays for independent operations
-   - Merge results explicitly
-   - Consider memory usage
-
-4. **State Management**
-   - Keep state in generators when possible
-   - Clean up state when done
-   - Use accrue() carefully with large datasets
-
-5. **Error Handling**
-   - Handle errors at appropriate levels
-   - Provide fallback behavior
-   - Clean up resources in finally blocks
+In addition to `prompt()` and `map()`, several other helpers are available within the pipeline context. These helpers are documented in detail in the [Pipeline Helpers](./api.md#pipeline-helpers) section of **api.md**.
