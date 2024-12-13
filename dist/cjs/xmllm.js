@@ -10,7 +10,7 @@ Object.defineProperty(exports, "configure", {
   }
 });
 exports["default"] = void 0;
-exports.xmllm = xmllm;
+exports.pipeline = exports.xmllm = xmllm;
 var _streamops = _interopRequireDefault(require("streamops"));
 var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));

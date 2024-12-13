@@ -1060,8 +1060,12 @@ describe('Stream Mode Support', () => {
     // simple() defaults to delta mode
     const result = await simple(
       'List colors',
-      { color: Array(String) },
-      { llmStream: TestStream }
+      {
+        schema: {
+          color: Array(String)
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual({
@@ -1071,8 +1075,10 @@ describe('Stream Mode Support', () => {
     // Can override to state mode
     const stateResult = await simple(
       'List colors',
-      { color: Array(String) },
-      { 
+      {
+        schema: {
+          color: Array(String)
+        },
         llmStream: TestStream,
         mode: 'state_open'
       }
@@ -1368,7 +1374,7 @@ describe('Strategy Configuration', () => {
     expect(TestStream).toHaveBeenCalledWith(
       expect.objectContaining({
         // Check other expected payload properties
-        model: expect.any(String),
+        model: expect.arrayContaining(['claude:good', 'openai:good', 'claude:fast', 'openai:fast']),
         temperature: expect.any(Number),
         max_tokens: expect.any(Number)
       })

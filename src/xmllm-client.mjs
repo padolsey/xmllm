@@ -23,6 +23,9 @@ function xmllmClient(pipelineFn, options = {}) {
   return xmllm(pipelineFn, finalConfig);
 }
 
+// Rename export but keep xmllmClient for backwards compatibility
+const pipeline = xmllmClient;
+
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig, options = {}) {
   const config = getConfig();
@@ -131,18 +134,32 @@ function stream(promptOrConfig, options = {}) {
 }
 
 // Simple function with mode support
-export async function simple(prompt, schema, options = {}) {
-  const { mode = 'state_closed', ...restOptions } = options;
+async function simple(promptOrConfig, options = {}) {
+  // Default to state_closed mode for simple()
+  if (typeof promptOrConfig === 'string') {
+    options.mode = options.mode || 'state_closed';
+  } else {
+    promptOrConfig.mode = promptOrConfig.mode || 'state_closed';
+  }
   
-  const result = await stream(prompt, {
-    ...restOptions,
-    schema,
-    mode
-  }).last();
-  
-  return result;
+  return stream(promptOrConfig, options).last();
 }
 
 // Export configuration function for client-side use
-export { configure, xmllmClient as xmllm, ClientProvider, stream };
-export default { configure, ClientProvider, xmllm: xmllmClient, stream };
+export {
+  configure,
+  pipeline,
+  xmllmClient as xmllm,
+  ClientProvider,
+  stream,
+  simple
+};
+
+export default {
+  configure,
+  ClientProvider,
+  pipeline,
+  xmllm: xmllmClient,
+  stream,
+  simple
+};

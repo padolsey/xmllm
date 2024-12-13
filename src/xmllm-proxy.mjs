@@ -4,6 +4,7 @@ import ValidationService from './ValidationService.mjs';
 import Stream from './Stream.mjs';
 import PROVIDERS from './PROVIDERS.mjs';
 import ResourceLimiter from './ResourceLimiter.mjs';
+import { pipeline } from './xmllm.mjs';
 
 // Add configuration validation
 function validateProxyConfig(config) {

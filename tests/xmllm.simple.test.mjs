@@ -20,15 +20,17 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "Write a poem",
       {
-        poem: {
-          title: String,
-          author: String,
-          stanzas: {
-            stanza: [String]
+        schema: {
+          poem: {
+            title: String,
+            author: String,
+            stanzas: {
+              stanza: [String]
+            }
           }
-        }
-      },
-      { llmStream: TestStream }
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual({
@@ -60,14 +62,16 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "Give me some numbers",
       {
-        result: {
-          count: Number,
-          items: {
-            item: [Number]
+        schema: {
+          result: {
+            count: Number,
+            items: {
+              item: [Number]
+            }
           }
-        }
-      },
-      { llmStream: TestStream }
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual({
@@ -100,9 +104,11 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "What's the status?",
       {
-        status: String
-      },
-      { llmStream: TestStream }
+        schema: {
+          status: String
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual({
@@ -128,17 +134,19 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "Get user info",
       {
-        user: {
-          profile: {
-            name: String,
-            age: Number
+        schema: {
+          user: {
+            profile: {
+              name: String,
+              age: Number
           },
           settings: {
             theme: String
+            }
           }
-        }
-      },
-      { llmStream: TestStream }
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual({
@@ -172,11 +180,13 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "List numbers",
       {
-        list: {
-          item: [Number]
-        }
-      },
-      { llmStream: TestStream }
+        schema: {
+          list: {
+            item: [Number]
+          }
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual({
@@ -204,12 +214,14 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "Get data",
       {
-        data: {
-          date: element => new Date(element.$text),
-          tags: element => element.$text.split(',')
-        }
-      },
-      { llmStream: TestStream }
+        schema: {
+          data: {
+            date: element => new Date(element.$text),
+            tags: element => element.$text.split(',')
+          }
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result.data.tags).toEqual(['one', 'two', 'three']);
@@ -251,8 +263,10 @@ describe('xmllm simple()', () => {
     await expect(async () => {
       await simple(
         "Get number",
-        schema,
-        { llmStream: TestStream }
+        {
+          schema,
+          llmStream: TestStream
+        }
       );
     }).rejects.toThrow('Invalid number');
   });
@@ -273,9 +287,11 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "Get data",
       {
-        data: String
-      },
-      { llmStream: TestStream }
+        schema: {
+          data: String
+        },
+        llmStream: TestStream
+      }
     );
 
     expect(result).toEqual(undefined);
@@ -299,9 +315,9 @@ describe('xmllm simple()', () => {
     const result = await simple(
       "Test prompt",
       {
-        response: String
-      },
-      { 
+        schema: {
+          response: String
+        },
         llmStream: TestStream,
         system: "You are a test assistant",
         temperature: 0.5,

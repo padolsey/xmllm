@@ -14,9 +14,8 @@ const DEFAULT_CONFIG = {
     presencePenalty: 0,
     topP: 1,
     mode: 'state_open',
-    model: 'claude:good',
     strategy: 'default',
-    modelFallbacks: [
+    model: [
       'claude:good',
       'openai:good',
       'claude:fast',

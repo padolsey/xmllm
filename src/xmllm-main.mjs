@@ -23,8 +23,11 @@ function xmllm(pipelineFn, options = {}) {
   });
 }
 
+// Rename export but keep xmllm for backwards compatibility
+const pipeline = xmllm;
+
 // Enhanced stream function with mode support
-export function stream(promptOrConfig, options = {}) {
+function stream(promptOrConfig, options = {}) {
 
   let config = {};
   const globalConfig = getConfig();
@@ -122,17 +125,34 @@ export function stream(promptOrConfig, options = {}) {
 }
 
 // Simple function also gets mode support
-export async function simple(prompt, schema, options = {}) {
-  const { mode = 'state_closed', ...restOptions } = options;
+async function simple(promptOrConfig, options = {}) {
+  let config = {};
+  const globalConfig = getConfig();
+  
+  if (typeof promptOrConfig === 'string') {
+    ValidationService.validateLLMPayload(options);
+    config = {
+      ...globalConfig.defaults,
+      prompt: promptOrConfig,
+      ...options
+    };
+  } else {
+    const aggConfig = {
+      ...promptOrConfig,
+      ...options
+    };
+    ValidationService.validateLLMPayload(aggConfig);
+    config = {
+      ...globalConfig.defaults,
+      ...aggConfig
+    };
+  }
 
-  const result = await stream(prompt, {
-    ...restOptions,
-    schema,
-    mode
-  }).last();
+  // Default to state_closed mode for simple()
+  config.mode = config.mode || 'state_closed';
 
-  return result;
+  return stream(promptOrConfig, options).last();
 }
 
-export default xmllm;
-export { xmllm, configure };
+export default pipeline;
+export { pipeline, xmllm, stream, simple, configure };

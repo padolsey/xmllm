@@ -1,10 +1,10 @@
 # API Documentation
 
-> Note: xmllm includes TypeScript definitions out of the box. See [index.d.ts](../index.d.ts) and [client.d.ts](../client.d.ts) for type details.
+> Note: xmllm includes TypeScript definitions out of the box. See [index.d.ts](../index.d.ts) and [client.d.ts](../client.d.ts) for type details. This file (`api.md`) is AI generated.
 
 ## Core Functions
 
-### xmllm()
+### xmllm() / pipeline()
 
 Creates a pipeline for processing XML streams. Used for complex operations like chaining multiple prompts or transformations.
 
@@ -41,7 +41,7 @@ interface XmlLmOptions {
 Example:
 
 ```typescript
-const analysis = xmllm(({ promptClosed, map }) => [
+const analysis = pipeline(({ promptClosed, map }) => [
   // Get scientist info
   promptClosed('Name a scientist', {
     scientist: {
@@ -491,7 +491,7 @@ const stream = xmllm(({ prompt, text, withAttrs, whenClosed }) => [
 accrue(): PipelineFunction
 
 // Example:
-xmllm(({ accrue }) => [
+pipeline(({ accrue }) => [
   function*() {
     yield 'apple';
     yield 'banana';

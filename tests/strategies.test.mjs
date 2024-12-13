@@ -109,8 +109,10 @@ describe('Strategy Configuration', () => {
       }));
 
       await simple('Test prompt', 
-        { response: String },
         {
+          schema: {
+            response: String
+          },
           llmStream: TestStream,
           strategy: 'structured'
         }

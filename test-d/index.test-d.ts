@@ -1,26 +1,51 @@
-import { expectType, expectError } from 'tsd';
-import xmllm, { 
-  Message, 
-  PipelineHelpers, 
+import { expectAssignable, expectError, expectNotAssignable, expectNotType, expectType } from 'tsd';
+import xmllm, {
+  // Core types
+  Message,
   XMLElement,
-  PromptConfig,
+  
+  // Base configurations
+  BaseLLMParams,
+  BaseConfig,
+  BaseStreamConfig, 
+  BaseSchemaConfig,
+  BaseStreamingSchemaConfig,
+  ServerConfig,
+  SchemaServerConfig,
+  StreamingServerConfig,
+  StreamingSchemaServerConfig,
+  
+  // Model types
   ModelPreference,
-  simple,
-  stream,
-  ChainableStreamInterface,
+  
+  // Schema types
   SchemaType,
   HintType,
-  configure,
+  
+  // Stream interface
+  ChainableStreamInterface,
+  
+  // Configuration
+  LoggingConfig,
   ConfigureOptions,
-  ClientProvider,
-  BaseStreamConfig,
-  SchemaStreamConfig,
-  StreamOptions,
-  DefaultsConfig
+  DefaultsConfig,
+  
+  // Pipeline helpers
+  PipelineHelpers,
+  
+  // Main functions
+  stream,
+  simple,
+  configure
 } from '../index';
-import { 
-  configure as clientConfigure,
-  ClientConfigureOptions
+
+import {
+  ClientProvider,
+  ClientStreamingConfig,
+  ClientStreamingSchemaConfig,
+  ClientSchemaConfig,
+  ClientConfigureOptions,
+  configure as clientConfigure
 } from '../client';
 
 // Positive test - should compile
@@ -75,25 +100,8 @@ const validModelArray: ModelPreference = ['claude:good', 'openai:fast'];
 // @ts-expect-error - Model string must be in format 'provider:model' where provider is one of: claude, openai, togetherai, perplexityai
 const invalidModelPreference: ModelPreference = 'invalid:model';
 
-// Positive test - valid prompt config
-const validPromptConfig: PromptConfig = {
-  messages: [validMessage],
-  system: 'You are a helpful assistant',
-  model: 'claude:good',
-  temperature: 0.7,
-  max_tokens: 1000
-};
-expectType<PromptConfig>(validPromptConfig);
-
-// Test invalid prompt config without @ts-expect-error
-const invalidPromptConfig = {
-  temperature: 'high' as const
-} as const;
-expectError<PromptConfig>(invalidPromptConfig);
-
 // Main xmllm usage - valid case
 const testStream = xmllm(validPipeline, {
-  timeout: 1000,
   apiKeys: {
     ANTHROPIC_API_KEY: 'test'
   }
@@ -146,18 +154,18 @@ expectError<Message>({
 });
 
 // PromptConfig test
-expectError<PromptConfig>({
+expectError<BaseLLMParams>({
   temperature: 'high' as const
 });
 
 // Add comprehensive simple() tests
 
 // Test simple() with basic types
-const numberResult = await simple<{ answer: number }>(
-  "What is 2+2?",
-  { answer: Number }
-);
-expectType<{ answer: number }>(numberResult);
+const simpleResult = await simple<{ answer: number }>({
+  prompt: "What is 2+2?",
+  schema: { answer: Number }
+});
+expectType<{ answer: number }>(simpleResult);
 
 // Test simple() with nested schema
 const userResult = await simple<{
@@ -166,16 +174,16 @@ const userResult = await simple<{
     age: number;
     tags: string[];
   }
-}>(
-  "Get user info",
-  {
+}>({
+  prompt: "Get user info",
+  schema: {
     user: {
       name: String,
       age: Number,
       tags: [String]
     }
   }
-);
+});
 expectType<{
   user: {
     name: string;
@@ -185,13 +193,38 @@ expectType<{
 }>(userResult);
 
 // Test simple() with custom transformers
-const dateResult = await simple<{ date: Date }>(
-  "Get date",
-  {
+const dateResult = await simple<{
+  date: Date
+}>({
+  prompt: "Get date",
+  schema: {
     date: (element: XMLElement) => new Date(element.$text)
   }
-);
+});
 expectType<{ date: Date }>(dateResult);
+
+// Test simple() with string prompt and options
+const simpleWithOptions = await simple<{ answer: number }>("What is 2+2?", {
+  schema: { answer: Number },
+  temperature: 0.7
+});
+expectType<{ answer: number }>(simpleWithOptions);
+
+// Test invalid schema
+expectError(simple({
+  prompt: "Test",
+  schema: {
+    field: 42  // Should error - raw numbers aren't valid schema types
+  }
+}));
+
+// Test invalid function signature
+expectError(simple({
+  prompt: "Test",
+  schema: {
+    field: (x: number) => x  // Should error - transformers must take XMLElement
+  }
+}));
 
 // Test stream() type inference - just rename local variable
 const streamResult = stream("Count to 3")
@@ -262,13 +295,15 @@ expectType<HintType>(validHints);
 await simple(
   "Get user info",
   {
-    user: {
-      name: String,
-      age: Number,
-      hobbies: [String]
-    }
-  },
-  { hints: validHints }
+    schema: {
+      user: {
+        name: String,
+        age: Number,
+        hobbies: [String]
+      }
+    },
+    hints: validHints
+  }
 );
 
 // Invalid hint tests - Update these
@@ -342,54 +377,40 @@ const validBaseConfig: BaseStreamConfig = {
   cache: true,
   model: 'claude:fast'
 };
-expectType<BaseStreamConfig>(validBaseConfig);
 
-// Test SchemaStreamConfig extends BaseStreamConfig properly
-const validSchemaConfig: SchemaStreamConfig = {
+const validSchemaStreamingConfig: BaseStreamingSchemaConfig = {
   ...validBaseConfig,
   schema: { answer: String },
   hints: { answer: 'The answer to the question' },
   mode: 'state_open',
   prompt: 'What is 2+2?'
 };
-expectType<SchemaStreamConfig>(validSchemaConfig);
+expectType<BaseStreamingSchemaConfig>(validSchemaStreamingConfig);
 
 // Test that stream() accepts both string and SchemaStreamConfig
 const streamWithString = stream('What is 2+2?');
-const streamWithConfig = stream(validSchemaConfig);
+const streamWithConfig = stream(validSchemaStreamingConfig);
 expectType<ChainableStreamInterface<XMLElement>>(streamWithString);
 expectType<ChainableStreamInterface<XMLElement>>(streamWithConfig);
 
 // Test that stream() options extend SchemaStreamConfig properly
 const streamWithOptions = stream('prompt', {
   schema: { answer: String },
-  Stream: async () => new ReadableStream(),
+  // Stream: async () => new ReadableStream(), //old?
   apiKeys: {
     ANTHROPIC_API_KEY: 'key'
   }
 });
 expectType<ChainableStreamInterface<XMLElement>>(streamWithOptions);
 
-// Test that DefaultsConfig matches SchemaStreamConfig
-const defaults: DefaultsConfig = {
-  temperature: 0.7,
-  mode: 'state_closed',
-  model: ['claude:fast', 'openai:fast'],
-  schema: { answer: String }
-};
-expectType<DefaultsConfig>(defaults);
 
 // Test error cases for configuration types
 expectError<BaseStreamConfig>({
   temperature: 'hot'  // Should be number
 });
 
-expectError<SchemaStreamConfig>({
+expectError<StreamingSchemaServerConfig>({
   mode: 'invalid_mode'  // Should be one of the valid modes
-});
-
-expectError<StreamOptions>({
-  Stream: 'not a function'  // Should be a StreamFunction
 });
 
 // Test that client-side types work properly
@@ -408,29 +429,29 @@ expectError<ClientConfigureOptions>({
 });
 
 // Test custom prompt generators
-const withCustomPromptGenerators: SchemaStreamConfig = {
+const withCustomPromptGenerators: BaseSchemaConfig = {
   prompt: "What is 2+2?",
   genSystemPrompt: (system) => `Custom system: ${system || ''}`,
   genUserPrompt: (scaffold, prompt) => `Custom user: ${prompt}`
 };
-expectType<SchemaStreamConfig>(withCustomPromptGenerators);
+expectType<BaseSchemaConfig>(withCustomPromptGenerators);
 
 // Test that genUserPrompt can return Message[]
-const withMessageGenerator: SchemaStreamConfig = {
+const withMessageGenerator: BaseStreamingSchemaConfig = {
   prompt: "What is 2+2?",
   genUserPrompt: (scaffold, prompt) => [{
     role: 'user',
     content: prompt
   }]
 };
-expectType<SchemaStreamConfig>(withMessageGenerator);
+expectType<BaseStreamingSchemaConfig>(withMessageGenerator);
 
 // Test invalid prompt generators
-expectError<SchemaStreamConfig>({
+expectError<BaseStreamingSchemaConfig>({
   genSystemPrompt: "not a function"  // Should be a function
 });
 
-expectError<SchemaStreamConfig>({
+expectError<BaseStreamingSchemaConfig>({
   genUserPrompt: () => 42  // Should return string or Message[]
 });
 

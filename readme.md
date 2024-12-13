@@ -12,13 +12,15 @@ Simple example:
 
 ```javascript
 import { simple } from 'xmllm';
-await simple('fun pet names', {name: Array(String)}); // => ["Daisy", "Whiskers", "Rocky"]
+await simple('fun pet names', {
+  schema: { name: Array(String) }
+}); // => ["Daisy", "Whiskers", "Rocky"]
 ```
 
 What actually happened:
 
 ```markdown
-┌─────────────────────┐     ┌───────────────────────────┐     ┌─────────────────────────┐
+┌─────────────────────┐     ┌───────────────────────────┐     ┌��────────────────────────┐
 │                     │     │      LLM generates        │     │      XML parsed to      │
 │   "fun pet names"   │ ──▶ │    <name>Daisy</name>     │ ──▶ │  structured data via    │
 │                     │     │   <name>Whiskers</name>   │     │ schema {name: [String]} │
@@ -197,36 +199,23 @@ PERPLEXITYAI_API_KEY=your_api_key
 
 ### Simplest Usage
 
-The `simple()` function provides the easiest way to get structured data from AI, but lacks streaming. It is still a good starting point.
+The `simple()` function provides the easiest way to get structured data from AI.
 
 ```javascript
 import { simple } from 'xmllm';
 
-// Get structured data in one line
-const result = await simple(
-  "What is 2+2?", 
-  {
-    answer: {
-      value: Number,
-      explanation: String
-    }
-  },
-  {
-    model: {
-      inherit: 'claude',
-      name: 'claude-3-haiku-20240307',
-      key: process.env.ANTHROPIC_API_KEY
-    }
+// Updated usage with options object
+const result = await simple("What is 2+2?", {
+  schema: { answer: Number },
+  model: {
+    inherit: 'claude',
+    name: 'claude-3-haiku-20240307',
+    key: process.env.ANTHROPIC_API_KEY
   }
-);
+});
 
 console.log(result);
-// {
-//   answer: {
-//     explanation: "Basic addition of two plus two",
-//     value: 4
-//   }
-// }
+// { answer: 4 }
 ```
 
 ### Streaming Usage
@@ -416,11 +405,11 @@ xmllm provides a lower-level pipeline API for complex scenarios where you might 
 Contrived example:
 
 ```javascript
-import { xmllm } from 'xmllm';
+import { pipeline } from 'xmllm';
 
 let results = {};
 
-const analysis = xmllm(({ prompt, promptClosed }) => [
+const analysis = pipeline(({ prompt, promptClosed }) => [
   // First prompt gets a scientist
   // promptClosed means 'close the tags before yielding'
   promptClosed('Name a scientist', {

@@ -1,6 +1,5 @@
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"],
-  _excluded2 = ["mode"];
+var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
@@ -44,6 +43,9 @@ function xmllmClient(pipelineFn) {
   ValidationService.validateLLMPayload(finalConfig);
   return xmllm(pipelineFn, finalConfig);
 }
+
+// Rename export but keep xmllmClient for backwards compatibility
+var pipeline = xmllmClient;
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
@@ -129,33 +131,25 @@ function stream(promptOrConfig) {
 }
 
 // Simple function with mode support
-export function simple(_x2, _x3) {
+function simple(_x2) {
   return _simple.apply(this, arguments);
-}
-
-// Export configuration function for client-side use
+} // Export configuration function for client-side use
 function _simple() {
-  _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(prompt, schema) {
+  _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
     var options,
-      _options$mode,
-      mode,
-      restOptions,
-      result,
       _args2 = arguments;
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
-          options = _args2.length > 2 && _args2[2] !== undefined ? _args2[2] : {};
-          _options$mode = options.mode, mode = _options$mode === void 0 ? 'state_closed' : _options$mode, restOptions = _objectWithoutProperties(options, _excluded2);
-          _context2.next = 4;
-          return stream(prompt, _objectSpread(_objectSpread({}, restOptions), {}, {
-            schema: schema,
-            mode: mode
-          })).last();
-        case 4:
-          result = _context2.sent;
-          return _context2.abrupt("return", result);
-        case 6:
+          options = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {};
+          // Default to state_closed mode for simple()
+          if (typeof promptOrConfig === 'string') {
+            options.mode = options.mode || 'state_closed';
+          } else {
+            promptOrConfig.mode = promptOrConfig.mode || 'state_closed';
+          }
+          return _context2.abrupt("return", stream(promptOrConfig, options).last());
+        case 3:
         case "end":
           return _context2.stop();
       }
@@ -163,10 +157,12 @@ function _simple() {
   }));
   return _simple.apply(this, arguments);
 }
-export { configure, xmllmClient as xmllm, ClientProvider, stream };
+export { configure, pipeline, xmllmClient as xmllm, ClientProvider, stream, simple };
 export default {
   configure: configure,
   ClientProvider: ClientProvider,
+  pipeline: pipeline,
   xmllm: xmllmClient,
-  stream: stream
+  stream: stream,
+  simple: simple
 };

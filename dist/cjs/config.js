@@ -33,9 +33,8 @@ var DEFAULT_CONFIG = {
     presencePenalty: 0,
     topP: 1,
     mode: 'state_open',
-    model: 'claude:good',
     strategy: 'default',
-    modelFallbacks: ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'],
+    model: ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'],
     errorMessages: {
       genericFailure: "It seems we have encountered issues responding, please try again later or get in touch with the website owner.",
       rateLimitExceeded: "Rate limit exceeded. Please try again later.",

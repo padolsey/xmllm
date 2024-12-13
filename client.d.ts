@@ -1,77 +1,100 @@
 import type { 
-  PipelineHelpers, 
-  XmllmOptions, 
-  SchemaType, 
-  HintType, 
-  BaseStreamConfig,
-  SchemaStreamConfig,
-  StreamOptions, 
-  ChainableStreamInterface,
+  BaseLLMParams,
+  BaseConfig,
   XMLElement,
-  PromptFn,
   Message,
   ModelPreference,
-  ConfigureOptions,
-  ErrorMessages,
+  SchemaType,
+  HintType,
+  ChainableStreamInterface,
+  LoggingConfig,
+  PipelineHelpers,
+  ValidationError,
+  MessageValidationError,
+  ModelValidationError,
+  PayloadValidationError,
+  BaseStreamingSchemaConfig,
+  BaseSchemaConfig,
+  BaseStreamConfig,
   DefaultsConfig
 } from './index';
 
-export type { 
-  PipelineHelpers, 
-  XmllmOptions, 
-  SchemaType, 
-  HintType,
+// Re-export common types
+export type {
+  BaseLLMParams,
+  BaseConfig,
   BaseStreamConfig,
-  SchemaStreamConfig,
-  StreamOptions, 
-  ChainableStreamInterface,
+  BaseSchemaConfig,
   XMLElement,
-  PromptFn,
   Message,
   ModelPreference,
-  ConfigureOptions,
-  ErrorMessages,
+  SchemaType,
+  HintType,
+  ChainableStreamInterface,
+  LoggingConfig,
+  PipelineHelpers,
+  ValidationError,
+  MessageValidationError,
+  ModelValidationError,
+  PayloadValidationError,
   DefaultsConfig
 };
 
+// First define the interface
 export interface IClientProvider {
   createStream(payload: any): Promise<ReadableStream>;
+  setLogger?(logger: any): void;
 }
 
+// Then define the class that implements the interface
 export class ClientProvider implements IClientProvider {
   constructor(endpoint?: string);
   createStream(payload: any): Promise<ReadableStream>;
+  setLogger?(logger: any): void;
 }
 
-// Extend base ConfigureOptions for client usage
-export interface ClientConfigureOptions extends ConfigureOptions {
+// Client-specific interfaces
+export interface ClientConfig extends BaseConfig {
   clientProvider?: ClientProvider | string;
 }
 
+export interface ClientSchemaConfig extends BaseSchemaConfig {
+  clientProvider?: ClientProvider | string;
+}
+
+export interface ClientStreamingSchemaConfig extends BaseStreamingSchemaConfig {
+  clientProvider?: ClientProvider | string;
+}
+
+export interface ClientStreamingConfig extends BaseStreamConfig {
+  clientProvider?: ClientProvider | string;
+}
+
+export interface ClientConfigureOptions {
+  logging?: LoggingConfig;
+  defaults?: ClientStreamingSchemaConfig;
+  clientProvider?: ClientProvider | string;
+}
+
+// Main functions
 export function xmllm<T = any>(
   pipelineFn: (helpers: PipelineHelpers) => any[],
-  options?: XmllmOptions & {
-    clientProvider?: ClientProvider | string;
-  }
+  options?: ClientStreamingSchemaConfig
 ): AsyncGenerator<T>;
 
 export function stream<T = XMLElement>(
-  promptOrConfig: string | SchemaStreamConfig,
-  options?: StreamOptions & {
-    clientProvider?: ClientProvider | string;
-  }
+  promptOrConfig: string | ClientStreamingSchemaConfig,
+  options?: ClientStreamingSchemaConfig
 ): ChainableStreamInterface<T>;
 
 export function simple<T = any>(
-  prompt: string,
-  schema: SchemaType,
-  options?: Omit<StreamOptions, 'schema'> & {
-    clientProvider?: ClientProvider | string;
-  }
+  promptOrConfig: string | ClientSchemaConfig,
+  options?: ClientSchemaConfig
 ): Promise<T>;
 
 export function configure(options: ClientConfigureOptions): void;
 
+// Default export
 declare const _default: {
   configure: typeof configure;
   ClientProvider: typeof ClientProvider;

@@ -58,7 +58,12 @@ describe('Client Stream Interface', () => {
         temperature: 0.72,
         top_p: 1,
         presence_penalty: 0,
-        model: 'claude:good'
+        model: [
+          'claude:good',
+          'openai:good',
+          'claude:fast',
+          'openai:fast'
+        ]
       });
 
       // Verify request structure
@@ -98,7 +103,12 @@ describe('Client Stream Interface', () => {
         ]),
         temperature: 0.8,
         max_tokens: 300,
-        model: 'claude:good'
+        model: [
+          'claude:good',
+          'openai:good',
+          'claude:fast',
+          'openai:fast'
+        ]
       });
     });
 
@@ -145,7 +155,12 @@ describe('Client Stream Interface', () => {
         ],
         max_tokens: 300,
         temperature: 0.72,
-        model: 'claude:good'
+        model: [
+          'claude:good',
+          'openai:good',
+          'claude:fast',
+          'openai:fast'
+        ]
       });
     });
 
@@ -214,7 +229,12 @@ describe('Client Stream Interface', () => {
         ],
         max_tokens: 300,
         temperature: 0.72,
-        model: 'claude:good'
+        model: [
+          'claude:good',
+          'openai:good',
+          'claude:fast',
+          'openai:fast'
+        ]
       });
     });
 
@@ -363,11 +383,11 @@ describe('Client Stream Interface', () => {
       const rootClosedResult = await simple(
         'Get values',
         {
-          root_value_a: String,
-          root_value_b: String,
-          root_value_c: String
-        },
-        { 
+          schema: {
+            root_value_a: String,
+            root_value_b: String,
+            root_value_c: String
+          },
           clientProvider,
           mode: 'root_closed'
         }
@@ -392,11 +412,11 @@ describe('Client Stream Interface', () => {
       const stateClosedResult = await simple(
         'Get values',
         {
-          root_value_a: String,
-          root_value_b: String,
-          root_value_c: String
-        },
-        { 
+          schema: {
+            root_value_a: String,
+            root_value_b: String,
+            root_value_c: String
+          },
           clientProvider,
           // DEFAULT mode: 'state_closed'
         }
@@ -625,6 +645,42 @@ describe('Client Stream Interface', () => {
       const message = new TextDecoder().decode(value);
 
       expect(message).toBe(requestMessage);
+    });
+  });
+
+  describe('simple() function', () => {
+    it('should handle string prompt with options', async () => {
+      const result = await simple("What is 2+2?", {
+        schema: { answer: Number },
+        clientProvider,
+        temperature: 0.7
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://test-endpoint.com',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"temperature":0.7')
+        })
+      );
+    });
+
+    it('should handle config object', async () => {
+      const result = await simple({
+        prompt: "What is 2+2?",
+        schema: { answer: Number },
+        temperature: 0.7
+      }, {
+        clientProvider
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://test-endpoint.com',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"temperature":0.7')
+        })
+      );
     });
   });
 });

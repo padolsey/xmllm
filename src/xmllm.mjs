@@ -660,4 +660,4 @@ function xmllm(pipelineFn, options = {}) {
 }
 
 export default xmllm;
-export { xmllm, configure };
+export { xmllm, configure, xmllm as pipeline };

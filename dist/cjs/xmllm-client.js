@@ -16,7 +16,7 @@ Object.defineProperty(exports, "configure", {
     return _config.configure;
   }
 });
-exports["default"] = void 0;
+exports.pipeline = exports["default"] = void 0;
 exports.simple = simple;
 exports.stream = stream;
 exports.xmllm = xmllmClient;
@@ -25,8 +25,7 @@ var _ChainableStreamInterface = _interopRequireDefault(require("./ChainableStrea
 var _ClientProvider = require("./ClientProvider.js");
 var _config = require("./config.js");
 var _ValidationService = _interopRequireDefault(require("./ValidationService.js"));
-var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"],
-  _excluded2 = ["mode"];
+var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
@@ -66,6 +65,9 @@ function xmllmClient(pipelineFn) {
   _ValidationService["default"].validateLLMPayload(finalConfig);
   return (0, _xmllm.xmllm)(pipelineFn, finalConfig);
 }
+
+// Rename export but keep xmllmClient for backwards compatibility
+var pipeline = exports.pipeline = xmllmClient;
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
@@ -151,31 +153,25 @@ function stream(promptOrConfig) {
 }
 
 // Simple function with mode support
-function simple(_x2, _x3) {
+function simple(_x2) {
   return _simple.apply(this, arguments);
 } // Export configuration function for client-side use
 function _simple() {
-  _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(prompt, schema) {
+  _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
     var options,
-      _options$mode,
-      mode,
-      restOptions,
-      result,
       _args2 = arguments;
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
-          options = _args2.length > 2 && _args2[2] !== undefined ? _args2[2] : {};
-          _options$mode = options.mode, mode = _options$mode === void 0 ? 'state_closed' : _options$mode, restOptions = _objectWithoutProperties(options, _excluded2);
-          _context2.next = 4;
-          return stream(prompt, _objectSpread(_objectSpread({}, restOptions), {}, {
-            schema: schema,
-            mode: mode
-          })).last();
-        case 4:
-          result = _context2.sent;
-          return _context2.abrupt("return", result);
-        case 6:
+          options = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {};
+          // Default to state_closed mode for simple()
+          if (typeof promptOrConfig === 'string') {
+            options.mode = options.mode || 'state_closed';
+          } else {
+            promptOrConfig.mode = promptOrConfig.mode || 'state_closed';
+          }
+          return _context2.abrupt("return", stream(promptOrConfig, options).last());
+        case 3:
         case "end":
           return _context2.stop();
       }
@@ -186,6 +182,8 @@ function _simple() {
 var _default = exports["default"] = {
   configure: _config.configure,
   ClientProvider: _ClientProvider.ClientProvider,
+  pipeline: pipeline,
   xmllm: xmllmClient,
-  stream: stream
+  stream: stream,
+  simple: simple
 };

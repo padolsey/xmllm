@@ -7,9 +7,9 @@ The Pipeline API is xmllm's lower-level interface, giving you direct control ove
 A pipeline is an array of operations that can include:
 
 ```javascript
-import { xmllm } from 'xmllm';
+import { pipeline } from 'xmllm';
 
-const stream = xmllm(({ prompt, map }) => [
+const stream = pipeline(({ prompt, map }) => [
   // 1. Raw Values
   42,                           // Single value
   ['red', 'blue'],              // Array of values
@@ -41,7 +41,7 @@ Pipeline operations are passed into the function you pass to `xmllm()`. This is 
 Arrays in a pipeline create parallel branches:
 
 ```javascript
-xmllm(({ prompt, reduce }) => [
+pipeline(({ prompt, reduce }) => [
   // Parallel prompts
   [
     prompt('List colors', {
@@ -66,7 +66,7 @@ xmllm(({ prompt, reduce }) => [
 
 ### Functions: Transform One Value at a Time
 ```javascript
-xmllm(({ prompt }) => [
+pipeline(({ prompt }) => [
   prompt('Count to 3'),
   // Function gets called for each value
   (x) => x.toUpperCase(),
@@ -77,7 +77,7 @@ xmllm(({ prompt }) => [
 
 ### Generators: Yield Multiple Values with State
 ```javascript
-xmllm(({ prompt }) => [
+pipeline(({ prompt }) => [
   prompt('Count to 3'),
   // Generator maintains state across values
   function*() {
@@ -96,7 +96,7 @@ xmllm(({ prompt }) => [
 Use accrue() to collect all results before processing:
 
 ```javascript
-xmllm(({ prompt, accrue }) => [
+pipeline(({ prompt, accrue }) => [
   prompt('List numbers', {
     numbers: [Number]
   }),
@@ -117,7 +117,7 @@ xmllm(({ prompt, accrue }) => [
 
 ### Chained Prompts
 ```javascript
-xmllm(({ prompt }) => [
+pipeline(({ prompt }) => [
   // First prompt
   prompt('Name a scientist', {
     scientist: {
@@ -147,7 +147,7 @@ xmllm(({ prompt }) => [
 
 ### Stateful Processing
 ```javascript
-xmllm(({ prompt }) => [
+pipeline(({ prompt }) => [
   prompt('List numbers'),
   
   // Maintain state between values
@@ -167,7 +167,7 @@ xmllm(({ prompt }) => [
 
 ### Conditional Processing
 ```javascript
-xmllm(({ prompt }) => [
+pipeline(({ prompt }) => [
   prompt('Analyze text'),
   
   // Branch based on content
@@ -184,7 +184,7 @@ xmllm(({ prompt }) => [
 ## Error Handling
 
 ```javascript
-xmllm(({ prompt }) => [
+pipeline(({ prompt }) => [
   prompt('Complex query'),
   
   // Handle errors in pipeline
