@@ -323,6 +323,7 @@ class Provider {
     let closed = false;
     let data = '';
     let counter = 0;
+    let reader = null;
 
     return new ReadableStream({
       async start(controller) {
@@ -344,13 +345,21 @@ class Provider {
             try {
               const json = JSON.parse(eventData);
 
-              // Various output formats depending on provider.
+              // Handle non-streaming response (complete JSON response)
+              if (json.choices?.[0]?.text && !json.choices?.[0]?.delta) {
+                const text = json.choices[0].text;
+                controller.enqueue(encoder.encode(text));
+                controller.close();
+                closed = true;
+                return;
+              }
+
+              // Handle streaming response formats
               let text =
-                json?.delta?.text 
-                ||
-                json?.content_block?.text
-                ||
-                json.choices?.[0]?.delta?.content;
+                json?.delta?.text ||
+                json?.content_block?.text ||
+                json.choices?.[0]?.delta?.content ||
+                json.choices?.[0]?.text;
 
               if (json?.delta?.stop_reason) {
                 logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
@@ -364,7 +373,7 @@ class Provider {
               text = text || '';
 
               if (counter < 2 && (text.match(/\n/) || []).length) {
-                return; //??? what is this for???
+                counter++;
               }
 
               data += text;
@@ -381,12 +390,46 @@ class Provider {
 
         try {
           const parser = createParser(onParse);
-
           logger.log('Starting to read response body', response?.body);
-          for await (const chunk of response?.body) {
-            if (closed) break;
-            const decoded = new TextDecoder().decode(chunk);
-            parser.feed(decoded);
+          
+          // Get reader once and store it
+          reader = response.body.getReader();
+          
+          // Handle non-streaming response
+          const firstChunk = await reader.read();
+          if (firstChunk.value) {
+            const decoded = new TextDecoder().decode(firstChunk.value);
+            try {
+              // Attempt to parse it as JSON
+              // (if it's parseable and has a final choices' text prop
+              //  then it's likely a non-streaming (final) response)
+              const json = JSON.parse(decoded);
+              if (json.choices?.[0]?.text && !json.choices?.[0]?.delta) {
+                // Non-streaming response
+                const text = json.choices[0].text;
+                controller.enqueue(encoder.encode(text));
+                controller.close();
+                closed = true;
+                return;
+              } else {
+                // Streaming response - feed to parser
+                parser.feed(decoded);
+              }
+            } catch (e) {
+              // Not JSON or other error - treat as streaming
+              parser.feed(decoded);
+            }
+          }
+
+          // Continue reading rest of stream if not closed
+          if (!closed) {
+            do {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              const decoded = new TextDecoder().decode(value);
+              parser.feed(decoded);
+            } while (!closed);
           }
         } catch (e) {
           logger.error('Stream error:', e);
@@ -396,11 +439,11 @@ class Provider {
             closed = true;
             controller.close();
           }
-          if (response?.body) {
+          if (reader) {
             try {
-              await response.body.cancel();
+              reader.releaseLock();
             } catch (e) {
-              logger.error('Error cancelling response body:', e);
+              logger.error('Error releasing reader lock:', e);
             }
           }
         }
@@ -408,10 +451,14 @@ class Provider {
       cancel(reason) {
         closed = true;
         logger.log(`Stream cancelled: ${reason}`);
-        if (response?.body) {
-          response.body.cancel().catch(e => 
-            logger.error('Error during stream cancellation:', e)
-          );
+        if (reader) {
+          try {
+            reader.cancel().catch(e => 
+              logger.error('Error during reader cancellation:', e)
+            );
+          } catch (e) {
+            logger.error('Error during reader cancellation:', e);
+          }
         }
       }
     });
@@ -526,14 +573,14 @@ class Provider {
   }
 
   getHeaders() {
-    if (!this.key) {
-      throw new Error('Note: No key is defined');
-    }
     const headers = {
       'Content-Type': 'application/json'
     };
-    if (this.key !== 'NO_KEY') {
+
+    if (this.key !== 'NO_KEY' && this.key !== '') {
       headers.Authorization = `Bearer ${this.key}`;
+    } else  if (this.key == null) {
+      throw new Error('Note: No key is defined');
     }
     return headers;
   }

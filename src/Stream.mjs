@@ -8,6 +8,7 @@ import { getConfig } from './config.mjs';
 import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
 
 const logger = new Logger('APIStream');
+
 let queue;
 const ongoingRequests = new Map();
 

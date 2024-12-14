@@ -54,15 +54,15 @@ const providers = {
     models: {
       superfast: {
         name: 'claude-3-haiku-20240307',
-        maxContextSize: 100_000
+        maxContextSize: 200_000
       },
       fast: {
         name: 'claude-3-haiku-20240307',
-        maxContextSize: 100_000
+        maxContextSize: 200_000
       },
       good: {
         name: 'claude-3-5-sonnet-20240620',
-        maxContextSize: 100_000
+        maxContextSize: 200_000
       }
     },
     headerGen() {
@@ -100,11 +100,11 @@ const providers = {
     models: {
       superfast: {
         name: 'gpt-4o-mini',
-        maxContextSize: 1_000_000
+        maxContextSize: 128_000
       },
       fast: {
         name: 'gpt-4o-mini',
-        maxContextSize: 1_000_000
+        maxContextSize: 128_000
       },
       good: {
         name: 'gpt-4o',
@@ -150,12 +150,15 @@ const providers = {
     models: {
       superfast: {
         name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
+        maxContextSize: 32000
       },
       fast: {
         name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
+        maxContextSize: 32000
       },
       good: {
         name: 'Qwen/Qwen2.5-72B-Instruct-Turbo',
+        maxContextSize: 32000
       }
     },
     payloader: taiStylePayloader
@@ -169,12 +172,15 @@ const providers = {
     models: {
       superfast: {
         name: 'llama-3.1-sonar-small-128k-chat',
+        maxContextSize: 128000
       },
       fast: {
         name: 'llama-3.1-sonar-small-128k-chat',
+        maxContextSize: 128000
       },
       good: {
         name: 'llama-3.1-sonar-large-128k-chat', 
+        maxContextSize: 128000
       }
     },
     payloader: standardPayloader

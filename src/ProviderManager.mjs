@@ -48,7 +48,6 @@ class ProviderManager {
     };
 
     for (const [name, details] of Object.entries(PROVIDERS)) {
-      console.log('provider', name, details);
       // Priority: runtime/configured key > env var
       const key = config.keys?.[name] || 
                   process.env[`${name.toUpperCase()}_API_KEY`];
@@ -74,7 +73,7 @@ class ProviderManager {
     }
 
     // Add check for missing API key
-    if (!provider.key) {
+    if (provider.key == null) {
       logger.error(
         `No API key found for provider "${providerName}". Add ${providerName.toUpperCase()}_API_KEY to your environment variables or pass it in your configuration.`
       );
@@ -210,7 +209,16 @@ class ProviderManager {
     }
 
     // Add key check here
-    if (!key && !baseProvider.key) {
+    if (
+      !(
+        key == null || 
+        baseProvider.key == null ||
+        key == '' ||
+        baseProvider.key == '' ||
+        key == 'NO_KEY' ||
+        baseProvider.key == 'NO_KEY'
+      )
+    ) {
       logger.error(
         `No API key found for provider "${inherit}". Add ${inherit.toUpperCase()}_API_KEY to your environment variables or pass it in your configuration.`
       );

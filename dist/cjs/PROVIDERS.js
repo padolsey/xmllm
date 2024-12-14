@@ -84,15 +84,15 @@ var providers = {
     models: {
       superfast: {
         name: 'claude-3-haiku-20240307',
-        maxContextSize: 100000
+        maxContextSize: 200000
       },
       fast: {
         name: 'claude-3-haiku-20240307',
-        maxContextSize: 100000
+        maxContextSize: 200000
       },
       good: {
         name: 'claude-3-5-sonnet-20240620',
-        maxContextSize: 100000
+        maxContextSize: 200000
       }
     },
     headerGen: function headerGen() {
@@ -135,11 +135,11 @@ var providers = {
     models: {
       superfast: {
         name: 'gpt-4o-mini',
-        maxContextSize: 1000000
+        maxContextSize: 128000
       },
       fast: {
         name: 'gpt-4o-mini',
-        maxContextSize: 1000000
+        maxContextSize: 128000
       },
       good: {
         name: 'gpt-4o',
@@ -184,13 +184,16 @@ var providers = {
     key: process.env.TOGETHER_API_KEY,
     models: {
       superfast: {
-        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
+        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
+        maxContextSize: 32000
       },
       fast: {
-        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
+        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
+        maxContextSize: 32000
       },
       good: {
-        name: 'Qwen/Qwen2.5-72B-Instruct-Turbo'
+        name: 'Qwen/Qwen2.5-72B-Instruct-Turbo',
+        maxContextSize: 32000
       }
     },
     payloader: taiStylePayloader
@@ -203,13 +206,16 @@ var providers = {
     key: process.env.PERPLEXITY_API_KEY,
     models: {
       superfast: {
-        name: 'llama-3.1-sonar-small-128k-chat'
+        name: 'llama-3.1-sonar-small-128k-chat',
+        maxContextSize: 128000
       },
       fast: {
-        name: 'llama-3.1-sonar-small-128k-chat'
+        name: 'llama-3.1-sonar-small-128k-chat',
+        maxContextSize: 128000
       },
       good: {
-        name: 'llama-3.1-sonar-large-128k-chat'
+        name: 'llama-3.1-sonar-large-128k-chat',
+        maxContextSize: 128000
       }
     },
     payloader: standardPayloader

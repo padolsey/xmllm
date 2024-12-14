@@ -73,7 +73,6 @@ var ProviderManager = /*#__PURE__*/function () {
       var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
         name = _Object$entries$_i[0],
         details = _Object$entries$_i[1];
-      console.log('provider', name, details);
       // Priority: runtime/configured key > env var
       var key = ((_config$keys = config.keys) === null || _config$keys === void 0 ? void 0 : _config$keys[name]) || process.env["".concat(name.toUpperCase(), "_API_KEY")];
       this.providers[name] = new _Provider["default"](name, _objectSpread(_objectSpread({}, details), {}, {
@@ -98,7 +97,7 @@ var ProviderManager = /*#__PURE__*/function () {
       }
 
       // Add check for missing API key
-      if (!provider.key) {
+      if (provider.key == null) {
         logger.error("No API key found for provider \"".concat(providerName, "\". Add ").concat(providerName.toUpperCase(), "_API_KEY to your environment variables or pass it in your configuration."));
       }
 
@@ -349,7 +348,7 @@ var ProviderManager = /*#__PURE__*/function () {
       }
 
       // Add key check here
-      if (!key && !baseProvider.key) {
+      if (!(key == null || baseProvider.key == null || key == '' || baseProvider.key == '' || key == 'NO_KEY' || baseProvider.key == 'NO_KEY')) {
         logger.error("No API key found for provider \"".concat(inherit, "\". Add ").concat(inherit.toUpperCase(), "_API_KEY to your environment variables or pass it in your configuration."));
       }
 

@@ -21,8 +21,6 @@ function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), 
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _asyncIterator(r) { var n, t, o, e = 2; for ("undefined" != typeof Symbol && (t = Symbol.asyncIterator, o = Symbol.iterator); e--;) { if (t && null != (n = r[t])) return n.call(r); if (o && null != (n = r[o])) return new AsyncFromSyncIterator(n.call(r)); t = "@@asyncIterator", o = "@@iterator"; } throw new TypeError("Object is not async iterable"); }
-function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r) { if (Object(r) !== r) return Promise.reject(new TypeError(r + " is not an object.")); var n = r.done; return Promise.resolve(r.value).then(function (r) { return { value: r, done: n }; }); } return AsyncFromSyncIterator = function AsyncFromSyncIterator(r) { this.s = r, this.n = r.next; }, AsyncFromSyncIterator.prototype = { s: null, n: null, next: function next() { return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments)); }, "return": function _return(r) { var n = this.s["return"]; return void 0 === n ? Promise.resolve({ value: r, done: !0 }) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); }, "throw": function _throw(r) { var n = this.s["return"]; return void 0 === n ? Promise.reject(r) : AsyncFromSyncIteratorContinuation(n.apply(this.s, arguments)); } }, new AsyncFromSyncIterator(r); }
 import Logger from './Logger.mjs';
 import { ProviderError, ProviderRateLimitError, ProviderAuthenticationError, ProviderNetworkError, ProviderTimeoutError, ModelValidationError } from './errors/ProviderErrors.mjs';
 import { createParser } from 'eventsource-parser';
@@ -110,13 +108,13 @@ var Provider = /*#__PURE__*/function () {
     get: function get() {
       // backward compatibility
       var limits = {};
-      var _iterator2 = _createForOfIteratorHelper(this.resourceLimiter.buckets),
-        _step2;
+      var _iterator = _createForOfIteratorHelper(this.resourceLimiter.buckets),
+        _step;
       try {
-        for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-          var _step2$value = _slicedToArray(_step2.value, 2),
-            name = _step2$value[0],
-            bucket = _step2$value[1];
+        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+          var _step$value = _slicedToArray(_step.value, 2),
+            name = _step$value[0],
+            bucket = _step$value[1];
           var constraintName = {
             rpm: 'rpmLimit',
             tpm: 'tokensPerMinute',
@@ -125,9 +123,9 @@ var Provider = /*#__PURE__*/function () {
           limits[constraintName] = bucket.limit;
         }
       } catch (err) {
-        _iterator2.e(err);
+        _iterator.e(err);
       } finally {
-        _iterator2.f();
+        _iterator.f();
       }
       return limits;
     }
@@ -417,10 +415,11 @@ var Provider = /*#__PURE__*/function () {
       var closed = false;
       var data = '';
       var counter = 0;
+      var reader = null;
       return new ReadableStream({
         start: function start(controller) {
           return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
-            var onParse, parser, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, chunk, decoded;
+            var onParse, parser, firstChunk, decoded, _json$choices5, _json$choices6, json, text, _yield$reader$read, done, value, _decoded;
             return _regeneratorRuntime().wrap(function _callee4$(_context4) {
               while (1) switch (_context4.prev = _context4.next) {
                 case 0:
@@ -437,11 +436,20 @@ var Provider = /*#__PURE__*/function () {
                         return;
                       }
                       try {
-                        var _json$delta, _json$content_block, _json$choices, _json$delta2;
+                        var _json$choices, _json$choices2, _json$delta, _json$content_block, _json$choices3, _json$choices4, _json$delta2;
                         var json = JSON.parse(eventData);
 
-                        // Various output formats depending on provider.
-                        var text = (json === null || json === void 0 || (_json$delta = json.delta) === null || _json$delta === void 0 ? void 0 : _json$delta.text) || (json === null || json === void 0 || (_json$content_block = json.content_block) === null || _json$content_block === void 0 ? void 0 : _json$content_block.text) || ((_json$choices = json.choices) === null || _json$choices === void 0 || (_json$choices = _json$choices[0]) === null || _json$choices === void 0 || (_json$choices = _json$choices.delta) === null || _json$choices === void 0 ? void 0 : _json$choices.content);
+                        // Handle non-streaming response (complete JSON response)
+                        if ((_json$choices = json.choices) !== null && _json$choices !== void 0 && (_json$choices = _json$choices[0]) !== null && _json$choices !== void 0 && _json$choices.text && !((_json$choices2 = json.choices) !== null && _json$choices2 !== void 0 && (_json$choices2 = _json$choices2[0]) !== null && _json$choices2 !== void 0 && _json$choices2.delta)) {
+                          var _text = json.choices[0].text;
+                          controller.enqueue(encoder.encode(_text));
+                          controller.close();
+                          closed = true;
+                          return;
+                        }
+
+                        // Handle streaming response formats
+                        var text = (json === null || json === void 0 || (_json$delta = json.delta) === null || _json$delta === void 0 ? void 0 : _json$delta.text) || (json === null || json === void 0 || (_json$content_block = json.content_block) === null || _json$content_block === void 0 ? void 0 : _json$content_block.text) || ((_json$choices3 = json.choices) === null || _json$choices3 === void 0 || (_json$choices3 = _json$choices3[0]) === null || _json$choices3 === void 0 || (_json$choices3 = _json$choices3.delta) === null || _json$choices3 === void 0 ? void 0 : _json$choices3.content) || ((_json$choices4 = json.choices) === null || _json$choices4 === void 0 || (_json$choices4 = _json$choices4[0]) === null || _json$choices4 === void 0 ? void 0 : _json$choices4.text);
                         if (json !== null && json !== void 0 && (_json$delta2 = json.delta) !== null && _json$delta2 !== void 0 && _json$delta2.stop_reason) {
                           logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
                           data += '\n';
@@ -452,7 +460,7 @@ var Provider = /*#__PURE__*/function () {
                         }
                         text = text || '';
                         if (counter < 2 && (text.match(/\n/) || []).length) {
-                          return; //??? what is this for???
+                          counter++;
                         }
                         data += text;
                         var queue = encoder.encode(text);
@@ -469,103 +477,111 @@ var Provider = /*#__PURE__*/function () {
                   _context4.prev = 2;
                   parser = createParser(onParse);
                   logger.log('Starting to read response body', response === null || response === void 0 ? void 0 : response.body);
-                  _iteratorAbruptCompletion = false;
-                  _didIteratorError = false;
-                  _context4.prev = 7;
-                  _iterator = _asyncIterator(response === null || response === void 0 ? void 0 : response.body);
-                case 9:
-                  _context4.next = 11;
-                  return _iterator.next();
-                case 11:
-                  if (!(_iteratorAbruptCompletion = !(_step = _context4.sent).done)) {
-                    _context4.next = 20;
+
+                  // Get reader once and store it
+                  reader = response.body.getReader();
+
+                  // Handle non-streaming response
+                  _context4.next = 8;
+                  return reader.read();
+                case 8:
+                  firstChunk = _context4.sent;
+                  if (!firstChunk.value) {
+                    _context4.next = 27;
                     break;
                   }
-                  chunk = _step.value;
-                  if (!closed) {
-                    _context4.next = 15;
+                  decoded = new TextDecoder().decode(firstChunk.value);
+                  _context4.prev = 11;
+                  // Attempt to parse it as JSON
+                  // (if it's parseable and has a final choices' text prop
+                  //  then it's likely a non-streaming (final) response)
+                  json = JSON.parse(decoded);
+                  if (!((_json$choices5 = json.choices) !== null && _json$choices5 !== void 0 && (_json$choices5 = _json$choices5[0]) !== null && _json$choices5 !== void 0 && _json$choices5.text && !((_json$choices6 = json.choices) !== null && _json$choices6 !== void 0 && (_json$choices6 = _json$choices6[0]) !== null && _json$choices6 !== void 0 && _json$choices6.delta))) {
+                    _context4.next = 21;
                     break;
                   }
-                  return _context4.abrupt("break", 20);
-                case 15:
-                  decoded = new TextDecoder().decode(chunk);
+                  // Non-streaming response
+                  text = json.choices[0].text;
+                  controller.enqueue(encoder.encode(text));
+                  controller.close();
+                  closed = true;
+                  return _context4.abrupt("return");
+                case 21:
+                  // Streaming response - feed to parser
                   parser.feed(decoded);
-                case 17:
-                  _iteratorAbruptCompletion = false;
-                  _context4.next = 9;
-                  break;
-                case 20:
-                  _context4.next = 26;
-                  break;
                 case 22:
-                  _context4.prev = 22;
-                  _context4.t0 = _context4["catch"](7);
-                  _didIteratorError = true;
-                  _iteratorError = _context4.t0;
-                case 26:
-                  _context4.prev = 26;
-                  _context4.prev = 27;
-                  if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
-                    _context4.next = 31;
-                    break;
-                  }
-                  _context4.next = 31;
-                  return _iterator["return"]();
-                case 31:
-                  _context4.prev = 31;
-                  if (!_didIteratorError) {
-                    _context4.next = 34;
-                    break;
-                  }
-                  throw _iteratorError;
-                case 34:
-                  return _context4.finish(31);
-                case 35:
-                  return _context4.finish(26);
-                case 36:
-                  _context4.next = 42;
+                  _context4.next = 27;
                   break;
+                case 24:
+                  _context4.prev = 24;
+                  _context4.t0 = _context4["catch"](11);
+                  // Not JSON or other error - treat as streaming
+                  parser.feed(decoded);
+                case 27:
+                  if (closed) {
+                    _context4.next = 38;
+                    break;
+                  }
+                case 28:
+                  _context4.next = 30;
+                  return reader.read();
+                case 30:
+                  _yield$reader$read = _context4.sent;
+                  done = _yield$reader$read.done;
+                  value = _yield$reader$read.value;
+                  if (!done) {
+                    _context4.next = 35;
+                    break;
+                  }
+                  return _context4.abrupt("break", 38);
+                case 35:
+                  _decoded = new TextDecoder().decode(value);
+                  parser.feed(_decoded);
+                case 37:
+                  if (!closed) {
+                    _context4.next = 28;
+                    break;
+                  }
                 case 38:
-                  _context4.prev = 38;
+                  _context4.next = 44;
+                  break;
+                case 40:
+                  _context4.prev = 40;
                   _context4.t1 = _context4["catch"](2);
                   logger.error('Stream error:', _context4.t1);
                   controller.error(_context4.t1);
-                case 42:
-                  _context4.prev = 42;
+                case 44:
+                  _context4.prev = 44;
                   if (!closed) {
                     closed = true;
                     controller.close();
                   }
-                  if (!(response !== null && response !== void 0 && response.body)) {
-                    _context4.next = 53;
-                    break;
+                  if (reader) {
+                    try {
+                      reader.releaseLock();
+                    } catch (e) {
+                      logger.error('Error releasing reader lock:', e);
+                    }
                   }
-                  _context4.prev = 45;
-                  _context4.next = 48;
-                  return response.body.cancel();
+                  return _context4.finish(44);
                 case 48:
-                  _context4.next = 53;
-                  break;
-                case 50:
-                  _context4.prev = 50;
-                  _context4.t2 = _context4["catch"](45);
-                  logger.error('Error cancelling response body:', _context4.t2);
-                case 53:
-                  return _context4.finish(42);
-                case 54:
                 case "end":
                   return _context4.stop();
               }
-            }, _callee4, null, [[2, 38, 42, 54], [7, 22, 26, 36], [27,, 31, 35], [45, 50]]);
+            }, _callee4, null, [[2, 40, 44, 48], [11, 24]]);
           }))();
         },
         cancel: function cancel(reason) {
           closed = true;
           logger.log("Stream cancelled: ".concat(reason));
-          if (response !== null && response !== void 0 && response.body) {
-            response.body.cancel()["catch"](function (e) {
-              return logger.error('Error during stream cancellation:', e);
-            });
+          if (reader) {
+            try {
+              reader.cancel()["catch"](function (e) {
+                return logger.error('Error during reader cancellation:', e);
+              });
+            } catch (e) {
+              logger.error('Error during reader cancellation:', e);
+            }
           }
         }
       });
@@ -717,14 +733,13 @@ var Provider = /*#__PURE__*/function () {
   }, {
     key: "getHeaders",
     value: function getHeaders() {
-      if (!this.key) {
-        throw new Error('Note: No key is defined');
-      }
       var headers = {
         'Content-Type': 'application/json'
       };
-      if (this.key !== 'NO_KEY') {
+      if (this.key !== 'NO_KEY' && this.key !== '') {
         headers.Authorization = "Bearer ".concat(this.key);
+      } else if (this.key == null) {
+        throw new Error('Note: No key is defined');
       }
       return headers;
     }
@@ -804,11 +819,11 @@ var Provider = /*#__PURE__*/function () {
         while (attempts < MAX_ATTEMPTS) {
           var tempMessages = [];
           var currentTotal = 0;
-          var _iterator3 = _createForOfIteratorHelper(historicalMessages),
-            _step3;
+          var _iterator2 = _createForOfIteratorHelper(historicalMessages),
+            _step2;
           try {
-            for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-              var msg = _step3.value;
+            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+              var msg = _step2.value;
               var originalTokens = estimateMessageTokens(msg);
               var desiredTokens = Math.max(1, Math.floor(originalTokens * ratio));
               var truncatedContent = innerTruncate(msg.content, '[...]', 10, desiredTokens);
@@ -820,9 +835,9 @@ var Provider = /*#__PURE__*/function () {
               });
             }
           } catch (err) {
-            _iterator3.e(err);
+            _iterator2.e(err);
           } finally {
-            _iterator3.f();
+            _iterator2.f();
           }
           if (currentTotal <= availableForHistory) {
             truncatedMessages.push.apply(truncatedMessages, tempMessages);
@@ -836,20 +851,20 @@ var Provider = /*#__PURE__*/function () {
 
         // If we couldn't get under the limit, use minimal messages
         if (attempts === MAX_ATTEMPTS) {
-          var _iterator4 = _createForOfIteratorHelper(historicalMessages),
-            _step4;
+          var _iterator3 = _createForOfIteratorHelper(historicalMessages),
+            _step3;
           try {
-            for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-              var _msg = _step4.value;
+            for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+              var _msg = _step3.value;
               truncatedMessages.push({
                 role: _msg.role,
                 content: '[...]'
               });
             }
           } catch (err) {
-            _iterator4.e(err);
+            _iterator3.e(err);
           } finally {
-            _iterator4.f();
+            _iterator3.f();
           }
         }
       }
