@@ -1,7 +1,7 @@
 import {xmllm} from './xmllm.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
-import { getConfig, configure } from './config.mjs';
+import { getConfig, configure, resetConfig } from './config.mjs';
 import ValidationService from './ValidationService.mjs';
 
 function clientLlmStream(clientProvider) {
@@ -28,14 +28,37 @@ const pipeline = xmllmClient;
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig, options = {}) {
-  const config = getConfig();
-  let streamConfig = {};
+  let config = {};
+  const globalConfig = getConfig();
   
+  // Add security check for keys
+  if (promptOrConfig?.keys || options?.keys) {
+    console.error(`
+⚠️ Security Warning: API keys detected in client-side code!
+   
+   Never expose API keys in client-side code as they can be stolen.
+   Instead:
+   1. Set up xmllm-proxy on your server
+   2. Configure your API keys there
+   3. Use clientProvider to connect to your proxy
+   
+   Example:
+   import { stream } from 'xmllm/client';
+   
+   stream('prompt', {
+     clientProvider: 'https://xmllm-proxy.your-server.com/api/stream'
+   });
+   
+   See: https://github.com/padolsey/xmllm/blob/main/docs/providers.md
+`);
+    throw new Error('API keys are not supported in client-side code for security reasons. Use xmllm-proxy instead.');
+  }
+
   if (typeof promptOrConfig === 'string') {
     ValidationService.validateLLMPayload(options);
 
-    streamConfig = {
-      ...config.defaults,
+    config = {
+      ...globalConfig.defaults,
       ...options,
       messages: [{
         role: 'user',
@@ -50,14 +73,14 @@ function stream(promptOrConfig, options = {}) {
 
     ValidationService.validateLLMPayload(aggConfig);
 
-    streamConfig = {
-      ...config.defaults,
+    config = {
+      ...globalConfig.defaults,
       ...aggConfig
     };
   }
 
   // Use default clientProvider if none provided - now checking top-level config
-  if (!streamConfig.clientProvider && !config.clientProvider) {
+  if (!config.clientProvider && !globalConfig.clientProvider) {
     throw new Error('clientProvider is required - either pass it directly or set via configure()');
   }
 
@@ -68,9 +91,9 @@ function stream(promptOrConfig, options = {}) {
     system,
     mode = 'state_open',
     onChunk,
-    clientProvider = config.clientProvider,  // Use top-level config
+    clientProvider = globalConfig.clientProvider,  // Use top-level config
     ...restOptions
-  } = streamConfig;
+  } = config;
 
   // Validate mode
   if (![
@@ -152,7 +175,9 @@ export {
   xmllmClient as xmllm,
   ClientProvider,
   stream,
-  simple
+  simple,
+  getConfig,
+  resetConfig
 };
 
 export default {
@@ -161,5 +186,7 @@ export default {
   pipeline,
   xmllm: xmllmClient,
   stream,
-  simple
+  simple,
+  getConfig,
+  resetConfig
 };

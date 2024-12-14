@@ -29,7 +29,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
  * const client = new ClientProvider('http://localhost:3124/api/stream');
  * const stream = await client.createStream({
  *   messages: [...],
- *   model: 'claude:fast'
+ *   model: 'anthropic:fast'
  * });
  */
 
@@ -66,7 +66,7 @@ export var ClientProvider = /*#__PURE__*/function () {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
               if (this.logger) {
-                this.logger.info('Client createStream payload', payload);
+                this.logger.log('Client createStream payload', payload);
               }
               _context2.prev = 1;
               _context2.next = 4;

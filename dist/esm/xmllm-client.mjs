@@ -13,7 +13,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 import { xmllm } from './xmllm.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
-import { getConfig, configure } from './config.mjs';
+import { getConfig, configure, resetConfig } from './config.mjs';
 import ValidationService from './ValidationService.mjs';
 function clientLlmStream(clientProvider) {
   var provider = typeof clientProvider === 'string' ? new ClientProvider(clientProvider) : clientProvider;
@@ -50,11 +50,17 @@ var pipeline = xmllmClient;
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  var config = getConfig();
-  var streamConfig = {};
+  var config = {};
+  var globalConfig = getConfig();
+
+  // Add security check for keys
+  if (promptOrConfig !== null && promptOrConfig !== void 0 && promptOrConfig.keys || options !== null && options !== void 0 && options.keys) {
+    console.error("\n\u26A0\uFE0F Security Warning: API keys detected in client-side code!\n   \n   Never expose API keys in client-side code as they can be stolen.\n   Instead:\n   1. Set up xmllm-proxy on your server\n   2. Configure your API keys there\n   3. Use clientProvider to connect to your proxy\n   \n   Example:\n   import { stream } from 'xmllm/client';\n   \n   stream('prompt', {\n     clientProvider: 'https://xmllm-proxy.your-server.com/api/stream'\n   });\n   \n   See: https://github.com/padolsey/xmllm/blob/main/docs/providers.md\n");
+    throw new Error('API keys are not supported in client-side code for security reasons. Use xmllm-proxy instead.');
+  }
   if (typeof promptOrConfig === 'string') {
     ValidationService.validateLLMPayload(options);
-    streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), options), {}, {
+    config = _objectSpread(_objectSpread(_objectSpread({}, globalConfig.defaults), options), {}, {
       messages: [{
         role: 'user',
         content: promptOrConfig
@@ -63,24 +69,24 @@ function stream(promptOrConfig) {
   } else {
     var aggConfig = _objectSpread(_objectSpread({}, promptOrConfig), options);
     ValidationService.validateLLMPayload(aggConfig);
-    streamConfig = _objectSpread(_objectSpread({}, config.defaults), aggConfig);
+    config = _objectSpread(_objectSpread({}, globalConfig.defaults), aggConfig);
   }
 
   // Use default clientProvider if none provided - now checking top-level config
-  if (!streamConfig.clientProvider && !config.clientProvider) {
+  if (!config.clientProvider && !globalConfig.clientProvider) {
     throw new Error('clientProvider is required - either pass it directly or set via configure()');
   }
-  var _streamConfig = streamConfig,
-    prompt = _streamConfig.prompt,
-    schema = _streamConfig.schema,
-    messages = _streamConfig.messages,
-    system = _streamConfig.system,
-    _streamConfig$mode = _streamConfig.mode,
-    mode = _streamConfig$mode === void 0 ? 'state_open' : _streamConfig$mode,
-    onChunk = _streamConfig.onChunk,
-    _streamConfig$clientP = _streamConfig.clientProvider,
-    clientProvider = _streamConfig$clientP === void 0 ? config.clientProvider : _streamConfig$clientP,
-    restOptions = _objectWithoutProperties(_streamConfig, _excluded);
+  var _config = config,
+    prompt = _config.prompt,
+    schema = _config.schema,
+    messages = _config.messages,
+    system = _config.system,
+    _config$mode = _config.mode,
+    mode = _config$mode === void 0 ? 'state_open' : _config$mode,
+    onChunk = _config.onChunk,
+    _config$clientProvide = _config.clientProvider,
+    clientProvider = _config$clientProvide === void 0 ? globalConfig.clientProvider : _config$clientProvide,
+    restOptions = _objectWithoutProperties(_config, _excluded);
 
   // Validate mode
   if (!['state_open', 'root_closed', 'state_closed', 'root_open'].includes(mode)) {
@@ -157,12 +163,14 @@ function _simple() {
   }));
   return _simple.apply(this, arguments);
 }
-export { configure, pipeline, xmllmClient as xmllm, ClientProvider, stream, simple };
+export { configure, pipeline, xmllmClient as xmllm, ClientProvider, stream, simple, getConfig, resetConfig };
 export default {
   configure: configure,
   ClientProvider: ClientProvider,
   pipeline: pipeline,
   xmllm: xmllmClient,
   stream: stream,
-  simple: simple
+  simple: simple,
+  getConfig: getConfig,
+  resetConfig: resetConfig
 };

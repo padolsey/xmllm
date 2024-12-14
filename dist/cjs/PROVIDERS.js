@@ -3,17 +3,17 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.PROVIDER_ALIASES = void 0;
 exports.createCustomModel = createCustomModel;
-exports.createProvidersWithKeys = createProvidersWithKeys;
 exports["default"] = void 0;
 var _dotenv = require("dotenv");
 var _ProviderErrors = require("./errors/ProviderErrors.js");
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 (0, _dotenv.config)({
   path: '.env'
 });
@@ -75,7 +75,7 @@ var taiStylePayloader = function taiStylePayloader(_ref2) {
   };
 };
 var providers = {
-  claude: {
+  anthropic: {
     constraints: {
       rpmLimit: 200
     },
@@ -215,28 +215,11 @@ var providers = {
     payloader: standardPayloader
   }
 };
-providers.anthropic = providers.claude;
+providers.claude = providers.anthropic;
+var PROVIDER_ALIASES = exports.PROVIDER_ALIASES = {
+  claude: 'anthropic'
+};
 var _default = exports["default"] = providers;
-function createProvidersWithKeys() {
-  var keys = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-  var newProviders = _objectSpread({}, providers);
-  if (keys.ANTHROPIC_API_KEY) {
-    newProviders.claude.key = keys.ANTHROPIC_API_KEY;
-  }
-  if (keys.OPENAI_API_KEY) {
-    newProviders.openai.key = keys.OPENAI_API_KEY;
-  }
-  if (keys.OPENROUTER_API_KEY) {
-    newProviders.openrouter.key = keys.OPENROUTER_API_KEY;
-  }
-  if (keys.TOGETHER_API_KEY) {
-    newProviders.togetherai.key = keys.TOGETHER_API_KEY;
-  }
-  if (keys.PERPLEXITY_API_KEY) {
-    newProviders.perplexityai.key = keys.PERPLEXITY_API_KEY;
-  }
-  return newProviders;
-}
 function createCustomModel(baseProvider, config) {
   var _baseProvider$models;
   // Required fields

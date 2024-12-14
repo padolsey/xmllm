@@ -57,12 +57,13 @@ export interface Message {
 
 // Server-specific configuration
 export interface ServerConfig extends BaseConfig {
-  apiKeys?: {
-    ANTHROPIC_API_KEY?: string;
-    OPENAI_API_KEY?: string;
-    TOGETHERAI_API_KEY?: string;
-    PERPLEXITYAI_API_KEY?: string;
-    OPENROUTER_API_KEY?: string;
+  timeout?: number;
+  keys?: {
+    openai?: string;
+    anthropic?: string;
+    togetherai?: string;
+    perplexityai?: string;
+    openrouter?: string;
   };
 }
 export interface SchemaServerConfig extends ServerConfig, BaseSchemaConfig {}
@@ -70,7 +71,7 @@ export interface StreamingServerConfig extends ServerConfig, BaseStreamConfig {}
 export interface StreamingSchemaServerConfig extends ServerConfig, BaseStreamingSchemaConfig {}
 
 // Model types
-export type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai' | 'openrouter';
+export type ModelProvider = 'anthropic' | 'openai' | 'togetherai' | 'perplexityai' | 'openrouter';
 export type ModelSpeed = 'superfast' | 'fast' | 'good';
 export type ModelString = `${ModelProvider}:${ModelSpeed}` | `${ModelProvider}:${string}`;
 
@@ -214,8 +215,14 @@ export interface DefaultsConfig extends BaseStreamingSchemaConfig {}
 
 export interface ConfigureOptions {
   logging?: LoggingConfig;
-  // Uses the most expansive type for any defaults
-  defaults?: DefaultsConfig; 
+  defaults?: DefaultsConfig;
+  keys?: {
+    openai?: string;
+    anthropic?: string;
+    togetherai?: string;
+    perplexityai?: string;
+    openrouter?: string;
+  };
 }
 
 // Main functions

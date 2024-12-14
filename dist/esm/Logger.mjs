@@ -42,12 +42,11 @@ export var Logger = /*#__PURE__*/function () {
   }, {
     key: "warn",
     value: function warn() {
+      if (!this.shouldLog('WARN')) return;
+      var config = getConfig();
       for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
         args[_key3] = arguments[_key3];
       }
-      console.log('WARN', this.shouldLog('WARN'), args);
-      if (!this.shouldLog('WARN')) return;
-      var config = getConfig();
       if (config.logging.customLogger) {
         var _config$logging2;
         (_config$logging2 = config.logging).customLogger.apply(_config$logging2, ['warn', this.name].concat(args));
@@ -58,12 +57,11 @@ export var Logger = /*#__PURE__*/function () {
   }, {
     key: "info",
     value: function info() {
+      if (!this.shouldLog('INFO')) return;
+      var config = getConfig();
       for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
         args[_key4] = arguments[_key4];
       }
-      console.log('INFO', this.shouldLog('INFO'), args);
-      if (!this.shouldLog('INFO')) return;
-      var config = getConfig();
       if (config.logging.customLogger) {
         var _config$logging3;
         (_config$logging3 = config.logging).customLogger.apply(_config$logging3, ['info', this.name].concat(args));
@@ -86,8 +84,6 @@ export var Logger = /*#__PURE__*/function () {
         console.log(this.formatMessage.apply(this, args));
       }
     }
-
-    // For backwards compatibility
   }, {
     key: "log",
     value: function log() {

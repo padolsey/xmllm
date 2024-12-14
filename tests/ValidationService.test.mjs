@@ -102,7 +102,7 @@ describe('ValidationService', () => {
           good: { name: 'gpt-4' }
         }
       },
-      claude: {
+      anthropic: {
         models: {
           fast: { name: 'claude-instant' },
           good: { name: 'claude-2' }
@@ -118,7 +118,7 @@ describe('ValidationService', () => {
 
     test('accepts valid model array', () => {
       expect(() => 
-        ValidationService.validateModel(['openai:fast', 'claude:good'], availableModels)
+        ValidationService.validateModel(['openai:fast', 'anthropic:good'], availableModels)
       ).not.toThrow();
     });
 
@@ -143,7 +143,7 @@ describe('ValidationService', () => {
         expect(error.details).toEqual({
           provider: 'unknown',
           index: null,
-          availableProviders: ['openai', 'claude']
+          availableProviders: ['openai', 'anthropic']
         });
       }
     });

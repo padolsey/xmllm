@@ -1,18 +1,12 @@
 import {xmllm as xmllmCore} from './xmllm.mjs';
 import Stream from './Stream.mjs';
-import { createProvidersWithKeys } from './PROVIDERS.mjs';
 import ProviderManager from './ProviderManager.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
-import { configure, getConfig } from './config.mjs';
+import { configure, getConfig, resetConfig } from './config.mjs';
 import ValidationService from './ValidationService.mjs';
 
 function xmllm(pipelineFn, options = {}) {
   let providerManager;
-  
-  if (options.apiKeys) {
-    const providers = createProvidersWithKeys(options.apiKeys);
-    providerManager = new ProviderManager(providers);
-  }
 
   ValidationService.validateLLMPayload(options);
 
@@ -28,31 +22,33 @@ const pipeline = xmllm;
 
 // Enhanced stream function with mode support
 function stream(promptOrConfig, options = {}) {
-
   let config = {};
   const globalConfig = getConfig();
   
   if (typeof promptOrConfig === 'string') {
-
     ValidationService.validateLLMPayload(options);
-
     config = {
       ...globalConfig.defaults,
       prompt: promptOrConfig,
-      ...options
+      ...options,
+      keys: {
+        ...(globalConfig.defaults.keys || {}),
+        ...(options.keys || {})
+      }
     };
   } else {
-
     const aggConfig = {
       ...promptOrConfig,
       ...options
     };
-
     ValidationService.validateLLMPayload(aggConfig);
-
     config = {
       ...globalConfig.defaults,
-      ...aggConfig
+      ...aggConfig,
+      keys: {
+        ...(globalConfig.defaults.keys || {}),
+        ...(aggConfig.keys || {})
+      }
     };
   }
 
@@ -61,11 +57,17 @@ function stream(promptOrConfig, options = {}) {
     schema,
     messages,
     system, 
-    mode = 'state_open',  // Default to state mode
+    mode = 'state_open',
     onChunk, 
     strategy,
+    keys,
     ...restOptions 
   } = config;
+
+  // Create provider manager if keys provided
+  const providerManager = Object.keys(
+    keys || {}
+  ).length > 0 ? new ProviderManager({ keys }) : undefined;
 
   // Validate mode
   if (!['state_open', 'state_closed', 'root_open', 'root_closed'].includes(mode)) {
@@ -116,11 +118,21 @@ function stream(promptOrConfig, options = {}) {
       schema,
       onChunk,
       strategy,
+      keys,
       ...modeParams,
       ...restOptions
     }]
   ], {
-    llmStream: restOptions.llmStream || Stream
+    llmStream: async (payload) => {
+      if (restOptions.llmStream) {
+        if (providerManager) {
+          return restOptions.llmStream(payload, providerManager);
+        } else {
+          return restOptions.llmStream(payload);
+        }
+      }
+      return Stream(payload, providerManager);
+    }
   });
 }
 
@@ -155,4 +167,4 @@ async function simple(promptOrConfig, options = {}) {
 }
 
 export default pipeline;
-export { pipeline, xmllm, stream, simple, configure };
+export { pipeline, xmllm, stream, simple, configure, getConfig, resetConfig };

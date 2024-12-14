@@ -8,9 +8,9 @@ import {
 const logger = new Logger('ProviderManager');
 // Default preferred providers list (only used if payload.model is not provided)
 const DEFAULT_PREFERRED_PROVIDERS = [
-  'claude:good',
+  'anthropic:good',
   'openai:good',
-  'claude:fast',
+  'anthropic:fast',
   'openai:fast'
 ];
 
@@ -32,22 +32,31 @@ const DEFAULT_PREFERRED_PROVIDERS = [
  * const manager = new ProviderManager();
  * const stream = await manager.streamRequest({
  *   messages: [...],
- *   model: ['claude:fast', 'openai:fast']
+ *   model: ['anthropic:fast', 'openai:fast']
  * });
  */
 class ProviderManager {
-  constructor() {
+  constructor(config = {}) {
     this.providers = {};
     this.fallbackConfig = {
       maxRetriesPerProvider: 3,
       baseRetryDelay: 1000,
       backoffMultiplier: 2,
       fatalErrorCodes: ['AUTH_ERROR'],
-      maxRetries500: 1, // Max retries for 500 errors
-      skipProviderOn500: true // Whether to skip to next provider on 500
+      maxRetries500: 1,
+      skipProviderOn500: true
     };
+
     for (const [name, details] of Object.entries(PROVIDERS)) {
-      this.providers[name] = new Provider(name, details);
+      console.log('provider', name, details);
+      // Priority: runtime/configured key > env var
+      const key = config.keys?.[name] || 
+                  process.env[`${name.toUpperCase()}_API_KEY`];
+      
+      this.providers[name] = new Provider(name, {
+        ...details,
+        key
+      });
     }
   }
 

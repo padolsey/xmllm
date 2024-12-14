@@ -3,6 +3,7 @@ import {
   ModelValidationError,
   PayloadValidationError
 } from './errors/ValidationErrors.mjs';
+import PROVIDERS, { PROVIDER_ALIASES } from './PROVIDERS.mjs';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 
 class ValidationService {
@@ -77,7 +78,10 @@ class ValidationService {
       return true;
     }
 
-    const [provider, type] = (model || '').split(':');
+    let [provider, type] = (model || '').split(':');
+    
+    // Handle provider aliases
+    provider = PROVIDER_ALIASES[provider] || provider;
     
     if (!provider || !type) {
       throw new ModelValidationError(
@@ -137,7 +141,7 @@ class ValidationService {
     return true;
   }
 
-  static validateLLMPayload(config = {}) {
+  static validateLLMPayload(payload = {}) {
     const {
       temperature,
       max_tokens,
@@ -148,7 +152,7 @@ class ValidationService {
       strategy,
       constraints,
       autoTruncateMessages
-    } = config;
+    } = payload;
 
     // Strategy requires schema
     if (strategy && !schema) {
@@ -222,6 +226,34 @@ class ValidationService {
           { autoTruncateMessages }
         );
       }
+    }
+
+    // Validate keys if provided
+    if (payload.keys) {
+      if (typeof payload.keys !== 'object') {
+        throw new PayloadValidationError(
+          'keys must be an object',
+          { received: typeof payload.keys }
+        );
+      }
+
+      // Get valid provider names from PROVIDERS
+      const validProviders = Object.keys(PROVIDERS);
+
+      Object.entries(payload.keys).forEach(([provider, key]) => {
+        if (!validProviders.includes(provider)) {
+          throw new PayloadValidationError(
+            `Invalid provider name in keys: ${provider}`,
+            { validProviders }
+          );
+        }
+        if (typeof key !== 'string' || !key.trim()) {
+          throw new PayloadValidationError(
+            `Key for provider ${provider} must be a non-empty string`,
+            { provider }
+          );
+        }
+      });
     }
 
     return true;

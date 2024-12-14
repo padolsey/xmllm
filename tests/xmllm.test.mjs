@@ -258,7 +258,6 @@ describe('xmllm', () => {
       ]);
 
       const result = await results.last();
-      console.log('>>last', result);
       expect(typeof result.product.price).toBe('number');
       expect(typeof result.product.quantity).toBe('number');
     });
@@ -316,7 +315,7 @@ describe('xmllm', () => {
     configure({
       defaults: {
         temperature: 0.9,
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       }
     });
   
@@ -338,8 +337,9 @@ describe('xmllm', () => {
     expect(TestStream).toHaveBeenCalledWith(
       expect.objectContaining({
         temperature: 0.9,
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       })
     );
   });
+
 });

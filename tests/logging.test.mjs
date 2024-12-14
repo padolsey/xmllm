@@ -199,7 +199,7 @@ describe('Logging Configuration', () => {
           role: 'user',
           content: 'Test prompt'
         }],
-        model: 'claude:fast',
+        model: 'anthropic:fast',
         temperature: 0.7,
         system: 'BE FRIENDLY'
       };
@@ -231,7 +231,8 @@ describe('Logging Configuration', () => {
               role: 'user'
             }
           ]),
-          model: 'claude:fast',
+          model: 'anthropic:fast',
+          keys: {},
           presence_penalty: 0,
           stop: undefined,
           temperature: 0.7,

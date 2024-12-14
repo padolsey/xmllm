@@ -59,9 +59,9 @@ describe('Client Stream Interface', () => {
         top_p: 1,
         presence_penalty: 0,
         model: [
-          'claude:good',
+          'anthropic:good',
           'openai:good',
-          'claude:fast',
+          'anthropic:fast',
           'openai:fast'
         ]
       });
@@ -104,9 +104,9 @@ describe('Client Stream Interface', () => {
         temperature: 0.8,
         max_tokens: 300,
         model: [
-          'claude:good',
+          'anthropic:good',
           'openai:good',
-          'claude:fast',
+          'anthropic:fast',
           'openai:fast'
         ]
       });
@@ -156,9 +156,9 @@ describe('Client Stream Interface', () => {
         max_tokens: 300,
         temperature: 0.72,
         model: [
-          'claude:good',
+          'anthropic:good',
           'openai:good',
-          'claude:fast',
+          'anthropic:fast',
           'openai:fast'
         ]
       });
@@ -176,7 +176,7 @@ describe('Client Stream Interface', () => {
       configure({
         defaults: {
           temperature: 0.9,
-          model: 'claude:fast',
+          model: 'anthropic:fast',
           maxTokens: 2000
         }
       });
@@ -188,7 +188,7 @@ describe('Client Stream Interface', () => {
       const payload = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(payload).toMatchObject({
         temperature: 0.9,
-        model: 'claude:fast',
+        model: 'anthropic:fast',
         max_tokens: 2000
       });
     });
@@ -230,9 +230,9 @@ describe('Client Stream Interface', () => {
         max_tokens: 300,
         temperature: 0.72,
         model: [
-          'claude:good',
+          'anthropic:good',
           'openai:good',
-          'claude:fast',
+          'anthropic:fast',
           'openai:fast'
         ]
       });

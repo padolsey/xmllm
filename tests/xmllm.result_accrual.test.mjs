@@ -12,10 +12,6 @@ describe('xmllm - Gathering results from multiple prompts', () => {
           null,
           '<thinking><baby_names><name>Luna</name><name>Zion</name><name>Nova</name></baby_names></thinking>'
         ),
-        function*(thing) {
-          console.log('>>999 thing', thing);
-          yield thing;
-        },
         prompt(
           'Give me some fun baby activities and exercises',
           {
@@ -33,7 +29,6 @@ describe('xmllm - Gathering results from multiple prompts', () => {
       },
 
       reduce((acc, item) => {
-        console.log('>>', {acc, item})
         return { ...acc, ...item };
       }, {}),
 

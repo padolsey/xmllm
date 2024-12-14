@@ -4,7 +4,7 @@ import { Logger } from './Logger.mjs';
 
 const DEFAULT_CONFIG = {
   logging: {
-    level: process.env.NODE_ENV === 'production' ? 'ERROR' : 'INFO',
+    level: 'ERROR',
     customLogger: null
   },
   clientProvider: null,
@@ -16,11 +16,12 @@ const DEFAULT_CONFIG = {
     mode: 'state_open',
     strategy: 'default',
     model: [
-      'claude:good',
+      'anthropic:good',
       'openai:good',
-      'claude:fast',
+      'anthropic:fast',
       'openai:fast'
     ],
+    keys: {},
     errorMessages: {
       genericFailure: "It seems we have encountered issues responding, please try again later or get in touch with the website owner.",
       rateLimitExceeded: "Rate limit exceeded. Please try again later.",
@@ -108,6 +109,20 @@ export function configure(options = {}) {
         CONFIG.defaults
       );
     }
+  }
+
+  // Handle keys in defaults
+  if (options.keys) {
+    CONFIG = {
+      ...CONFIG,
+      defaults: {
+        ...CONFIG.defaults,
+        keys: {
+          ...CONFIG.defaults.keys,
+          ...options.keys
+        }
+      }
+    };
   }
 }
 

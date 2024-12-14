@@ -208,7 +208,7 @@ import { simple } from 'xmllm';
 const result = await simple("What is 2+2?", {
   schema: { answer: Number },
   model: {
-    inherit: 'claude',
+    inherit: 'anthropic',
     name: 'claude-3-haiku-20240307',
     key: process.env.ANTHROPIC_API_KEY
   }
@@ -365,7 +365,7 @@ xmllm supports multiple AI providers. You'll need at least one:
 
 | Provider | Key | Models such as... |
 |----------|-----|-----------|
-| Anthropic (`anthropic`/`claude`) | `ANTHROPIC_API_KEY` | Claude Sonnet, Haiku, Opus |
+| Anthropic (`anthropic`) | `ANTHROPIC_API_KEY` | Claude Sonnet, Haiku, Opus |
 | OpenAI (`openai`) | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini |
 | Together.ai (`togetherai`) | `TOGETHERAI_API_KEY` | Qwen, Mistral, Llama, etc. |
 | Perplexity (`perplexityai`) | `PERPLEXITYAI_API_KEY` | Llama, Mistral, etc. |
@@ -376,7 +376,7 @@ See many more details in the [Provider Setup](https://github.com/padolsey/xmllm/
 ```javascript
 // Configure at runtime or in an `.env` file
 stream('My prompt goes here', {
-  apiKeys: { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY },
+  keys: { openrouter: process.env.OPENROUTER_API_KEY },
   model: 'openrouter:mistralai/ministral-3b'
 })
 ```
@@ -469,6 +469,32 @@ See the [Pipeline Guide](https://github.com/padolsey/xmllm/blob/main/docs/pipeli
 * [Prompt Strategies](docs/strategies.md)
 * [Advanced Pipeline Guide](https://github.com/padolsey/xmllm/blob/main/docs/pipelines.md)
 * [Complete API Reference](https://github.com/padolsey/xmllm/blob/main/docs/api.md)
+
+## Installing
+
+```bash
+npm install xmllm
+# or
+pnpm add xmllm
+# or
+yarn add xmllm
+```
+
+## Importing
+
+xmllm supports both ESM and CommonJS imports:
+
+```javascript
+// ESM (recommended)
+import { simple, stream } from 'xmllm';
+
+// CommonJS
+const { simple, stream } = require('xmllm');
+
+// Alternative CommonJS if you have issues
+const xmllm = require('xmllm');
+const { simple, stream } = xmllm;
+```
 
 ## License
 

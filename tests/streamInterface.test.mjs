@@ -814,7 +814,7 @@ describe('Stream Function Signatures', () => {
     await stream({
       prompt: 'Test query',
       temperature: 0.8,  // Override default
-      model: 'claude:fast'  // Override default
+      model: 'anthropic:fast'  // Override default
     }, {
       llmStream: TestStream,
       maxTokens: 2000  // Override in options
@@ -824,7 +824,7 @@ describe('Stream Function Signatures', () => {
       expect.objectContaining({
         messages: expect.any(Array),
         temperature: 0.8,
-        model: 'claude:fast',
+        model: 'anthropic:fast',
         max_tokens: 2000
       })
     );
@@ -868,7 +868,7 @@ describe('Stream to Provider Parameter Passing', () => {
     const streamConfig = {
       prompt: 'Test prompt 111',
       model: {
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'param-test-model',
         payloader: customPayloader
       },
@@ -911,7 +911,7 @@ describe('Stream to Provider Parameter Passing', () => {
       stop: ['EOR'],
       model: {
         name: 'param-test-model',
-        inherit: 'claude',
+        inherit: 'anthropic',
         payloader: customPayloader
       }
     });
@@ -1200,7 +1200,7 @@ describe('Config', () => {
       defaults: {
         temperature: 0.72,
         maxTokens: 300,
-        model: 'claude:good'
+        model: 'anthropic:good'
       }
     });
   });
@@ -1209,7 +1209,7 @@ describe('Config', () => {
     configure({
       defaults: {
         temperature: 0.9,
-        model: 'claude:fast',
+        model: 'anthropic:fast',
         maxTokens: 2000
       }
     });
@@ -1229,7 +1229,7 @@ describe('Config', () => {
     expect(TestStream).toHaveBeenCalledWith(
       expect.objectContaining({
         temperature: 0.9,
-        model: 'claude:fast',
+        model: 'anthropic:fast',
         max_tokens: 2000
       })
     );
@@ -1239,7 +1239,7 @@ describe('Config', () => {
     configure({
       defaults: {
         temperature: 0.9,
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       }
     });
   
@@ -1374,7 +1374,7 @@ describe('Strategy Configuration', () => {
     expect(TestStream).toHaveBeenCalledWith(
       expect.objectContaining({
         // Check other expected payload properties
-        model: expect.arrayContaining(['claude:good', 'openai:good', 'claude:fast', 'openai:fast']),
+        model: expect.arrayContaining(['anthropic:good', 'openai:good', 'anthropic:fast', 'openai:fast']),
         temperature: expect.any(Number),
         max_tokens: expect.any(Number)
       })

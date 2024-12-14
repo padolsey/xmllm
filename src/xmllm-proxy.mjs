@@ -216,10 +216,10 @@ function createServer(config = {}) {
         const {
           messages,
           model = [
-            'claude:good',
+            'anthropic:good',
             'openai:good',
             'togetherai:good',
-            'claude:fast',
+            'anthropic:fast',
             'openai:fast',
             'togetherai:fast'
           ],

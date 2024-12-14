@@ -9,7 +9,6 @@ import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
 
 const logger = new Logger('APIStream');
 let queue;
-const providerManager = new ProviderManager();  
 const ongoingRequests = new Map();
 
 const DEFAULT_CONCURRENCY = 2;
@@ -39,11 +38,12 @@ const CACHE_VERSION = '1.0';
  * @example
  * const stream = await APIStream({
  *   messages: [{role: 'user', content: 'Hello'}],
- *   model: 'claude:fast'
+ *   model: 'anthropic:fast'
  * });
  */
-export default async function APIStream(payload) {
+export default async function APIStream(payload, injectedProviderManager) {
   const PQueue = (await _PQueue).default;
+  const providerManager = injectedProviderManager || new ProviderManager();
 
   queue = queue || new PQueue({ concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY });
 

@@ -9,7 +9,7 @@ import { ClientProvider } from './ClientProvider.mjs';
 import { Logger } from './Logger.mjs';
 var DEFAULT_CONFIG = {
   logging: {
-    level: process.env.NODE_ENV === 'production' ? 'ERROR' : 'INFO',
+    level: 'ERROR',
     customLogger: null
   },
   clientProvider: null,
@@ -20,7 +20,8 @@ var DEFAULT_CONFIG = {
     topP: 1,
     mode: 'state_open',
     strategy: 'default',
-    model: ['claude:good', 'openai:good', 'claude:fast', 'openai:fast'],
+    model: ['anthropic:good', 'openai:good', 'anthropic:fast', 'openai:fast'],
+    keys: {},
     errorMessages: {
       genericFailure: "It seems we have encountered issues responding, please try again later or get in touch with the website owner.",
       rateLimitExceeded: "Rate limit exceeded. Please try again later.",
@@ -77,6 +78,15 @@ export function configure() {
     if (CONFIG.logging.customLogger) {
       CONFIG.logging.customLogger('info', 'Config', 'Global defaults updated:', CONFIG.defaults);
     }
+  }
+
+  // Handle keys in defaults
+  if (options.keys) {
+    CONFIG = _objectSpread(_objectSpread({}, CONFIG), {}, {
+      defaults: _objectSpread(_objectSpread({}, CONFIG.defaults), {}, {
+        keys: _objectSpread(_objectSpread({}, CONFIG.defaults.keys), options.keys)
+      })
+    });
   }
 }
 export function getConfig() {

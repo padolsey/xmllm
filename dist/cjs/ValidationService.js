@@ -5,8 +5,11 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports["default"] = void 0;
 var _ValidationErrors = require("./errors/ValidationErrors.js");
+var _PROVIDERS = _interopRequireWildcard(require("./PROVIDERS.js"));
 var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
+function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(e) { return e ? t : r; })(e); }
+function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != _typeof(e) && "function" != typeof e) return { "default": e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && {}.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n["default"] = e, t && t.set(e, n), n; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -100,6 +103,9 @@ var ValidationService = /*#__PURE__*/function () {
         _split2 = _slicedToArray(_split, 2),
         provider = _split2[0],
         type = _split2[1];
+
+      // Handle provider aliases
+      provider = _PROVIDERS.PROVIDER_ALIASES[provider] || provider;
       if (!provider || !type) {
         throw new _ValidationErrors.ModelValidationError('Invalid model format', {
           model: model,
@@ -154,16 +160,16 @@ var ValidationService = /*#__PURE__*/function () {
   }, {
     key: "validateLLMPayload",
     value: function validateLLMPayload() {
-      var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      var temperature = config.temperature,
-        max_tokens = config.max_tokens,
-        stream = config.stream,
-        cache = config.cache,
-        hints = config.hints,
-        schema = config.schema,
-        strategy = config.strategy,
-        constraints = config.constraints,
-        autoTruncateMessages = config.autoTruncateMessages;
+      var payload = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      var temperature = payload.temperature,
+        max_tokens = payload.max_tokens,
+        stream = payload.stream,
+        cache = payload.cache,
+        hints = payload.hints,
+        schema = payload.schema,
+        strategy = payload.strategy,
+        constraints = payload.constraints,
+        autoTruncateMessages = payload.autoTruncateMessages;
 
       // Strategy requires schema
       if (strategy && !schema) {
@@ -222,6 +228,33 @@ var ValidationService = /*#__PURE__*/function () {
             autoTruncateMessages: autoTruncateMessages
           });
         }
+      }
+
+      // Validate keys if provided
+      if (payload.keys) {
+        if (_typeof(payload.keys) !== 'object') {
+          throw new _ValidationErrors.PayloadValidationError('keys must be an object', {
+            received: _typeof(payload.keys)
+          });
+        }
+
+        // Get valid provider names from PROVIDERS
+        var validProviders = Object.keys(_PROVIDERS["default"]);
+        Object.entries(payload.keys).forEach(function (_ref) {
+          var _ref2 = _slicedToArray(_ref, 2),
+            provider = _ref2[0],
+            key = _ref2[1];
+          if (!validProviders.includes(provider)) {
+            throw new _ValidationErrors.PayloadValidationError("Invalid provider name in keys: ".concat(provider), {
+              validProviders: validProviders
+            });
+          }
+          if (typeof key !== 'string' || !key.trim()) {
+            throw new _ValidationErrors.PayloadValidationError("Key for provider ".concat(provider, " must be a non-empty string"), {
+              provider: provider
+            });
+          }
+        });
       }
       return true;
     }

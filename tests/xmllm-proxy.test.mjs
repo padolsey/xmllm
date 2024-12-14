@@ -131,7 +131,7 @@ describe('XMLLM Proxy Server', () => {
     test('enforces global rate limits', async () => {
       const validPayload = {
         messages: [{ role: 'user', content: 'Test message' }],
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       };
 
       // First request should succeed
@@ -164,7 +164,7 @@ describe('XMLLM Proxy Server', () => {
           // Large message that would exceed token limit
           content: 'x'.repeat(4000)
         }],
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       };
 
       const response = await request(server)
@@ -214,7 +214,7 @@ describe('XMLLM Proxy Server', () => {
           role: 'invalid',
           content: 'Test'
         }],
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       };
 
       const response = await request(server)
@@ -254,7 +254,7 @@ describe('XMLLM Proxy Server', () => {
           role: 'user',
           content: 'Test'
         }],
-        model: 'claude:fast',
+        model: 'anthropic:fast',
         temperature: 2.0  // Invalid temperature
       };
 
@@ -286,7 +286,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'claude:fast'
+          model: 'anthropic:fast'
         });
 
       // Verify response headers for SSE
@@ -346,7 +346,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'claude:fast'
+          model: 'anthropic:fast'
         });
 
       // Simulate client disconnection
@@ -370,7 +370,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'claude:fast',
+          model: 'anthropic:fast',
           errorMessages: {
             genericFailure: "Custom error message"
           }
@@ -396,7 +396,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'claude:fast'
+          model: 'anthropic:fast'
         });
 
       expect(response.text).toContain(`data: {"content":"${customMessage}"}`);
@@ -417,7 +417,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'claude:fast',
+          model: 'anthropic:fast',
           errorMessages: {
             genericFailure: requestMessage
           }
@@ -437,7 +437,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test123' }],
-          model: 'claude:fast'
+          model: 'anthropic:fast'
         });
 
       // Second request should be rate limited
@@ -445,7 +445,7 @@ describe('XMLLM Proxy Server', () => {
         .post('/api/stream')
         .send({
           messages: [{ role: 'user', content: 'Test345' }],
-          model: 'claude:fast',
+          model: 'anthropic:fast',
           errorMessages: {
             rateLimitExceeded: "Custom rate limit message !!!"
           }
@@ -472,7 +472,7 @@ describe('XMLLM Proxy Server', () => {
           role: 'user', 
           content: 'x'.repeat(1024 * 20) // 20KB
         }],
-        model: 'claude:fast'
+        model: 'anthropic:fast'
       };
 
       const response = await request(server)

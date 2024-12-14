@@ -25,7 +25,6 @@ export class Logger {
   }
 
   warn(...args) {
-    console.log('WARN', this.shouldLog('WARN'), args);
     if (!this.shouldLog('WARN')) return;
     const config = getConfig();
     if (config.logging.customLogger) {
@@ -36,7 +35,6 @@ export class Logger {
   }
 
   info(...args) {
-    console.log('INFO', this.shouldLog('INFO'), args);
     if (!this.shouldLog('INFO')) return;
     const config = getConfig();
     if (config.logging.customLogger) {
@@ -56,7 +54,6 @@ export class Logger {
     }
   }
 
-  // For backwards compatibility
   log(...args) {
     this.info(...args);
   }

@@ -19,8 +19,5 @@ const pipeline = (helpers: PipelineHelpers) => [
 
 // This will run the type checker against actual usage
 xmllm(pipeline, {
-    timeout: 1000,
-    apiKeys: {
-        ANTHROPIC_API_KEY: 'test'
-    }
+    timeout: 1000
 }); 

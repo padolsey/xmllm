@@ -11,6 +11,7 @@ function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), 
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 import { MessageValidationError, ModelValidationError, PayloadValidationError } from './errors/ValidationErrors.mjs';
+import PROVIDERS, { PROVIDER_ALIASES } from './PROVIDERS.mjs';
 import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
 var ValidationService = /*#__PURE__*/function () {
   function ValidationService() {
@@ -93,6 +94,9 @@ var ValidationService = /*#__PURE__*/function () {
         _split2 = _slicedToArray(_split, 2),
         provider = _split2[0],
         type = _split2[1];
+
+      // Handle provider aliases
+      provider = PROVIDER_ALIASES[provider] || provider;
       if (!provider || !type) {
         throw new ModelValidationError('Invalid model format', {
           model: model,
@@ -147,16 +151,16 @@ var ValidationService = /*#__PURE__*/function () {
   }, {
     key: "validateLLMPayload",
     value: function validateLLMPayload() {
-      var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      var temperature = config.temperature,
-        max_tokens = config.max_tokens,
-        stream = config.stream,
-        cache = config.cache,
-        hints = config.hints,
-        schema = config.schema,
-        strategy = config.strategy,
-        constraints = config.constraints,
-        autoTruncateMessages = config.autoTruncateMessages;
+      var payload = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      var temperature = payload.temperature,
+        max_tokens = payload.max_tokens,
+        stream = payload.stream,
+        cache = payload.cache,
+        hints = payload.hints,
+        schema = payload.schema,
+        strategy = payload.strategy,
+        constraints = payload.constraints,
+        autoTruncateMessages = payload.autoTruncateMessages;
 
       // Strategy requires schema
       if (strategy && !schema) {
@@ -215,6 +219,33 @@ var ValidationService = /*#__PURE__*/function () {
             autoTruncateMessages: autoTruncateMessages
           });
         }
+      }
+
+      // Validate keys if provided
+      if (payload.keys) {
+        if (_typeof(payload.keys) !== 'object') {
+          throw new PayloadValidationError('keys must be an object', {
+            received: _typeof(payload.keys)
+          });
+        }
+
+        // Get valid provider names from PROVIDERS
+        var validProviders = Object.keys(PROVIDERS);
+        Object.entries(payload.keys).forEach(function (_ref) {
+          var _ref2 = _slicedToArray(_ref, 2),
+            provider = _ref2[0],
+            key = _ref2[1];
+          if (!validProviders.includes(provider)) {
+            throw new PayloadValidationError("Invalid provider name in keys: ".concat(provider), {
+              validProviders: validProviders
+            });
+          }
+          if (typeof key !== 'string' || !key.trim()) {
+            throw new PayloadValidationError("Key for provider ".concat(provider, " must be a non-empty string"), {
+              provider: provider
+            });
+          }
+        });
       }
       return true;
     }

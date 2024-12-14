@@ -29,7 +29,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 var _PQueue = import('p-queue');
 var logger = new _Logger["default"]('APIStream');
 var queue;
-var providerManager = new _ProviderManager["default"]();
 var ongoingRequests = new Map();
 var DEFAULT_CONCURRENCY = 2;
 var DEFAULT_WAIT_MESSAGE = "";
@@ -61,15 +60,15 @@ var CACHE_VERSION = '1.0';
  * @example
  * const stream = await APIStream({
  *   messages: [{role: 'user', content: 'Hello'}],
- *   model: 'claude:fast'
+ *   model: 'anthropic:fast'
  * });
  */
-function APIStream(_x) {
+function APIStream(_x, _x2) {
   return _APIStream.apply(this, arguments);
 }
 function _APIStream() {
-  _APIStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4(payload) {
-    var PQueue;
+  _APIStream = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4(payload, injectedProviderManager) {
+    var PQueue, providerManager;
     return _regeneratorRuntime().wrap(function _callee4$(_context4) {
       while (1) switch (_context4.prev = _context4.next) {
         case 0:
@@ -77,6 +76,7 @@ function _APIStream() {
           return _PQueue;
         case 2:
           PQueue = _context4.sent["default"];
+          providerManager = injectedProviderManager || new _ProviderManager["default"]();
           queue = queue || new PQueue({
             concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY
           });
@@ -257,7 +257,7 @@ function _APIStream() {
               }
             }, _callee3);
           }))));
-        case 5:
+        case 6:
         case "end":
           return _context4.stop();
       }

@@ -26,4 +26,12 @@ describe('ESM Imports', () => {
     
     expect((await result.next()).value).toBeNode({ $tagkey: 1, $attr: {}, $text: 'Test', $tagclosed: true });
   });
+
+  test('Client named exports are available', () => {
+    const { simple, stream, configure, ClientProvider } = xmllmClient;
+    expect(typeof simple).toBe('function');
+    expect(typeof stream).toBe('function');
+    expect(typeof configure).toBe('function');
+    expect(typeof ClientProvider).toBe('function');
+  });
 });

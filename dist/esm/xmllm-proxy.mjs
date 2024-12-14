@@ -291,7 +291,7 @@ function createServer() {
             }));
             return _context.abrupt("return");
           case 77:
-            _data = data, messages = _data.messages, _data$model = _data.model, model = _data$model === void 0 ? ['claude:good', 'openai:good', 'togetherai:good', 'claude:fast', 'openai:fast', 'togetherai:fast'] : _data$model, max_tokens = _data.max_tokens, maxTokens = _data.maxTokens, temperature = _data.temperature, top_p = _data.top_p, topP = _data.topP, presence_penalty = _data.presence_penalty, presencePenalty = _data.presencePenalty, errorMessages = _data.errorMessages, fakeDelay = _data.fakeDelay, stop = _data.stop, cache = _data.cache, stream = _data.stream; // Normalize parameters
+            _data = data, messages = _data.messages, _data$model = _data.model, model = _data$model === void 0 ? ['anthropic:good', 'openai:good', 'togetherai:good', 'anthropic:fast', 'openai:fast', 'togetherai:fast'] : _data$model, max_tokens = _data.max_tokens, maxTokens = _data.maxTokens, temperature = _data.temperature, top_p = _data.top_p, topP = _data.topP, presence_penalty = _data.presence_penalty, presencePenalty = _data.presencePenalty, errorMessages = _data.errorMessages, fakeDelay = _data.fakeDelay, stop = _data.stop, cache = _data.cache, stream = _data.stream; // Normalize parameters
             normalizedParams = {
               max_tokens: max_tokens || maxTokens,
               top_p: top_p || topP,

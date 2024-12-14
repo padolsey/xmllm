@@ -1,7 +1,6 @@
 import { jest } from '@jest/globals';
 import Provider from '../src/Provider.mjs';
 import ProviderManager from '../src/ProviderManager.mjs';
-import { createProvidersWithKeys } from '../src/PROVIDERS.mjs';
 import {
   ProviderRateLimitError,
   ProviderAuthenticationError,
@@ -54,7 +53,6 @@ describe('Provider Error Handling', () => {
         messages: [{ role: 'user', content: 'test' }]
       });
     } catch (error) {
-      console.log('error999', error);
       expect(error).toBeInstanceOf(ProviderRateLimitError);
       expect(error.code).toBe('RATE_LIMIT_ERROR');
       expect(error.provider).toBe('test');
@@ -276,40 +274,6 @@ describe('Provider API Key Configuration', () => {
     );
   });
 
-  test('createProvidersWithKeys overrides environment variables', async () => {
-    const runtimeKeys = {
-      ANTHROPIC_API_KEY: 'runtime-claude-key',
-      OPENAI_API_KEY: 'runtime-openai-key'
-    };
-
-    // Create providers with runtime keys
-    const providers = createProvidersWithKeys(runtimeKeys);
-    
-    // Create a provider instance with the runtime-configured provider
-    const provider = new Provider('claude', providers.claude, mockFetch);
-
-    // Mock successful response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ choices: [{ message: 'success' }] })
-    });
-
-    // Make a request
-    await provider.makeRequest({
-      messages: [{ role: 'user', content: 'test' }]
-    });
-
-    // Verify the runtime key was used
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('api.anthropic.com'),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'x-api-key': runtimeKeys.ANTHROPIC_API_KEY
-        })
-      })
-    );
-  });
-
   test('falls back to environment variables when no runtime keys provided', async () => {
     const envKey = 'env-key';
     process.env.ANTHROPIC_API_KEY = envKey;
@@ -402,7 +366,7 @@ describe('Custom Model Support', () => {
 
   test('custom headerGen and payloader functions', () => {
     const customConfig = {
-      inherit: 'claude',
+      inherit: 'anthropic',
       name: 'claude-3-custom',
       headerGen: function() {
         return {
@@ -439,7 +403,7 @@ describe('Custom Model Support', () => {
   test('validates required model name', () => {
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         // name missing
       });
     }).toThrow(ModelValidationError);
@@ -448,7 +412,7 @@ describe('Custom Model Support', () => {
   test('validates maxContextSize', () => {
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         maxContextSize: -1
       });
@@ -456,7 +420,7 @@ describe('Custom Model Support', () => {
 
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         maxContextSize: 'invalid'
       });
@@ -466,7 +430,7 @@ describe('Custom Model Support', () => {
   test('validates constraints', () => {
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         constraints: {
           rpmLimit: -1
@@ -476,7 +440,7 @@ describe('Custom Model Support', () => {
 
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         constraints: 'invalid'
       });
@@ -486,7 +450,7 @@ describe('Custom Model Support', () => {
   test('validates endpoint URL', () => {
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         endpoint: 'not-a-url'
       });
@@ -496,7 +460,7 @@ describe('Custom Model Support', () => {
   test('validates function types', () => {
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         headerGen: 'not-a-function'
       });
@@ -504,7 +468,7 @@ describe('Custom Model Support', () => {
 
     expect(() => {
       providerManager.getProviderByPreference({
-        inherit: 'claude',
+        inherit: 'anthropic',
         name: 'test-model',
         payloader: 'not-a-function'
       });
@@ -599,7 +563,7 @@ describe('Configuration Parameter Passing', () => {
     const receivedParams = {};
 
     const customConfig = {
-      inherit: 'claude',
+      inherit: 'anthropic',
       name: 'config-test-model',
       payloader: function(payload) {
         // Store received parameters for verification
@@ -681,7 +645,7 @@ describe('Configuration Parameter Passing', () => {
     const receivedParams = {};
 
     const customConfig = {
-      inherit: 'claude',
+      inherit: 'anthropic',
       name: 'alias-test-model',
       payloader: function(payload) {
         // Store only the parameters we want to verify
@@ -734,7 +698,7 @@ describe('Configuration Parameter Passing', () => {
     const receivedParams = {};
 
     const customConfig = {
-      inherit: 'claude',
+      inherit: 'anthropic',
       name: 'stream-test-model',
       payloader: function(payload) {
         // Store only the parameters we want to verify

@@ -101,7 +101,7 @@ var tests = {
                 role: 'user',
                 content: 'What is purple?'
               }],
-              model: 'claude:superfast',
+              model: 'anthropic:superfast',
               waitMessageString: 'Wait...',
               waitMessageDelay: 5000,
               fakeDelay: 15000
@@ -133,7 +133,7 @@ var tests = {
                 role: 'user',
                 content: 'Write a short problem and then solve it.'
               }],
-              model: 'claude:fast'
+              model: 'anthropic:fast'
             };
             _context2.next = 4;
             return runTest(payload);
@@ -168,7 +168,7 @@ var tests = {
                 role: 'user',
                 content: 'Write a short story about a magical library.'
               }],
-              model: 'claude:good'
+              model: 'anthropic:good'
             }));
           case 1:
           case "end":
@@ -196,7 +196,7 @@ var tests = {
                 role: 'user',
                 content: 'Count from 1 to 5 slowly.'
               }],
-              model: 'claude:fast'
+              model: 'anthropic:fast'
             };
             return _context4.abrupt("return", Promise.all([runTest(payload), runTest(payload)]));
           case 3:
@@ -225,7 +225,7 @@ var tests = {
                 role: 'user',
                 content: 'What is 2+2?'
               }],
-              model: 'claude:fast',
+              model: 'anthropic:fast',
               temperature: 0.7,
               max_tokens: 100
             };
@@ -265,7 +265,7 @@ var tests = {
                 role: 'user',
                 content: 'What is 2+2? explain the epistemology of the answer.'
               }],
-              model: 'claude:fast',
+              model: 'anthropic:fast',
               temperature: 0.7,
               max_tokens: 100,
               cache: true // Explicitly enable caching

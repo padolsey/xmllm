@@ -48,7 +48,7 @@ var minimalStrategy = {
 };
 
 /**
- * MINIMAL STRATEGY
+ * MINIMAL BUT WITH SEED
  * Keeps it as terse as possible and relies heavily on the stable scaffold.
  */
 var seedStrategy = {

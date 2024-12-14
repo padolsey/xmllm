@@ -80,7 +80,7 @@ Additional options that override promptOrConfig:
 ```javascript
 {
   llmStream?: StreamFunction,  // Custom stream provider
-  apiKeys?: Record<string, string>,  // Provider API keys
+  keys?: Record<string, string>,  // Provider API keys
   clientProvider?: ClientProvider    // For browser usage
 }
 ```

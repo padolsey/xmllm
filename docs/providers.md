@@ -18,10 +18,14 @@ PERPLEXITYAI_API_KEY=your_perplexity_key
 
 // 2. Runtime Configuration
 const result = await stream('What is 2+2?', {
-  apiKeys: {
-    ANTHROPIC_API_KEY: 'sk-...'
+  keys: {
+    anthropic: 'AAA',
+    openai: 'BBB',
+    togetherai: 'CCC',
+    perplexityai: 'DDD',
+    openrouter: 'EEE'
   },
-  model: 'claude:fast' // an alias to haiku
+  model: 'anthropic:fast' // an alias to Anthropic Claude Haiku
 })
 .complete()
 .value();
@@ -34,7 +38,7 @@ You can specify models in three formats:
 1. Using predefined aliases:
    ```javascript
    stream('Query', {
-     model: 'claude:fast'  // Uses claude-3-haiku
+     model: 'anthropic:fast'  // Uses claude-3-haiku
    })
    ```
 
@@ -49,7 +53,7 @@ You can specify models in three formats:
    ```javascript
    stream('Query', {
      model: {
-       inherit: 'claude',  // Inherit base provider settings
+       inherit: 'anthropic',  // Inherit base provider settings
        name: 'claude-3-opus-20240229',
        endpoint: 'https://custom-claude-endpoint.com/v1',
        key: process.env.CUSTOM_CLAUDE_KEY,
@@ -73,7 +77,7 @@ Current predefined model mappings (as of 2024):
 
 | Provider | Alias | Actual Model | Context Size | Notes |
 |----------|-------|--------------|--------------|-------|
-| Claude (Anthropic) | `claude:superfast`<br>`claude:fast`<br>`claude:good` | claude-3-haiku<br>claude-3-haiku<br>claude-3-sonnet | 100k tokens | Best for structured responses |
+| Claude (Anthropic) | `anthropic:superfast`<br>`anthropic:fast`<br>`anthropic:good` | claude-3-haiku<br>claude-3-haiku<br>claude-3-sonnet | 100k tokens | Best for structured responses |
 | OpenAI | `openai:superfast`<br>`openai:fast`<br>`openai:good` | gpt-4o-mini<br>gpt-4o-mini<br>gpt-4o | 128k tokens | Good all-around performance |
 | Together.ai | `togetherai:superfast`<br>`togetherai:fast`<br>`togetherai:good` | Qwen 7B<br>Qwen 7B<br>Qwen 72B | Varies | Cost-effective alternative |
 | Perplexity | `perplexityai:superfast`<br>`perplexityai:fast`<br>`perplexityai:good` | sonar-small<br>sonar-small<br>sonar-large | 128k tokens | Newer provider |
@@ -83,7 +87,7 @@ Current predefined model mappings (as of 2024):
 ```javascript
 // Using predefined aliases
 stream('Query', {
-  model: 'claude:fast'  // Uses claude-3-haiku
+  model: 'anthropic:fast'  // Uses claude-3-haiku
 })
 
 // Using specific model names
@@ -94,7 +98,7 @@ stream('Query', {
 // Using fallbacks with mix of aliases and specific models
 stream('Query', {
   model: [
-    'claude:fast',                          // Try Claude's fast alias first
+    'anthropic:fast',                          // Try Claude's fast alias first
     'openrouter:mistralai/mistral-7b',     // Then specific Mistral model
     'togetherai:Qwen/Qwen2.5-7B-Instruct'  // Finally specific Qwen model
   ]
@@ -105,7 +109,7 @@ stream('Query', {
 
 ```javascript
 stream('What is 2+2?', {
-  model: 'claude:fast',
+  model: 'anthropic:fast',
   temperature: 0.52,     // 0.5-0.8 recommended for balanced output
   top_p: 1,              // Default sampling parameter
   presence_penalty: 0,    // Default repetition control
@@ -118,14 +122,14 @@ stream('What is 2+2?', {
 ```javascript
 // Single provider
 stream('What is 2+2?', {
-  model: 'claude:fast',  // Use Claude's fast model
+  model: 'anthropic:fast',  // Use Claude's fast model
   schema: { answer: Number }
 })
 
 // Fallback chain
 stream('What is 2+2?', {
   model: [
-    'claude:fast',     // Try Claude first
+    'anthropic:fast',     // Try Claude first
     'openai:fast',     // Then OpenAI
     'togetherai:fast'  // Finally TogetherAI
   ],
@@ -145,7 +149,7 @@ xmllm manages provider connections through a connection pool to:
 
 ```javascript
 stream('Query', {
-  model: 'claude:fast',
+  model: 'anthropic:fast',
   // Connection pool options
   timeout: 30000,           // Request timeout (ms)
   maxConnections: 10,       // Max concurrent connections
@@ -162,7 +166,7 @@ Circuit breakers prevent cascading failures by temporarily stopping operations w
 
 ```javascript
 stream('Query', {
-  model: 'claude:fast',
+  model: 'anthropic:fast',
   // Circuit breaker configuration
   circuitBreakerThreshold: 5,     // Errors before circuit opens
   circuitBreakerResetTime: 60000, // Time before retry (ms)
@@ -193,7 +197,7 @@ Example with full error handling:
 ```javascript
 stream('Query', {
   model: [
-    'claude:fast',
+    'anthropic:fast',
     'openai:fast'  // Fallback provider
   ],
   // Connection management
@@ -478,7 +482,7 @@ For advanced use cases, you can define custom model configurations that inherit 
 ```javascript
 stream('Query', {
   model: {
-    inherit: 'claude',  // Base provider to inherit from
+    inherit: 'anthropic',  // Base provider to inherit from
     name: 'custom-model-name', // Required: The model identifier
     
     // Optional: Override the endpoint
@@ -537,7 +541,7 @@ For models with unique parameter requirements you can use the `payloader` functi
 ```javascript
 // Example: Model that uses percentages instead of 0-1 ranges
 const percentageModel = {
-  inherit: 'claude',
+  inherit: 'anthropic',
   name: 'percentage-model',
   payloader: function(payload) {
     return {
@@ -550,7 +554,7 @@ const percentageModel = {
 
 // Example: Model with categorical parameters
 const categoricalModel = {
-  inherit: 'claude',
+  inherit: 'anthropic',
   name: 'categorical-model',
   payloader: function(payload) {
     // Map temperature to creativity modes
@@ -575,7 +579,7 @@ const categoricalModel = {
 
 // Example: Model with nested parameter groups
 const nestedParamsModel = {
-  inherit: 'claude',
+  inherit: 'anthropic',
   name: 'nested-params-model',
   payloader: function(payload) {
     return {

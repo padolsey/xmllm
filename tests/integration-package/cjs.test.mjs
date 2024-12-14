@@ -37,4 +37,19 @@ describe('CommonJS Imports', () => {
     const value = (await result.next()).value;
     expect(value).toBeNode({ $tagkey: 1, $attr: {}, $text: 'Test', $tagclosed: true });
   });
+
+  test('Named exports are available via require', () => {
+    const { simple, stream, configure } = require('xmllm');
+    expect(typeof simple).toBe('function');
+    expect(typeof stream).toBe('function');
+    expect(typeof configure).toBe('function');
+  });
+
+  test('Named exports are available via destructuring', () => {
+    const xmllm = require('xmllm');
+    const { simple, stream, configure } = xmllm;
+    expect(typeof simple).toBe('function');
+    expect(typeof stream).toBe('function');
+    expect(typeof configure).toBe('function');
+  });
 });

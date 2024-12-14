@@ -26,13 +26,6 @@ Options:
 interface XmlLmOptions {
   timeout?: number;                    // Request timeout in ms
   llmStream?: LLMStreamFunction;       // Custom stream provider
-  apiKeys?: {                         // Provider API keys
-    ANTHROPIC_API_KEY?: string;
-    OPENAI_API_KEY?: string;
-    TOGETHERAI_API_KEY?: string;
-    PERPLEXITYAI_API_KEY?: string;
-    OPENROUTER_API_KEY?: string;
-  };
   providerManager?: ProviderManager;   // Custom provider manager
 }
 ```
@@ -111,7 +104,7 @@ interface SimpleOptions {
   temperature?: number;               // 0-2, default 0.7
   maxTokens?: number;                 // Max response length
   cache?: boolean;                    // Enable response caching
-  apiKeys?: Record<string, string>;   // Provider API keys
+  keys?: Record<string, string>;      // Provider API keys
   retryMax?: number;                  // Max retry attempts
   retryStartDelay?: number;           // Initial retry delay (ms)
   retryBackoffMultiplier?: number;    // Backoff multiplier
@@ -176,7 +169,7 @@ configure({
   },
   defaults: {
     temperature: 0.7,
-    model: 'claude:good',
+    model: 'anthropic:good',
     mode: 'root_closed'
   }
 });
@@ -530,7 +523,7 @@ Options for selecting and configuring LLM providers.
 
 ```typescript
 type ModelPreference = 
-  | `${ModelProvider}:${ModelSpeed}`   // e.g. 'claude:fast'
+  | `${ModelProvider}:${ModelSpeed}`   // e.g. 'anthropic:fast'
   | `${ModelProvider}:${string}`       // e.g. 'claude:claude-3'
   | {
       inherit: ModelProvider;          // Base provider (e.g. 'claude')
@@ -545,14 +538,14 @@ type ModelProvider = 'claude' | 'openai' | 'togetherai' | 'perplexityai';
 type ModelSpeed = 'superfast' | 'fast' | 'good';
 
 // Examples:
-const simple = 'claude:fast';
+const simple = 'anthropic:fast';
 const detailed = {
-  inherit: 'claude',
+  inherit: 'anthropic',
   name: 'claude-3-opus-20240229',
   maxContextSize: 100000
 };
 const withFallback = [
-  'claude:fast',
+  'anthropic:fast',
   'openai:good',
   { inherit: 'togetherai', name: 'mixtral-8x7b' }
 ];

@@ -88,13 +88,13 @@ const validPipeline = (helpers: PipelineHelpers) => [
 ];
 
 // Model preference tests - valid cases
-const validModelPreference: ModelPreference = 'claude:good';
+const validModelPreference: ModelPreference = 'anthropic:good';
 const validModelConfig: ModelPreference = {
-  inherit: 'claude',
+  inherit: 'anthropic',
   name: 'claude-3-opus',
   maxContextSize: 100000
 };
-const validModelArray: ModelPreference = ['claude:good', 'openai:fast'];
+const validModelArray: ModelPreference = ['anthropic:good', 'openai:fast'];
 
 // Negative test - invalid model string format
 // @ts-expect-error - Model string must be in format 'provider:model' where provider is one of: claude, openai, togetherai, perplexityai
@@ -102,8 +102,8 @@ const invalidModelPreference: ModelPreference = 'invalid:model';
 
 // Main xmllm usage - valid case
 const testStream = xmllm(validPipeline, {
-  apiKeys: {
-    ANTHROPIC_API_KEY: 'test'
+  keys: {
+    anthropic: 'test'
   }
 });
 expectType<AsyncGenerator<any>>(testStream);
@@ -330,7 +330,7 @@ expectType<void>(configure({
   defaults: {
     temperature: 0.7,
     maxTokens: 4000,
-    model: ['claude:good', 'openai:fast'],
+    model: ['anthropic:good', 'openai:fast'],
     mode: 'root_closed' as const
   }
 }));
@@ -375,7 +375,7 @@ const validBaseConfig: BaseStreamConfig = {
   temperature: 0.7,
   max_tokens: 1000,
   cache: true,
-  model: 'claude:fast'
+  model: 'anthropic:fast'
 };
 
 const validSchemaStreamingConfig: BaseStreamingSchemaConfig = {
@@ -397,8 +397,8 @@ expectType<ChainableStreamInterface<XMLElement>>(streamWithConfig);
 const streamWithOptions = stream('prompt', {
   schema: { answer: String },
   // Stream: async () => new ReadableStream(), //old?
-  apiKeys: {
-    ANTHROPIC_API_KEY: 'key'
+  keys: {
+    anthropic: 'key'
   }
 });
 expectType<ChainableStreamInterface<XMLElement>>(streamWithOptions);
@@ -472,4 +472,42 @@ expectType<void>(clientConfigure({
     onChunk: (chunk: string) => console.log(chunk),
     mode: 'root_closed' as const
   } satisfies DefaultsConfig
+}));
+
+// Test runtime keys with stream()
+const streamWithKeys = stream("Test prompt", {
+  keys: {
+    openai: "test-key",
+    anthropic: "test-key"
+  }
+});
+expectType<ChainableStreamInterface<XMLElement>>(streamWithKeys);
+
+// Test invalid key provider
+expectError(stream("Test", {
+  keys: {
+    invalid_provider: "test-key"  // Should error - not a valid provider
+  }
+}));
+
+// Test invalid key type
+expectError(stream("Test", {
+  keys: {
+    openai: 123  // Should error - must be string
+  }
+}));
+
+// Test configure() with keys
+expectType<void>(configure({
+  keys: {
+    openai: "test-key",
+    anthropic: "test-key"
+  }
+}));
+
+// Test that old apiKeys format gives error
+expectError(xmllm(() => [], {
+  apiKeys: {  // Should error - apiKeys no longer supported
+    OPENAI_API_KEY: "test"
+  }
 }));

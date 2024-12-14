@@ -13,17 +13,30 @@ Object.defineProperty(exports, "ClientProvider", {
 Object.defineProperty(exports, "configure", {
   enumerable: true,
   get: function get() {
-    return _config.configure;
+    return _config2.configure;
   }
 });
-exports.pipeline = exports["default"] = void 0;
+exports["default"] = void 0;
+Object.defineProperty(exports, "getConfig", {
+  enumerable: true,
+  get: function get() {
+    return _config2.getConfig;
+  }
+});
+exports.pipeline = void 0;
+Object.defineProperty(exports, "resetConfig", {
+  enumerable: true,
+  get: function get() {
+    return _config2.resetConfig;
+  }
+});
 exports.simple = simple;
 exports.stream = stream;
 exports.xmllm = xmllmClient;
 var _xmllm = require("./xmllm.js");
 var _ChainableStreamInterface = _interopRequireDefault(require("./ChainableStreamInterface.js"));
 var _ClientProvider = require("./ClientProvider.js");
-var _config = require("./config.js");
+var _config2 = require("./config.js");
 var _ValidationService = _interopRequireDefault(require("./ValidationService.js"));
 var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
@@ -58,7 +71,7 @@ function clientLlmStream(clientProvider) {
 }
 function xmllmClient(pipelineFn) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  var llmStream = clientLlmStream(options.clientProvider || (0, _config.getConfig)().clientProvider);
+  var llmStream = clientLlmStream(options.clientProvider || (0, _config2.getConfig)().clientProvider);
   var finalConfig = _objectSpread(_objectSpread({}, options), {}, {
     llmStream: llmStream
   });
@@ -72,11 +85,17 @@ var pipeline = exports.pipeline = xmllmClient;
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-  var config = (0, _config.getConfig)();
-  var streamConfig = {};
+  var config = {};
+  var globalConfig = (0, _config2.getConfig)();
+
+  // Add security check for keys
+  if (promptOrConfig !== null && promptOrConfig !== void 0 && promptOrConfig.keys || options !== null && options !== void 0 && options.keys) {
+    console.error("\n\u26A0\uFE0F Security Warning: API keys detected in client-side code!\n   \n   Never expose API keys in client-side code as they can be stolen.\n   Instead:\n   1. Set up xmllm-proxy on your server\n   2. Configure your API keys there\n   3. Use clientProvider to connect to your proxy\n   \n   Example:\n   import { stream } from 'xmllm/client';\n   \n   stream('prompt', {\n     clientProvider: 'https://xmllm-proxy.your-server.com/api/stream'\n   });\n   \n   See: https://github.com/padolsey/xmllm/blob/main/docs/providers.md\n");
+    throw new Error('API keys are not supported in client-side code for security reasons. Use xmllm-proxy instead.');
+  }
   if (typeof promptOrConfig === 'string') {
     _ValidationService["default"].validateLLMPayload(options);
-    streamConfig = _objectSpread(_objectSpread(_objectSpread({}, config.defaults), options), {}, {
+    config = _objectSpread(_objectSpread(_objectSpread({}, globalConfig.defaults), options), {}, {
       messages: [{
         role: 'user',
         content: promptOrConfig
@@ -85,24 +104,24 @@ function stream(promptOrConfig) {
   } else {
     var aggConfig = _objectSpread(_objectSpread({}, promptOrConfig), options);
     _ValidationService["default"].validateLLMPayload(aggConfig);
-    streamConfig = _objectSpread(_objectSpread({}, config.defaults), aggConfig);
+    config = _objectSpread(_objectSpread({}, globalConfig.defaults), aggConfig);
   }
 
   // Use default clientProvider if none provided - now checking top-level config
-  if (!streamConfig.clientProvider && !config.clientProvider) {
+  if (!config.clientProvider && !globalConfig.clientProvider) {
     throw new Error('clientProvider is required - either pass it directly or set via configure()');
   }
-  var _streamConfig = streamConfig,
-    prompt = _streamConfig.prompt,
-    schema = _streamConfig.schema,
-    messages = _streamConfig.messages,
-    system = _streamConfig.system,
-    _streamConfig$mode = _streamConfig.mode,
-    mode = _streamConfig$mode === void 0 ? 'state_open' : _streamConfig$mode,
-    onChunk = _streamConfig.onChunk,
-    _streamConfig$clientP = _streamConfig.clientProvider,
-    clientProvider = _streamConfig$clientP === void 0 ? config.clientProvider : _streamConfig$clientP,
-    restOptions = _objectWithoutProperties(_streamConfig, _excluded);
+  var _config = config,
+    prompt = _config.prompt,
+    schema = _config.schema,
+    messages = _config.messages,
+    system = _config.system,
+    _config$mode = _config.mode,
+    mode = _config$mode === void 0 ? 'state_open' : _config$mode,
+    onChunk = _config.onChunk,
+    _config$clientProvide = _config.clientProvider,
+    clientProvider = _config$clientProvide === void 0 ? globalConfig.clientProvider : _config$clientProvide,
+    restOptions = _objectWithoutProperties(_config, _excluded);
 
   // Validate mode
   if (!['state_open', 'root_closed', 'state_closed', 'root_open'].includes(mode)) {
@@ -180,10 +199,12 @@ function _simple() {
   return _simple.apply(this, arguments);
 }
 var _default = exports["default"] = {
-  configure: _config.configure,
+  configure: _config2.configure,
   ClientProvider: _ClientProvider.ClientProvider,
   pipeline: pipeline,
   xmllm: xmllmClient,
   stream: stream,
-  simple: simple
+  simple: simple,
+  getConfig: _config2.getConfig,
+  resetConfig: _config2.resetConfig
 };

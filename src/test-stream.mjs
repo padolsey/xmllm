@@ -52,7 +52,7 @@ const tests = {
                 { role: 'system', content: 'You are a helpful assistant.' },
                 { role: 'user', content: 'What is purple?' }
             ],
-            model: 'claude:superfast',
+            model: 'anthropic:superfast',
             waitMessageString: 'Wait...',
             waitMessageDelay: 5000,
             fakeDelay: 15000
@@ -67,7 +67,7 @@ const tests = {
                 { role: 'system', content: 'You are a helpful assistant.' },
                 { role: 'user', content: 'Write a short problem and then solve it.' }
             ],
-            model: 'claude:fast'
+            model: 'anthropic:fast'
         };
         
         await runTest(payload);
@@ -84,7 +84,7 @@ const tests = {
                 { role: 'system', content: 'You are a creative storyteller.' },
                 { role: 'user', content: 'Write a short story about a magical library.' }
             ],
-            model: 'claude:good'
+            model: 'anthropic:good'
         });
     },
 
@@ -95,7 +95,7 @@ const tests = {
                 { role: 'system', content: 'You are a helpful assistant.' },
                 { role: 'user', content: 'Count from 1 to 5 slowly.' }
             ],
-            model: 'claude:fast'
+            model: 'anthropic:fast'
         };
 
         return Promise.all([
@@ -111,7 +111,7 @@ const tests = {
                 { role: 'system', content: 'You are a helpful assistant.' },
                 { role: 'user', content: 'What is 2+2?' }
             ],
-            model: 'claude:fast',
+            model: 'anthropic:fast',
             temperature: 0.7,
             max_tokens: 100
         };
@@ -131,7 +131,7 @@ const tests = {
                 { role: 'system', content: 'You are a helpful assistant.' },
                 { role: 'user', content: 'What is 2+2? explain the epistemology of the answer.' }
             ],
-            model: 'claude:fast',
+            model: 'anthropic:fast',
             temperature: 0.7,
             max_tokens: 100,
             cache: true  // Explicitly enable caching

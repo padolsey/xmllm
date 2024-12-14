@@ -136,6 +136,7 @@ async function* xmllmGen(pipelineFn, {
         autoTruncateMessages,
         stop,
         messages,
+        keys,
         onChunk
       } = transformedConfig;
 
@@ -151,6 +152,7 @@ async function* xmllmGen(pipelineFn, {
         presence_penalty: presence_penalty || presencePenalty || globalConfig.defaults.presencePenalty,
         stop: stop,
         errorMessages,
+        keys,
         autoTruncateMessages,
         messages: [
           ...(system ? [{
@@ -222,7 +224,8 @@ async function* xmllmGen(pipelineFn, {
     genUserPrompt,
     errorMessages,
     autoTruncateMessages,
-    strategy
+    strategy,
+    keys
   }) {
     const config = getConfig();
     const strategyId = strategy || config.defaults.strategy;
@@ -305,7 +308,8 @@ async function* xmllmGen(pipelineFn, {
         retryStartDelay,
         retryBackoffMultiplier,
         autoTruncateMessages,
-        cache
+        cache,
+        keys
       });
 
       const reader = stream.getReader();
@@ -449,6 +453,7 @@ async function* xmllmGen(pipelineFn, {
         includeOpenTags = true,
         doDedupe = false,
         model,
+        keys,
         fakeDelay,
         waitMessageString,
         waitMessageDelay,
@@ -498,6 +503,7 @@ async function* xmllmGen(pipelineFn, {
             hints,
             strategy,
             model,
+            keys,
             fakeDelay,
             waitMessageString,
             waitMessageDelay,

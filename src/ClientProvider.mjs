@@ -14,7 +14,7 @@
  * const client = new ClientProvider('http://localhost:3124/api/stream');
  * const stream = await client.createStream({
  *   messages: [...],
- *   model: 'claude:fast'
+ *   model: 'anthropic:fast'
  * });
  */
 
@@ -48,7 +48,7 @@ export class ClientProvider {
 
   async createStream(payload) {
     if (this.logger) {
-      this.logger.info('Client createStream payload', payload);
+      this.logger.log('Client createStream payload', payload);
     }
 
     try {

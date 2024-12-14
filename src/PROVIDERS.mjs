@@ -45,7 +45,7 @@ const taiStylePayloader = ({
 });
 
 const providers = {
-  claude: {
+  anthropic: {
     constraints: {
       rpmLimit: 200
     },
@@ -181,31 +181,13 @@ const providers = {
   }
 };
 
-providers.anthropic = providers.claude;
+providers.claude = providers.anthropic;
+
+export const PROVIDER_ALIASES = {
+  claude: 'anthropic'
+};
 
 export default providers;
-
-export function createProvidersWithKeys(keys = {}) {
-  const newProviders = { ...providers };
-  
-  if (keys.ANTHROPIC_API_KEY) {
-    newProviders.claude.key = keys.ANTHROPIC_API_KEY;
-  }
-  if (keys.OPENAI_API_KEY) {
-    newProviders.openai.key = keys.OPENAI_API_KEY;
-  }
-  if (keys.OPENROUTER_API_KEY) {
-    newProviders.openrouter.key = keys.OPENROUTER_API_KEY;
-  }
-  if (keys.TOGETHER_API_KEY) {
-    newProviders.togetherai.key = keys.TOGETHER_API_KEY;
-  }
-  if (keys.PERPLEXITY_API_KEY) {
-    newProviders.perplexityai.key = keys.PERPLEXITY_API_KEY;
-  }
-  
-  return newProviders;
-}
 
 export function createCustomModel(baseProvider, config) {
   // Required fields
