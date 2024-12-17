@@ -17,6 +17,9 @@ import { getConfig, configure, resetConfig } from './config.mjs';
 import ValidationService from './ValidationService.mjs';
 function clientLlmStream(clientProvider) {
   var provider = typeof clientProvider === 'string' ? new ClientProvider(clientProvider) : clientProvider;
+  if (!provider) {
+    throw new Error('clientProvider is required');
+  }
   return /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(payload) {
       return _regeneratorRuntime().wrap(function _callee$(_context) {
@@ -43,9 +46,6 @@ function xmllmClient(pipelineFn) {
   ValidationService.validateLLMPayload(finalConfig);
   return xmllm(pipelineFn, finalConfig);
 }
-
-// Rename export but keep xmllmClient for backwards compatibility
-var pipeline = xmllmClient;
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
@@ -139,7 +139,7 @@ function stream(promptOrConfig) {
 // Simple function with mode support
 function simple(_x2) {
   return _simple.apply(this, arguments);
-} // Export configuration function for client-side use
+} // Export named exports
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
     var options,
@@ -163,14 +163,17 @@ function _simple() {
   }));
   return _simple.apply(this, arguments);
 }
-export { configure, pipeline, xmllmClient as xmllm, ClientProvider, stream, simple, getConfig, resetConfig };
-export default {
-  configure: configure,
-  ClientProvider: ClientProvider,
-  pipeline: pipeline,
-  xmllm: xmllmClient,
-  stream: stream,
-  simple: simple,
-  getConfig: getConfig,
-  resetConfig: resetConfig
-};
+export { configure, xmllmClient as xmllm, ClientProvider, stream, xmllmClient as pipeline, simple, getConfig, resetConfig };
+
+// Attach utility functions to xmllmClient
+xmllmClient.configure = configure;
+xmllmClient.stream = stream;
+xmllmClient.simple = simple;
+xmllmClient.pipeline = xmllmClient;
+xmllmClient.xmllm = xmllmClient;
+xmllmClient.getConfig = getConfig;
+xmllmClient.resetConfig = resetConfig;
+xmllmClient.ClientProvider = ClientProvider;
+
+// Export default
+export default xmllmClient;

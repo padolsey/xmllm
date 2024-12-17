@@ -9,6 +9,10 @@ function clientLlmStream(clientProvider) {
     ? new ClientProvider(clientProvider)
     : clientProvider;
 
+  if (!provider) {
+    throw new Error('clientProvider is required');
+  }
+
   return async function(payload) {
     return provider.createStream(payload);
   };
@@ -22,9 +26,6 @@ function xmllmClient(pipelineFn, options = {}) {
   ValidationService.validateLLMPayload(finalConfig);
   return xmllm(pipelineFn, finalConfig);
 }
-
-// Rename export but keep xmllmClient for backwards compatibility
-const pipeline = xmllmClient;
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig, options = {}) {
@@ -168,25 +169,27 @@ async function simple(promptOrConfig, options = {}) {
   return stream(promptOrConfig, options).last();
 }
 
-// Export configuration function for client-side use
+// Export named exports
 export {
   configure,
-  pipeline,
   xmllmClient as xmllm,
   ClientProvider,
   stream,
+  xmllmClient as pipeline,
   simple,
   getConfig,
   resetConfig
 };
 
-export default {
-  configure,
-  ClientProvider,
-  pipeline,
-  xmllm: xmllmClient,
-  stream,
-  simple,
-  getConfig,
-  resetConfig
-};
+// Attach utility functions to xmllmClient
+xmllmClient.configure = configure;
+xmllmClient.stream = stream;
+xmllmClient.simple = simple;
+xmllmClient.pipeline = xmllmClient;
+xmllmClient.xmllm = xmllmClient;
+xmllmClient.getConfig = getConfig;
+xmllmClient.resetConfig = resetConfig;
+xmllmClient.ClientProvider = ClientProvider;
+
+// Export default
+export default xmllmClient;

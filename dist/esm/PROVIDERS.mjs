@@ -173,7 +173,7 @@ var providers = {
       rpmLimit: 100
     },
     endpoint: 'https://api.together.xyz/v1/chat/completions',
-    key: process.env.TOGETHER_API_KEY,
+    key: process.env.TOGETHER_API_KEY || process.env.TOGETHERAI_API_KEY,
     models: {
       superfast: {
         name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',

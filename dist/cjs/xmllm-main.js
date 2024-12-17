@@ -175,7 +175,7 @@ function stream(promptOrConfig) {
 // Simple function also gets mode support
 function simple(_x2) {
   return _simple.apply(this, arguments);
-}
+} // Attach utility functions to pipeline
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
     var options,
@@ -211,4 +211,14 @@ function _simple() {
   }));
   return _simple.apply(this, arguments);
 }
+pipeline.configure = _config2.configure;
+pipeline.xmllm = xmllm;
+pipeline.pipeline = xmllm;
+pipeline.stream = stream;
+pipeline.simple = simple;
+pipeline.getConfig = _config2.getConfig;
+pipeline.resetConfig = _config2.resetConfig;
+
+// Export named exports
+// Export pipeline as default for backward compatibility
 var _default = exports["default"] = pipeline;

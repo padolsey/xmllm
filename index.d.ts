@@ -48,6 +48,7 @@ export interface XMLElement {
   $attr: Record<string, string>;
   $tagkey: number;
   $tagclosed: boolean;
+  [key: string]: any;
 }
 
 export interface Message {
@@ -71,7 +72,7 @@ export interface StreamingServerConfig extends ServerConfig, BaseStreamConfig {}
 export interface StreamingSchemaServerConfig extends ServerConfig, BaseStreamingSchemaConfig {}
 
 // Model types
-export type ModelProvider = 'anthropic' | 'openai' | 'togetherai' | 'perplexityai' | 'openrouter';
+export type ModelProvider = 'anthropic' | 'openai' | 'togetherai' | 'perplexityai' | 'openrouter' | 'claude';
 export type ModelSpeed = 'superfast' | 'fast' | 'good';
 export type ModelString = `${ModelProvider}:${ModelSpeed}` | `${ModelProvider}:${string}`;
 

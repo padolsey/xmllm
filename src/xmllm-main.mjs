@@ -166,5 +166,25 @@ async function simple(promptOrConfig, options = {}) {
   return stream(promptOrConfig, options).last();
 }
 
+// Attach utility functions to pipeline
+pipeline.configure = configure;
+pipeline.xmllm = xmllm;
+pipeline.pipeline = xmllm;
+pipeline.stream = stream;
+pipeline.simple = simple;
+pipeline.getConfig = getConfig;
+pipeline.resetConfig = resetConfig;
+
+// Export named exports
+export {
+  configure,
+  pipeline,
+  xmllm,
+  stream,
+  simple,
+  getConfig,
+  resetConfig
+};
+
+// Export pipeline as default for backward compatibility
 export default pipeline;
-export { pipeline, xmllm, stream, simple, configure, getConfig, resetConfig };

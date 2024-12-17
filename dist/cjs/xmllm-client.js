@@ -23,7 +23,6 @@ Object.defineProperty(exports, "getConfig", {
     return _config2.getConfig;
   }
 });
-exports.pipeline = void 0;
 Object.defineProperty(exports, "resetConfig", {
   enumerable: true,
   get: function get() {
@@ -32,7 +31,7 @@ Object.defineProperty(exports, "resetConfig", {
 });
 exports.simple = simple;
 exports.stream = stream;
-exports.xmllm = xmllmClient;
+exports.pipeline = exports.xmllm = xmllmClient;
 var _xmllm = require("./xmllm.js");
 var _ChainableStreamInterface = _interopRequireDefault(require("./ChainableStreamInterface.js"));
 var _ClientProvider = require("./ClientProvider.js");
@@ -52,6 +51,9 @@ function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function clientLlmStream(clientProvider) {
   var provider = typeof clientProvider === 'string' ? new _ClientProvider.ClientProvider(clientProvider) : clientProvider;
+  if (!provider) {
+    throw new Error('clientProvider is required');
+  }
   return /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(payload) {
       return _regeneratorRuntime().wrap(function _callee$(_context) {
@@ -78,9 +80,6 @@ function xmllmClient(pipelineFn) {
   _ValidationService["default"].validateLLMPayload(finalConfig);
   return (0, _xmllm.xmllm)(pipelineFn, finalConfig);
 }
-
-// Rename export but keep xmllmClient for backwards compatibility
-var pipeline = exports.pipeline = xmllmClient;
 
 // Enhanced stream function with mode support - sync with xmllm-main.mjs
 function stream(promptOrConfig) {
@@ -174,7 +173,7 @@ function stream(promptOrConfig) {
 // Simple function with mode support
 function simple(_x2) {
   return _simple.apply(this, arguments);
-} // Export configuration function for client-side use
+} // Export named exports
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
     var options,
@@ -198,13 +197,15 @@ function _simple() {
   }));
   return _simple.apply(this, arguments);
 }
-var _default = exports["default"] = {
-  configure: _config2.configure,
-  ClientProvider: _ClientProvider.ClientProvider,
-  pipeline: pipeline,
-  xmllm: xmllmClient,
-  stream: stream,
-  simple: simple,
-  getConfig: _config2.getConfig,
-  resetConfig: _config2.resetConfig
-};
+// Attach utility functions to xmllmClient
+xmllmClient.configure = _config2.configure;
+xmllmClient.stream = stream;
+xmllmClient.simple = simple;
+xmllmClient.pipeline = xmllmClient;
+xmllmClient.xmllm = xmllmClient;
+xmllmClient.getConfig = _config2.getConfig;
+xmllmClient.resetConfig = _config2.resetConfig;
+xmllmClient.ClientProvider = _ClientProvider.ClientProvider;
+
+// Export default
+var _default = exports["default"] = xmllmClient;

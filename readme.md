@@ -270,7 +270,7 @@ for await (
         inherit: 'togetherai',
         name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
         endpoint: 'https://api.together.xyz/v1/chat/completions',
-        key: process.env.TOGETHER_API_KEY
+        key: process.env.TOGETHERAI_API_KEY
       },
       schema: {
         color: Array(String)
