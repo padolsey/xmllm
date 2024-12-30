@@ -14,7 +14,7 @@ const mockFactory = () => ({
 jest.unstable_mockModule('./src/Stream.mjs', mockFactory);
 
 // Now import the rest
-import createServer from '../src/xmllm-proxy.mjs';
+import createServer from '../src/proxies/default.mjs';
 import request from 'supertest';
 import StreamManager from '../src/StreamManager.mjs';
 import Provider from '../src/Provider.mjs';
@@ -570,6 +570,60 @@ describe('XMLLM Proxy Server', () => {
 
       expect(response.headers['access-control-allow-origin']).toBe('null');
       expect(response.headers['access-control-allow-credentials']).toBe('false');
+    });
+  });
+
+  describe('Custom Paths', () => {
+    it('should handle custom stream path', async () => {
+      const app = createServer({ 
+        listen: false,
+        paths: {
+          stream: '/custom/stream/path'
+        }
+      });
+
+      const response = await request(app)
+        .post('/custom/stream/path')
+        .send({
+          messages: [{ role: 'user', content: 'Test' }],
+          model: 'anthropic:fast'
+        });
+
+      expect(response.headers['content-type']).toBe('text/event-stream');
+    });
+
+    it('should handle custom limits path', async () => {
+      const app = createServer({ 
+        listen: false,
+        paths: {
+          limits: '/custom/limits/path'
+        }
+      });
+
+      const response = await request(app)
+        .get('/custom/limits/path');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('allowed');
+    });
+
+    it('should reject requests to default paths when custom paths configured', async () => {
+      const app = createServer({ 
+        listen: false,
+        paths: {
+          stream: '/custom/stream',
+          limits: '/custom/limits'
+        }
+      });
+
+      const response = await request(app)
+        .post('/api/stream')
+        .send({
+          messages: [{ role: 'user', content: 'Test' }],
+          model: 'anthropic:fast'
+        });
+
+      expect(response.status).toBe(404);
     });
   });
 });

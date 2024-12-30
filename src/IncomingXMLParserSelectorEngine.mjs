@@ -1,5 +1,6 @@
 import { Parser } from 'htmlparser2';
 import { selectOne, selectAll } from 'css-select';
+import { Type, EnumType, StringType, NumberType, BooleanType } from './types.mjs';
 
 class Node {
 
@@ -120,6 +121,10 @@ class IncomingXMLParserSelectorEngine {
           );
         }
       });
+
+      if (schema instanceof Type) {
+        return schema;
+      }
 
       const result = {};
       for (let [key, value] of Object.entries(schema)) {
@@ -378,7 +383,7 @@ class IncomingXMLParserSelectorEngine {
     const normalizedMapping = this.normalizeSchemaWithCache(mapping);
     
     const applyMapping = (element, map) => {
-
+      // Handle arrays first
       if (Array.isArray(map)) {
         if (map.length !== 1) {
           throw new Error('A map array must only have one element');
@@ -388,6 +393,7 @@ class IncomingXMLParserSelectorEngine {
           : [applyMapping(element, map[0])];
       }
 
+      // Handle non-Node values
       if (!element?.__isNodeObj__ && element != null) {
         // Treat it as a plain value:
         if (typeof map === 'function') {
@@ -397,16 +403,50 @@ class IncomingXMLParserSelectorEngine {
         }
       }
 
-      // Add handling for string literals - treat them as String type
+      // Handle string literals as String type
       if (typeof map === 'string') {
         map = String;
       }
 
+      console.log('map>>>', map instanceof Type, map);
+
+      // Handle Type instances
+      if (map instanceof Type) {
+        // Apply validation if present
+        if (map.validate && element) {
+          const value = element.$text?.trim() || '';
+          if (!map.validate(value)) {
+            throw new Error(`Validation failed for value: ${value}`);
+          }
+        }
+        
+        // If there's no element and no default, return undefined
+        if (!element && map.default === undefined) {
+          return undefined;
+        }
+        
+        // Get the raw value and parse it according to the type
+        const value = map.parse(element?.$text);
+        
+        // Apply transform or use default transformer
+        let result = map.transform ? map.transform(value) : value;
+        
+        // Apply default value if result is empty or NaN
+        if ((result === '' || (typeof result === 'number' && isNaN(result))) && map.default !== undefined) {
+          result = map.default;
+        }
+        
+        // If we still have an empty result and no default, return undefined
+        if (result === '' && map.default === undefined) {
+          return undefined;
+        }
+        
+        return result;
+      }
+
+      // Handle built-in constructors
       if (typeof map === 'function') {
-        // Handle built-in constructors specially
         if (map === Number) {
-          // Use parseFloat for more robust number parsing
-          // Trim whitespace and handle edge cases
           return parseFloat(element.$text?.trim?.() || '');
         }
         if (map === String) {
@@ -414,47 +454,60 @@ class IncomingXMLParserSelectorEngine {
         }
         if (map === Boolean) {
           const text = element.$text?.trim?.().toLowerCase() || '';
-          
-          // Anything that's not obviously false is considered true
           const isWordedAsFalse = ['false', 'no', 'null'].includes(text);
           const isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
           return !isEssentiallyFalsey;
         }
-        // Pass full element to custom functions
         return map(element);
       }
 
-      if (typeof map !== 'object') {
-        throw new Error('Map must be an object, function, or array');
-      }
-
-      const out = {};
-
-      for (const k in map) {
-
-        const mapItem = map[k];
-
-        if (k === '_' || k === '$text') {
-          // Handle text content
-          out[k] = applyMapping(element.$text, mapItem);
-        } else if (k.startsWith('$')) {
-          // Handle attributes
-          const attrName = k.slice(1);
-          if (element.$attr && element.$attr[attrName] != null) {
-            out[k] = applyMapping(element.$attr[attrName], mapItem);
+      // Handle objects (nested schemas)
+      if (typeof map === 'object') {
+        const out = {};
+        for (const k in map) {
+          const mapItem = map[k];
+          if (k === '_' || k === '$text') {
+            const value = applyMapping(element?.$text, mapItem);
+            if (value !== undefined) out[k] = value;
+          } else if (k.startsWith('$')) {
+            const attrName = k.slice(1);
+            if (element?.$attr && element.$attr[attrName] != null) {
+              const value = applyMapping(element.$attr[attrName], mapItem);
+              if (value !== undefined) out[k] = value;
+            }
+          } else {
+            const childElement = element?.[k];
+            if (!childElement) {
+              // Handle unfulfilled schema parts
+              if (mapItem instanceof Type && mapItem.default !== undefined) {
+                out[k] = mapItem.default;
+              } else if (typeof mapItem === 'object' && !Array.isArray(mapItem)) {
+                // Recursively handle nested objects with null element
+                const value = applyMapping(null, mapItem);
+                // Only include the object if it has properties
+                if (value !== undefined && Object.keys(value).length > 0) {
+                  out[k] = value;
+                }
+              } else {
+                // Don't include arrays or undefined values
+                if (Array.isArray(mapItem)) out[k] = [];
+              }
+            } else if (Array.isArray(mapItem)) {
+              const value = applyMapping(childElement, mapItem);
+              if (value !== undefined) out[k] = value;
+            } else {
+              const value = applyMapping(
+                Array.isArray(childElement) ? childElement[0] : childElement,
+                mapItem
+              );
+              if (value !== undefined) out[k] = value;
+            }
           }
-        } else if (!element[k]) {
-          out[k] = Array.isArray(mapItem) ? [] : undefined;
-        } else if (Array.isArray(mapItem)) {
-          out[k] = applyMapping(element[k], mapItem);
-        } else {
-          out[k] = applyMapping(
-            Array.isArray(element[k]) ? element[k][0] : element[k],
-            mapItem
-          );
         }
+        return Object.keys(out).length > 0 ? out : undefined;
       }
-      return out;
+
+      throw new Error('Invalid mapping type');
     };
 
     const isArrayMapping = Array.isArray(normalizedMapping);
@@ -477,7 +530,6 @@ class IncomingXMLParserSelectorEngine {
         ? this.dedupeSelect(selector, includeOpenTags)
         : this.select(selector, includeOpenTags);
 
-      // If no elements found, just return/skip
       if (!elements?.length) return;
 
       const resultName = selector;
@@ -493,7 +545,6 @@ class IncomingXMLParserSelectorEngine {
       }
     });
 
-    // Returns empty object if no matches found
     return results;
   }
 
@@ -501,8 +552,14 @@ class IncomingXMLParserSelectorEngine {
     function validateStructure(schemaObj, hintsObj, path = '') {
       if (!hintsObj) return; // Hints are optional
 
+      console.log('validateStructure', {
+        schemaObj,
+        hintsObj,
+        path
+      })
+
       // Handle primitives in schema
-      if (typeof schemaObj !== 'object' || schemaObj === null) {
+      if (typeof schemaObj !== 'object' || schemaObj === null || schemaObj instanceof Type) {
         return;
       }
 
@@ -520,10 +577,20 @@ class IncomingXMLParserSelectorEngine {
 
       // Check each hint has corresponding schema definition
       for (const key in hintsObj) {
+        console.log('thing', {
+          hintsObj,
+          schemaObj,
+          key,
+          path
+        })
         if (!schemaObj.hasOwnProperty(key)) {
           throw new Error(`Hint "${key}" has no corresponding schema definition at ${path}`);
         }
-        validateStructure(schemaObj[key], hintsObj[key], path ? `${path}.${key}` : key);
+        validateStructure(
+          schemaObj[key],
+          hintsObj[key],
+          path ? `${path}.${key}` : key
+        );
       }
     }
 
@@ -540,7 +607,9 @@ class IncomingXMLParserSelectorEngine {
         const hint = hintObj[key];
 
         // Skip attribute markers
-        if (key.startsWith('$')) continue;
+        if (key.startsWith('$')) {
+          continue;
+        }
 
         // Handle string literals as pure hints
         if (typeof value === 'string') {
@@ -558,6 +627,25 @@ class IncomingXMLParserSelectorEngine {
           continue;
         }
 
+        // Handle Type instances
+        if (value instanceof Type) {
+          // Determine content following the same pattern as other types
+          let typeHint = '';
+          if (value instanceof StringType) typeHint = '{String}';
+          else if (value instanceof NumberType) typeHint = '{Number}';
+          else if (value instanceof BooleanType) typeHint = '{Boolean}';
+          else if (value instanceof EnumType) typeHint = `{Enum: ${value.allowedValues?.join('|')}}`;
+          
+          const content = hint || typeHint || '...';
+          
+          if (value.isCData) {
+            xml += `${indentation}<${key}><![CDATA[${content}]]></${key}>\n`;
+          } else {
+            xml += `${indentation}<${key}>${content}</${key}>\n`;
+          }
+          continue;
+        }
+
         // Handle arrays
         if (Array.isArray(value)) {
           const itemValue = value[0];
@@ -568,15 +656,14 @@ class IncomingXMLParserSelectorEngine {
             xml += `${indentation}<${key}${getAttributeString(itemValue, itemHint)}>\n`;
             
             // Handle text content for array items
-            if (typeof itemValue !== 'object') {
+            if (typeof itemValue !== 'object' || itemValue === null) {
               // For primitive arrays, use the hint directly if it's a string
               const content =
                 typeof itemHint === 'string' ? itemHint :
                 typeof itemValue === 'string' ? itemValue :
                 itemValue === String ? '{String}' :
                 itemValue === Number ? '{Number}' :
-                itemValue === Boolean ? '{Boolean}' :
-                '...';
+                itemValue === Boolean ? '{Boolean}' : '...';
               xml += `${indentation}  ${content}\n`;
             } else {
               // Handle text content from $text in object
@@ -608,11 +695,14 @@ class IncomingXMLParserSelectorEngine {
           
           // Handle text content - check if it's explicitly typed
           if (value.$text !== undefined) {
-            const textContent = typeof value.$text === 'function' ? 
-              (value.$text === String ? '{String}' :
-               value.$text === Number ? '{Number}' :
-               value.$text === Boolean ? '{Boolean}' : '...') :
-              (typeof value.$text === 'string' ? value.$text : '...');
+            const textContent = hint?.$text || (
+              typeof value.$text === 'function' ? 
+                (value.$text === String ? '{String}' :
+                 value.$text === Number ? '{Number}' :
+                 value.$text === Boolean ? '{Boolean}' :
+                 '...') :
+              (typeof value.$text === 'string' ? value.$text : '...')
+            );
             xml += `${indentation}  ${textContent}\n`;
           } else if (hint?.$text) {
             xml += `${indentation}  ${hint.$text}\n`;

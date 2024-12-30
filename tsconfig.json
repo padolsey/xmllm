@@ -17,10 +17,12 @@
   "include": [
     "src/**/*",
     "index.d.ts",
-    "client.d.ts"
+    "client.d.ts",
+    "schemaTypes.d.ts"
   ],
   "files": [
     "index.d.ts",
-    "client.d.ts"
+    "client.d.ts",
+    "schemaTypes.d.ts"
   ]
 } 

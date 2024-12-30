@@ -10,12 +10,19 @@ Object.defineProperty(exports, "configure", {
   }
 });
 exports["default"] = void 0;
+Object.defineProperty(exports, "types", {
+  enumerable: true,
+  get: function get() {
+    return _types.types;
+  }
+});
 exports.pipeline = exports.xmllm = xmllm;
 var _streamops = _interopRequireDefault(require("streamops"));
 var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
 var _config2 = require("./config.js");
 var _strategies = require("./strategies.js");
+var _types = require("./types.js");
 var _excluded = ["mapper"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }

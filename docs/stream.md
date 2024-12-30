@@ -63,8 +63,8 @@ Either a string prompt or configuration object:
   prompt: string,              // The prompt to send
   model?: string | string[],   // Model selection
   strategy?: string,           // Prompt strategy (see strategies.md)
-  schema?: SchemaType,         // Enable schema processing
-  hints?: HintType,
+  schema?: Schema,         // Enable schema processing
+  hints?: Hint,
   temperature?: number,        // 0-2, default 0.72
   maxTokens?: number,         // Max response length
   cache?: boolean,            // Enable caching

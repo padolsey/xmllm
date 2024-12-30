@@ -91,7 +91,7 @@ try {
 ```typescript
 async function simple<T>(
   prompt: string,
-  schema: SchemaType,
+  schema: Schema,
   options?: SimpleOptions
 ): Promise<T>
 ```
@@ -256,8 +256,8 @@ interface StreamConfig {
   
   // Schema-related options
   prompt?: string;                   // Prompt text
-  schema?: SchemaType;               // Transform schema
-  hints?: HintType;                  // Schema hints
+  schema?: Schema;               // Transform schema
+  hints?: Hint;                  // Schema hints
   system?: string;                   // System prompt
   mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
   onChunk?: (chunk: string) => void; // Chunk callback
@@ -425,14 +425,14 @@ const conversation = pipeline(({ p, map }) => [
 The schema system defines how XML elements are transformed into structured data.
 
 ```typescript
-type SchemaType = {
+type Schema = {
   [key: string]: 
     | StringConstructor                 // Convert to string
     | NumberConstructor                 // Convert to number
     | BooleanConstructor               // Convert to boolean
     | ((el: XMLElement) => any)        // Custom transformer
-    | SchemaType                       // Nested schema
-    | [SchemaType]                     // Array of schema
+    | Schema                       // Nested schema
+    | [Schema]                     // Array of schema
     | string                           // Hint for LLM
 }
 
@@ -728,8 +728,8 @@ Sends a prompt to the AI and processes the response. Allows for streaming and sc
 
 ```typescript
 function prompt<T>(
-  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
-  schema?: SchemaType,
+  promptText: string | ((input: any) => { messages: Message[]; schema?: Schema }),
+  schema?: Schema,
   options?: PromptOptions
 ): AsyncGenerator<T>
 ```
@@ -757,8 +757,8 @@ Similar to `prompt()`, but ensures that only complete (closed) XML tags are proc
 
 ```typescript
 function promptClosed<T>(
-  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
-  schema?: SchemaType,
+  promptText: string | ((input: any) => { messages: Message[]; schema?: Schema }),
+  schema?: Schema,
   options?: PromptOptions
 ): AsyncGenerator<T>
 ```
@@ -769,8 +769,8 @@ Creates a streaming prompt, allowing for real-time processing of the AI's respon
 
 ```typescript
 function promptStream<T>(
-  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
-  schema?: SchemaType,
+  promptText: string | ((input: any) => { messages: Message[]; schema?: Schema }),
+  schema?: Schema,
   options?: PromptOptions
 ): AsyncGenerator<T>
 ```
@@ -817,7 +817,7 @@ Maps the parsed XML content to a JavaScript object based on the provided schema.
 
 ```typescript
 function mapSelect(
-  schema: SchemaType,
+  schema: Schema,
   includeOpenTags?: boolean,
   doDedupe?: boolean
 ): AsyncGenerator<any>
@@ -828,7 +828,7 @@ function mapSelect(
 Similar to `mapSelect()`, but processes only closed XML elements. Useful when you want to ensure that the data you're processing is complete.
 
 ```typescript
-function mapSelectClosed(schema: SchemaType): AsyncGenerator<any>
+function mapSelectClosed(schema: Schema): AsyncGenerator<any>
 ```
 
 ### map(fn)

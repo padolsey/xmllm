@@ -1,3 +1,6 @@
+import { SchemaType, SchemaTypeCreators } from './schemaTypes';
+export { SchemaType, SchemaTypeCreators };
+
 // Core base interfaces
 export interface BaseLLMParams {
   temperature?: number;
@@ -32,8 +35,8 @@ export interface BaseStreamConfig extends BaseConfig {
 }
 
 export interface BaseSchemaConfig extends BaseStreamConfig {
-  schema?: SchemaType;
-  hints?: HintType;
+  schema?: Schema;
+  hints?: Hints;
   genSystemPrompt?: (system?: string) => string;
   genUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
   strategy?: string;
@@ -93,24 +96,24 @@ export type ModelPreference =
   | Array<ModelString | ModelConfig>;
 
 // Schema types
-export type SchemaHint = string;
+export type Hint = string | string[];
 export type SchemaValue = 
   | StringConstructor
   | NumberConstructor
   | BooleanConstructor
+  | SchemaType
   | ((element: XMLElement) => any)
-  | SchemaHint
-  | Readonly<SchemaHint>;
+  | Readonly<SchemaType>;
 
-export type SchemaType = 
+export type Schema = 
   | SchemaValue
-  | { readonly [key: string]: SchemaType }
-  | { [key: string]: SchemaType }
-  | readonly SchemaType[]
-  | SchemaType[];
+  | { readonly [key: string]: Schema }
+  | { [key: string]: Schema }
+  | readonly Schema[]
+  | Schema[];
 
-export type HintType = {
-  [key: string]: string | string[] | HintType;
+export type Hints = {
+  [key: string]: Hint | Hints;
 };
 
 // Pipeline types
@@ -150,8 +153,8 @@ export interface PipelineHelpers {
   whenClosed: WhenClosedFn;
   parse: () => PipelineFunction;
   select: (selector: string) => PipelineFunction;
-  mapSelect: (schema: SchemaType, includeOpenTags?: boolean, doDedupe?: boolean) => PipelineFunction;
-  mapSelectClosed: (schema: SchemaType) => PipelineFunction;
+  mapSelect: (schema: Schema, includeOpenTags?: boolean, doDedupe?: boolean) => PipelineFunction;
+  mapSelectClosed: (schema: Schema) => PipelineFunction;
   combine: <T, U>(stream1: AsyncIterable<T>, stream2: AsyncIterable<U>) => AsyncGenerator<{
     stream1: T | null;
     stream2: U | null;
@@ -161,7 +164,7 @@ export interface PipelineHelpers {
 // Helper function types
 export type PromptFn = (
   promptOrConfig: string | ((input: any) => BaseSchemaConfig) | BaseSchemaConfig,
-  schema?: SchemaType,
+  schema?: Schema,
   options?: Partial<BaseSchemaConfig>,
   fakeResponse?: string
 ) => AsyncGenerator<any>;

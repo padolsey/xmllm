@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", {
 exports["default"] = exports.Node = void 0;
 var _htmlparser = require("htmlparser2");
 var _cssSelect = require("css-select");
+var _types = require("./types.js");
 var _excluded = ["key", "attr", "text", "closed", "children"];
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -136,6 +137,9 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             throw new Error("Invalid schema: \"".concat(key, "\" at \"").concat(path, "\" is a reserved node property and cannot be used in schemas"));
           }
         });
+        if (schema instanceof _types.Type) {
+          return schema;
+        }
         var result = {};
         for (var _i = 0, _Object$entries = Object.entries(schema); _i < _Object$entries.length; _i++) {
           var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
@@ -400,6 +404,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
       var normalizedMapping = this.normalizeSchemaWithCache(mapping);
       var _applyMapping = function applyMapping(element, map) {
+        // Handle arrays first
         if (Array.isArray(map)) {
           if (map.length !== 1) {
             throw new Error('A map array must only have one element');
@@ -408,6 +413,8 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             return _applyMapping(e, map[0]);
           }) : [_applyMapping(element, map[0])];
         }
+
+        // Handle non-Node values
         if (!(element !== null && element !== void 0 && element.__isNodeObj__) && element != null) {
           // Treat it as a plain value:
           if (typeof map === 'function') {
@@ -417,57 +424,108 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           }
         }
 
-        // Add handling for string literals - treat them as String type
+        // Handle string literals as String type
         if (typeof map === 'string') {
           map = String;
         }
+        console.log('map>>>', map instanceof _types.Type, map);
+
+        // Handle Type instances
+        if (map instanceof _types.Type) {
+          // Apply validation if present
+          if (map.validate && element) {
+            var _element$$text;
+            var _value = ((_element$$text = element.$text) === null || _element$$text === void 0 ? void 0 : _element$$text.trim()) || '';
+            if (!map.validate(_value)) {
+              throw new Error("Validation failed for value: ".concat(_value));
+            }
+          }
+
+          // If there's no element and no default, return undefined
+          if (!element && map["default"] === undefined) {
+            return undefined;
+          }
+
+          // Get the raw value and parse it according to the type
+          var value = map.parse(element === null || element === void 0 ? void 0 : element.$text);
+
+          // Apply transform or use default transformer
+          var result = map.transform ? map.transform(value) : value;
+
+          // Apply default value if result is empty or NaN
+          if ((result === '' || typeof result === 'number' && isNaN(result)) && map["default"] !== undefined) {
+            result = map["default"];
+          }
+
+          // If we still have an empty result and no default, return undefined
+          if (result === '' && map["default"] === undefined) {
+            return undefined;
+          }
+          return result;
+        }
+
+        // Handle built-in constructors
         if (typeof map === 'function') {
-          // Handle built-in constructors specially
           if (map === Number) {
-            var _element$$text, _element$$text$trim;
-            // Use parseFloat for more robust number parsing
-            // Trim whitespace and handle edge cases
-            return parseFloat(((_element$$text = element.$text) === null || _element$$text === void 0 || (_element$$text$trim = _element$$text.trim) === null || _element$$text$trim === void 0 ? void 0 : _element$$text$trim.call(_element$$text)) || '');
+            var _element$$text2, _element$$text2$trim;
+            return parseFloat(((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2)) || '');
           }
           if (map === String) {
             return String(element.$text);
           }
           if (map === Boolean) {
-            var _element$$text2, _element$$text2$trim;
-            var text = ((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2).toLowerCase()) || '';
-
-            // Anything that's not obviously false is considered true
+            var _element$$text3, _element$$text3$trim;
+            var text = ((_element$$text3 = element.$text) === null || _element$$text3 === void 0 || (_element$$text3$trim = _element$$text3.trim) === null || _element$$text3$trim === void 0 ? void 0 : _element$$text3$trim.call(_element$$text3).toLowerCase()) || '';
             var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
             var isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
             return !isEssentiallyFalsey;
           }
-          // Pass full element to custom functions
           return map(element);
         }
-        if (_typeof(map) !== 'object') {
-          throw new Error('Map must be an object, function, or array');
-        }
-        var out = {};
-        for (var k in map) {
-          var mapItem = map[k];
-          if (k === '_' || k === '$text') {
-            // Handle text content
-            out[k] = _applyMapping(element.$text, mapItem);
-          } else if (k.startsWith('$')) {
-            // Handle attributes
-            var attrName = k.slice(1);
-            if (element.$attr && element.$attr[attrName] != null) {
-              out[k] = _applyMapping(element.$attr[attrName], mapItem);
+
+        // Handle objects (nested schemas)
+        if (_typeof(map) === 'object') {
+          var out = {};
+          for (var k in map) {
+            var mapItem = map[k];
+            if (k === '_' || k === '$text') {
+              var _value2 = _applyMapping(element === null || element === void 0 ? void 0 : element.$text, mapItem);
+              if (_value2 !== undefined) out[k] = _value2;
+            } else if (k.startsWith('$')) {
+              var attrName = k.slice(1);
+              if (element !== null && element !== void 0 && element.$attr && element.$attr[attrName] != null) {
+                var _value3 = _applyMapping(element.$attr[attrName], mapItem);
+                if (_value3 !== undefined) out[k] = _value3;
+              }
+            } else {
+              var childElement = element === null || element === void 0 ? void 0 : element[k];
+              if (!childElement) {
+                // Handle unfulfilled schema parts
+                if (mapItem instanceof _types.Type && mapItem["default"] !== undefined) {
+                  out[k] = mapItem["default"];
+                } else if (_typeof(mapItem) === 'object' && !Array.isArray(mapItem)) {
+                  // Recursively handle nested objects with null element
+                  var _value4 = _applyMapping(null, mapItem);
+                  // Only include the object if it has properties
+                  if (_value4 !== undefined && Object.keys(_value4).length > 0) {
+                    out[k] = _value4;
+                  }
+                } else {
+                  // Don't include arrays or undefined values
+                  if (Array.isArray(mapItem)) out[k] = [];
+                }
+              } else if (Array.isArray(mapItem)) {
+                var _value5 = _applyMapping(childElement, mapItem);
+                if (_value5 !== undefined) out[k] = _value5;
+              } else {
+                var _value6 = _applyMapping(Array.isArray(childElement) ? childElement[0] : childElement, mapItem);
+                if (_value6 !== undefined) out[k] = _value6;
+              }
             }
-          } else if (!element[k]) {
-            out[k] = Array.isArray(mapItem) ? [] : undefined;
-          } else if (Array.isArray(mapItem)) {
-            out[k] = _applyMapping(element[k], mapItem);
-          } else {
-            out[k] = _applyMapping(Array.isArray(element[k]) ? element[k][0] : element[k], mapItem);
           }
+          return Object.keys(out).length > 0 ? out : undefined;
         }
-        return out;
+        throw new Error('Invalid mapping type');
       };
       var isArrayMapping = Array.isArray(normalizedMapping);
       if (isArrayMapping) {
@@ -480,8 +538,6 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
       var results = {};
       rootSelectors.forEach(function (selector) {
         var elements = doDedupe ? _this7.dedupeSelect(selector, includeOpenTags) : _this7.select(selector, includeOpenTags);
-
-        // If no elements found, just return/skip
         if (!(elements !== null && elements !== void 0 && elements.length)) return;
         var resultName = selector;
         if (Array.isArray(normalizedMapping[selector])) {
@@ -492,8 +548,6 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           results[resultName] = _applyMapping(elements[0], normalizedMapping[selector]);
         }
       });
-
-      // Returns empty object if no matches found
       return results;
     }
   }], [{
@@ -503,8 +557,14 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         var path = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
         if (!hintsObj) return; // Hints are optional
 
+        console.log('validateStructure', {
+          schemaObj: schemaObj,
+          hintsObj: hintsObj,
+          path: path
+        });
+
         // Handle primitives in schema
-        if (_typeof(schemaObj) !== 'object' || schemaObj === null) {
+        if (_typeof(schemaObj) !== 'object' || schemaObj === null || schemaObj instanceof _types.Type) {
           return;
         }
 
@@ -522,6 +582,12 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
 
         // Check each hint has corresponding schema definition
         for (var key in hintsObj) {
+          console.log('thing', {
+            hintsObj: hintsObj,
+            schemaObj: schemaObj,
+            key: key,
+            path: path
+          });
           if (!schemaObj.hasOwnProperty(key)) {
             throw new Error("Hint \"".concat(key, "\" has no corresponding schema definition at ").concat(path));
           }
@@ -545,7 +611,9 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           var hint = hintObj[key];
 
           // Skip attribute markers
-          if (key.startsWith('$')) continue;
+          if (key.startsWith('$')) {
+            continue;
+          }
 
           // Handle string literals as pure hints
           if (typeof value === 'string') {
@@ -561,6 +629,21 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
             continue;
           }
 
+          // Handle Type instances
+          if (value instanceof _types.Type) {
+            var _value$allowedValues;
+            // Determine content following the same pattern as other types
+            var _typeHint = '';
+            if (value instanceof _types.StringType) _typeHint = '{String}';else if (value instanceof _types.NumberType) _typeHint = '{Number}';else if (value instanceof _types.BooleanType) _typeHint = '{Boolean}';else if (value instanceof _types.EnumType) _typeHint = "{Enum: ".concat((_value$allowedValues = value.allowedValues) === null || _value$allowedValues === void 0 ? void 0 : _value$allowedValues.join('|'), "}");
+            var _content = hint || _typeHint || '...';
+            if (value.isCData) {
+              xml += "".concat(indentation, "<").concat(key, "><![CDATA[").concat(_content, "]]></").concat(key, ">\n");
+            } else {
+              xml += "".concat(indentation, "<").concat(key, ">").concat(_content, "</").concat(key, ">\n");
+            }
+            continue;
+          }
+
           // Handle arrays
           if (Array.isArray(value)) {
             var itemValue = value[0];
@@ -571,10 +654,10 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
               xml += "".concat(indentation, "<").concat(key).concat(getAttributeString(itemValue, itemHint), ">\n");
 
               // Handle text content for array items
-              if (_typeof(itemValue) !== 'object') {
+              if (_typeof(itemValue) !== 'object' || itemValue === null) {
                 // For primitive arrays, use the hint directly if it's a string
-                var _content = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : itemValue === String ? '{String}' : itemValue === Number ? '{Number}' : itemValue === Boolean ? '{Boolean}' : '...';
-                xml += "".concat(indentation, "  ").concat(_content, "\n");
+                var _content2 = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : itemValue === String ? '{String}' : itemValue === Number ? '{Number}' : itemValue === Boolean ? '{Boolean}' : '...';
+                xml += "".concat(indentation, "  ").concat(_content2, "\n");
               } else {
                 // Handle text content from $text in object
                 if (itemValue.$text !== undefined) {
@@ -598,7 +681,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
 
             // Handle text content - check if it's explicitly typed
             if (value.$text !== undefined) {
-              var _textContent = typeof value.$text === 'function' ? value.$text === String ? '{String}' : value.$text === Number ? '{Number}' : value.$text === Boolean ? '{Boolean}' : '...' : typeof value.$text === 'string' ? value.$text : '...';
+              var _textContent = (hint === null || hint === void 0 ? void 0 : hint.$text) || (typeof value.$text === 'function' ? value.$text === String ? '{String}' : value.$text === Number ? '{Number}' : value.$text === Boolean ? '{Boolean}' : '...' : typeof value.$text === 'string' ? value.$text : '...');
               xml += "".concat(indentation, "  ").concat(_textContent, "\n");
             } else if (hint !== null && hint !== void 0 && hint.$text) {
               xml += "".concat(indentation, "  ").concat(hint.$text, "\n");

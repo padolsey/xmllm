@@ -11,9 +11,11 @@ xmllm is a JS utility that makes it easy to get structured data from LLMs, using
 Simple example:
 
 ```javascript
-import { simple } from 'xmllm';
+import { simple, types } from 'xmllm';
 await simple('fun pet names', {
-  schema: { name: Array(String) }
+  schema: { 
+    name: [types.string("Pet name")] 
+  }
 }); // => ["Daisy", "Whiskers", "Rocky"]
 ```
 
@@ -105,10 +107,10 @@ In addition to the big frontier models, xmllm has impressive schema compliance o
 
 ## Famous strawberry problem
 
-Here's an example with a slightly more complex schema, which in this case let's us enforce some kind of structured chain-of-thought and the containment of a 'final answer':
+Here's an example with a slightly more complex schema, which in this case lets us enforce some kind of structured chain-of-thought and the containment of a 'final answer':
 
 ```javascript
-import { simple } from 'xmllm';
+import { simple, types } from 'xmllm';
 
 const analysis = await simple(
   `
@@ -116,14 +118,15 @@ const analysis = await simple(
     Count the letters prior to your answer.
   `,
   {
-    approach: 'the approach you will use for counting',
-    letter: [{
-      character: String,
-      is_r_letter: Boolean
-    }],
-    final_answer: String
-  },
-  {
+    schema: {
+      approach: types.string("The approach you will use for counting"),
+      letter: [{
+        character: types.string("Current letter being analyzed"),
+        is_r_letter: types.boolean("Whether this is the letter R")
+          .withTransform(b => b === true)  // Ensure boolean
+      }],
+      final_answer: types.string("The complete answer with explanation")
+    },
     model: 'openrouter:mistralai/ministral-3b',
     max_tokens: 1000
   }
@@ -202,11 +205,14 @@ PERPLEXITYAI_API_KEY=your_api_key
 The `simple()` function provides the easiest way to get structured data from AI.
 
 ```javascript
-import { simple } from 'xmllm';
+import { simple, types } from 'xmllm';
 
-// Updated usage with options object
+// Updated usage with options object and type hints
 const result = await simple("What is 2+2?", {
-  schema: { answer: Number },
+  schema: { 
+    answer: types.number("The numerical result")
+      .withTransform(n => Math.floor(n))  // Ensure whole number
+  },
   model: {
     inherit: 'anthropic',
     name: 'claude-3-haiku-20240307',
@@ -223,7 +229,7 @@ console.log(result);
 The `stream()` API offers a simple interface for streaming with or without a schema. Some examples:
 
 ```javascript
-import { stream } from 'xmllm';
+import { stream, types } from 'xmllm';
 
 // 1. NO SCHEMA: Use CSS selectors to manually extract things:
 const thoughts = stream(`
@@ -237,20 +243,44 @@ const thoughts = stream(`
 for await (const thought of thoughts) {
   console.log('AI is thinking:', thought); // See thoughts as they arrive
 }
-```
 
----
-
-```javascript
-// 2. WITH A SCHEMA: Structured Data:
+// 2. WITH A SCHEMA: Structured Data with Type Hints:
 const result = await stream('What is 2+2?', {
   schema: {
     answer: {
-      value: Number,
-      explanation: String
+      value: types.number("The numerical result")
+        .withTransform(n => Math.floor(n)),
+      explanation: types.string("Step-by-step explanation")
+        .withTransform(s => s.trim())
     }
   }
-}).last(); // wait until the stream completes
+}).last();
+
+// 3. WITH ENUMS: Enforce specific values
+const analysis = await stream('Analyze the sentiment', {
+  schema: {
+    sentiment: types.enum("Overall sentiment", ['POSITIVE', 'NEUTRAL', 'NEGATIVE'])
+      .withDefault('NEUTRAL'),
+    confidence: types.number("Confidence score 0-1")
+      .withTransform(n => Math.min(1, Math.max(0, n)))
+      .withDefault(0)
+  }
+}).last();
+
+// 4. WITH VALIDATION: Ensure data quality
+const userProfile = await stream('Create a user profile', {
+  schema: {
+    user: {
+      name: types.string("User's full name")
+        .withDefault("Anonymous"),
+      age: types.number("Age in years")
+        .withTransform(n => Math.max(0, Math.floor(n)))
+        .withValidate(n => n >= 0 && n <= 120),
+      status: types.enum("Account status", ['ACTIVE', 'PENDING', 'INACTIVE'])
+        .withDefault('PENDING')
+    }
+  }
+}).last();
 ```
 
 ---

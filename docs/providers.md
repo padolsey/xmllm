@@ -437,6 +437,8 @@ xmllm-proxy \
 |--------|---------------------|---------|-------------|
 | port | PORT | 3124 | Port to run the proxy server on |
 | corsOrigins | - | * | CORS allowed origins (string or array) |
+| paths.stream | - | /api/stream | Custom path for streaming endpoint |
+| paths.limits | - | /api/limits | Custom path for rate limits endpoint |
 | globalRequestsPerMinute | GLOBAL_RATE_LIMIT | - | Max requests per minute |
 | globalTokensPerMinute | GLOBAL_TOKENS_PER_MINUTE | - | Max tokens per minute |
 | globalTokensPerHour | GLOBAL_TOKENS_PER_HOUR | - | Max tokens per hour |
@@ -445,6 +447,27 @@ xmllm-proxy \
 | timeout | - | 30000 | Request timeout in ms |
 | debug | - | false | Enable debug logging |
 | verbose | - | false | Enable verbose logging |
+| type | - | default | Proxy type ('default' or 'cot') |
+
+### Proxy Types
+
+The proxy server supports different types of processing:
+
+1. **Default Proxy** (--type=default)
+   - Standard streaming response
+   - Direct pass-through of model responses
+   - Minimal processing overhead
+
+2. **Chain of Thought Proxy** (--type=cot)
+   - Structures responses with explicit reasoning steps
+   - Includes thinking process, draft response, metrics, and improvements
+   - Returns final refined response
+   - Useful for debugging or understanding model reasoning
+
+Example starting the CoT proxy:
+```bash
+xmllm-proxy --type=cot --port=3124
+```
 
 ### Monitoring Rate Limits
 
@@ -452,6 +475,8 @@ The proxy exposes an endpoint to check current rate limit status:
 
 ```bash
 curl http://localhost:3124/api/limits
+# Or with custom path if configured:
+# curl http://localhost:3124/v1/rate_limits
 ```
 
 Response:
@@ -474,6 +499,45 @@ Response:
   }
 }
 ```
+
+### Custom Paths
+
+You can customize the endpoint paths to match existing APIs or preferences:
+
+```bash
+xmllm-proxy \
+  --paths.stream=/v1/chat/completions \
+  --paths.limits=/v1/rate_limits
+```
+
+### Error Message Configuration
+
+Error messages can be customized at both proxy and request levels:
+
+1. **Proxy Level** (applies to all requests):
+```bash
+xmllm-proxy --rateLimitMessage="Custom global rate limit message"
+```
+
+2. **Request Level** (per-request override):
+```javascript
+fetch('http://localhost:3124/api/stream', {
+  method: 'POST',
+  body: JSON.stringify({
+    messages: [...],
+    errorMessages: {
+      rateLimitExceeded: "Custom rate limit message",
+      genericFailure: "Custom error message"
+    }
+  })
+});
+```
+
+The priority order for error messages is:
+1. Request-level error messages
+2. Proxy-level rateLimitMessage
+3. Proxy-level errorMessages configuration
+4. Default messages
 
 ## Custom Model Configuration
 
@@ -608,4 +672,3 @@ const nestedParamsModel = {
   }
 };
 ```
-

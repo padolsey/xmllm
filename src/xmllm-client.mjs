@@ -1,8 +1,9 @@
-import {xmllm} from './xmllm.mjs';
+import { xmllm } from './xmllm.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
 import { getConfig, configure, resetConfig } from './config.mjs';
 import ValidationService from './ValidationService.mjs';
+import { types } from './types.mjs';
 
 function clientLlmStream(clientProvider) {
   const provider = typeof clientProvider === 'string' 
@@ -178,7 +179,8 @@ export {
   xmllmClient as pipeline,
   simple,
   getConfig,
-  resetConfig
+  resetConfig,
+  types
 };
 
 // Attach utility functions to xmllmClient

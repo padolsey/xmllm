@@ -3,6 +3,7 @@ import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.m
 import Logger from './Logger.mjs';
 import { getConfig, configure } from './config.mjs';
 import { getStrategy } from './strategies.mjs';
+import { types } from './types.mjs';
 
 const logger = new Logger('xmllm');
 
@@ -318,7 +319,7 @@ async function* xmllmGen(pipelineFn, {
       let cancelled = false;
 
       yield accrued; // Do we need this?
-      // (can't hurt?)
+      // (kicks things off?)
 
       try {
         while (true) {
@@ -666,4 +667,4 @@ function xmllm(pipelineFn, options = {}) {
 }
 
 export default xmllm;
-export { xmllm, configure, xmllm as pipeline };
+export { xmllm, configure, xmllm as pipeline, types };

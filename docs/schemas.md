@@ -9,11 +9,11 @@ A schema in xmllm defines both:
 For example, this schema:
 ```javascript
 const schema = {
-  analysis: {                // Tells AI to use <analysis> tag
-    sentiment: String,       // Tells AI to use <sentiment> inside <analysis>
-    score: Number,          // Tells AI to use <score> inside <analysis>
-    categories: {           // Tells AI to use <categories> container
-      category: [String]    // Tells AI to use multiple <category> tags
+  analysis: {                                    
+    sentiment: types.string("Sentiment value"),  // Hint-first pattern
+    score: types.number("Score from 0-1"),      
+    categories: {                               
+      category: [types.string("Category name")] 
     }
   }
 };
@@ -35,8 +35,8 @@ And transforms it into this JavaScript object:
 ```javascript
 {
   analysis: {
-    sentiment: "positive", // String conversion
-    score: 0.87,           // Number (parseFloat)conversion
+    sentiment: "positive",  // String conversion
+    score: 0.87,           // Number conversion
     categories: {
       category: [          // Array conversion
         "technical",
@@ -47,307 +47,295 @@ And transforms it into this JavaScript object:
 }
 ```
 
-The schema structure directly mirrors the XML you want. Each property name becomes a tag name, and the value (String, Number, etc.) defines how to transform its content.
+## Type System
 
-### Basic Type Conversion (String / Number)
+The Type system provides explicit type definitions with features like hints, defaults, validation, and transformations. All type constructors follow a consistent hint-first pattern.
 
-The simplest schemas use `String`, `Number`, and `Boolean` to transform text content:
+### Basic Types
 
 ```javascript
+import { types } from 'xmllm';
+
 const schema = {
-  title: String,  // Uses String constructor
-  count: Number,  // Uses parseFloat for robust number parsing
-  active: Boolean // Special handling for truthy/falsy values
-}
+  user: {
+    name: types.string("User's full name"),           // String type with hint
+    age: types.number("Age in years"),                // Number type with hint
+    active: types.boolean("Account status"),          // Boolean type with hint
+    status: types.enum("Status", ['ACTIVE', 'PENDING']), // Enum type with hint and values
+    content: types.raw("HTML content")                // Raw content with hint (preserves CDATA)
+  }
+};
 ```
 
-IMPORTANT: `Number` uses `parseFloat` under the hood, which handles scientific notation, trailing units, and whitespace. See [parseFloat on MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseFloat) for details.
+### Type Features
 
-IMPORTANT: `Boolean` treats the following as false:
-- Empty or whitespace-only content
-- The strings "false", "no", or "null" (case insensitive)
-- Numeric zero (0, 0.00, etc)
-
-Otherwise the value is deemed true. If you don't like this behavior, you can use your own function (custom "transformer" as we call it):
+Each type supports several features that can be chained:
 
 ```javascript
-// Custom boolean transformer example:
 const schema = {
-  enabled: ({ $text }) => $text.trim().toLowerCase() === 'true'  // Only 'true' is true
-}
+  user: {
+    // String type with hint, default, and transform
+    name: types.string("User's name")
+      .withDefault("Anonymous")                    
+      .withTransform(name => name.toLowerCase()),  
+    
+    // Number type with hint, default, and transform
+    age: types.number("Age in years")
+      .withDefault(0)
+      .withTransform(age => Math.floor(age)),     
+    
+    // Enum type with hint, allowed values, and default
+    status: types.enum("Account status", ['ACTIVE', 'PENDING'])
+      .withDefault('PENDING')                      
+  }
+};
+```
+
+### Type Processing Order
+
+When processing values, types follow this order:
+1. Parse the raw value according to the type (e.g., `parseFloat` for numbers)
+2. Apply any custom transform function
+3. Apply validation (if any)
+4. Use default value if the result is invalid or missing
+
+```javascript
+const schema = {
+  settings: {
+    // Will first parse as number, then round down, default to 0 if invalid
+    count: types.number("Count")
+      .withTransform(n => Math.floor(n))
+      .withDefault(0),
+    
+    // Will first parse as boolean, then invert, default to false if missing
+    enabled: types.boolean("Status")
+      .withTransform(b => !b)
+      .withDefault(false)
+  }
+};
+```
+
+### Enum Type
+
+The enum type enforces a set of allowed values and provides clear scaffolding:
+
+```javascript
+const schema = {
+  order: {
+    // Enum with hint and allowed values
+    status: types.enum("Order status", ['PENDING', 'SHIPPED', 'DELIVERED'])
+      .withDefault('PENDING'),
+    
+    // Enum with validation through allowed values
+    priority: types.enum("Priority level", ['LOW', 'MEDIUM', 'HIGH'])
+  }
+};
+```
+
+When scaffolding, enums show their allowed values:
+```xml
+<order>
+  <status>{Enum: PENDING|SHIPPED|DELIVERED}</status>
+  <priority>{Enum: LOW|MEDIUM|HIGH}</priority>
+</order>
+```
+
+### Raw Type and CDATA
+
+The raw type is designed for handling CDATA content:
+
+```javascript
+const schema = {
+  content: {
+    body: types.raw("HTML content"),              // Will be wrapped in CDATA
+    default: types.raw("Default HTML content")
+      .withDefault("<p>Default</p>")
+  }
+};
+```
+
+Generates scaffold:
+```xml
+<content>
+  <body><![CDATA[...]]></body>
+  <default><![CDATA[<p>Default</p>]]></default>
+</content>
 ```
 
 ## Array Structure
 
-The most important pattern in xmllm schemas is how repeated elements are handled. It's best to use a plural container with singularly named elements (i.e. `person` instead of `people`):
+Arrays in xmllm follow a consistent pattern using plural containers with singular elements:
 
 ```javascript
-// ❌ Incorrect - seems intuitive but won't work reliably
-const badSchema = {
-  // Attempt to ask for an array of tags:
-  tags: [String],   // Don't do this
-
-  // Attempt to ask for an array of comment objects:
-  comments: [{      // Don't do this either
-    author: String,
-    text: String
-  }]
-};
-
-// ✅ Correct - use plural containers with singular elements
-const goodSchema = {
-  tags: {            // Plural container (simpler to reason about)
-    tag: [String]    // Singular elements (crucial though less intuitive)
+const schema = {
+  tags: {
+    tag: [types.string("Tag name")]  // Array of strings with hint
   },
-  comments: {        // Plural container (simpler to reason about)
-    comment: [{      // Singular elements (crucial though less intuitive)
-      author: String,
-      text: String
+  comments: {
+    comment: [{                      // Array of objects
+      author: types.string("Author name"),
+      text: types.string("Comment text")
     }]
   }
 };
 ```
 
-### Why This Pattern Matters
-
-1. XML naturally represents repeated elements using the same tag name
-2. The container element guides the AI to generate properly structured responses
-3. Streaming updates fit naturally into this hierarchy
-4. The container-item relationship is explicit and semantic
+Generates scaffold:
+```xml
+<tags>
+  <tag>{String}</tag>
+  <tag>{String}</tag>
+  /*etc.*/
+</tags>
+<comments>
+  <comment>
+    <author>{String}</author>
+    <text>{String}</text>
+  </comment>
+  /*etc.*/
+</comments>
+```
 
 ### Root Level Arrays
 
-Sometimes you need to handle multiple occurrences of a root element. Use an array of schemas:
+For multiple occurrences of a root element, use an array of schemas:
 
 ```javascript
 const schema = [{
   item: {
-    title: String,
-    price: Number
+    title: types.string("Item title"),
+    price: types.number("Price in USD")
   }
 }];
-
-// Matches XML like:
-<item><title>First</title><price>10</price></item>
-<item><title>Second</title><price>20</price></item>
-
-// Results in:
-[
-  { item: { title: "First", price: 10 } },
-  { item: { title: "Second", price: 20 } }
-]
 ```
 
-## Working with Elements
-
-### Element Properties
-
-Transform functions receive an object containing all information about an element:
-
-```javascript
-const schema = {
-  product: ({ $text, $attr, $tagclosed, $tagkey, $tagname, $children }) => {
-    // $text - Element's text content
-    // $attr - Object containing attributes
-    // $tagclosed - Boolean indicating if element is complete
-    // $tagkey - Unique identifier for the element
-    // $tagname - Name of the element
-    // $children - Array of child elements
-
-    return {
-      content: $text,
-      attributes: $attr
-    };
-  }
-};
+Generates scaffold:
+```xml
+<item>
+  <title>{String}</title>
+  <price>{Number}</price>
+</item>
+<item>
+  <title>{String}</title>
+  <price>{Number}</price>
+</item>
+/*etc.*/
 ```
 
-### Working with Attributes
+## Working with Attributes
 
-Access XML attributes with the `$` prefix:
+Access XML attributes with the `$` prefix. All types support attributes:
 
 ```javascript
 const schema = {
   product: {
-    $id: Number,          // <product id="123">
-    $category: String,    // <product category="electronics">
-    $text: String,        // Text content inside the element
+    $id: types.number("Product ID"),                    // <product id="123">
+    $category: types.string("Category name"),           // <product category="electronics">
     price: {
-      $currency: String,  // <price currency="USD">
-      $text: Number       // Text content as number
+      $currency: types.string("Currency code"),         // <price currency="USD">
+      $text: types.number("Price amount in currency")   // Price value
     }
   }
-}
+};
 ```
 
-## Building Complex Schemas
+Generates scaffold:
+```xml
+<product id="{Number}" category="{String}">
+  <price currency="{String}">{Number}</price>
+</product>
+```
 
-### Nested Structures
+## Legacy Type System
+
+While the Type system is recommended, xmllm maintains backward compatibility with simpler type definitions:
+
+### Basic Type Conversion
 
 ```javascript
 const schema = {
-  library: {
-    books: {
-      book: [{
-        $id: Number,
-        title: String,
-        authors: {
-          author: [String]
-        },
-        reviews: {
-          review: [{
-            $rating: Number,
-            $text: String
-          }]
-        }
+  title: String,    // Equivalent to types.string()
+  count: Number,    // Equivalent to types.number()
+  active: Boolean   // Equivalent to types.boolean()
+};
+```
+
+### Custom Transform Functions
+
+```javascript
+const schema = {
+  enabled: ({ $text }) => $text.trim().toLowerCase() === 'true'
+};
+```
+
+### String Literals
+
+```javascript
+const schema = {
+  status: "pending"  // Used as a hint for the AI
+};
+```
+
+## Reserved Properties
+
+These properties (prefixed with `$`) have special meaning:
+
+```javascript
+element: {
+  $text,      // The element's text content
+  $attr,      // The element's attributes
+  $tagclosed, // Whether the element is complete
+  $children,  // The element's child nodes
+  $tagname    // The element's tag name
+}
+```
+
+## Guiding AI Responses
+
+The schema structure, type hints, and scaffolding guide the AI's output. For example:
+
+```javascript
+const schema = {
+  analysis: {
+    severity: types.enum("Severity level", ['High', 'Medium', 'Low'])
+      .withDefault('Medium'),
+    enabled: types.boolean("Analysis activation status")
+      .withDefault(true),
+    findings: {
+      finding: [{
+        $impact: types.number("Impact score from 1-10")
+          .withTransform(n => Math.min(10, Math.max(1, n))),
+        $active: types.boolean("Finding relevance status"),
+        description: types.string("Security issue description")
+          .withTransform(s => s.trim())
       }]
     }
   }
 };
 ```
 
-### Reusable Components
-
-Break down complex schemas into reusable parts:
-
-```javascript
-const addressSchema = {
-  street: String,
-  city: String,
-  country: String
-};
-
-const reviewSchema = {
-  $rating: Number,
-  $text: String,
-  response: {
-    $author: String,
-    $text: String
-  }
-};
-
-const schema = {
-  user: {
-    name: String,
-    home_address: addressSchema,
-    work_address: addressSchema,
-    reviews: {
-      review: [reviewSchema]
-    }
-  }
-};
-```
-
-## Guiding AI Responses
-
-Use the `hints` configuration to guide the AI's output structure:
-
-```javascript
-const result = await stream('Analyze security issues', {
-  schema: {
-    analysis: {
-      severity: String,
-      enabled: Boolean,
-      findings: {
-        finding: [{
-          $impact: Number,
-          $active: Boolean,
-          $text: String
-        }]
-      }
-    }
-  },
-  hints: {
-    analysis: {
-      severity: "Must be 'High', 'Medium', or 'Low'",
-      enabled: "true/false indicating if analysis is active",
-      findings: {
-        finding: [{
-          $impact: "Impact score from 1-10",
-          $active: "true/false - is this finding still relevant",
-          $text: "Detailed description of the security issue"
-        }]
-      }
-    }
-  }
-});
-```
-
-Use the `hints` configuration to guide the AI's output structure. You can also experiment with different [prompt strategies](./strategies.md) to improve schema compliance.
-
-### The Scaffold System
-
-The hints create a template that guides the AI. For the above schema, the AI sees something like:
+The AI will see a scaffold like:
 
 ```xml
 <analysis>
-  <severity>Must be 'High', 'Medium', or 'Low'</severity>
-  <enabled>true/false indicating if analysis is active</enabled>
+  <severity>{Enum: High|Medium|Low}</severity>
+  <enabled>{Boolean}</enabled>
   <findings>
-    <finding impact="Impact score from 1-10" active="true/false - is this finding still relevant">
-      Detailed description of the security issue
-    </finding>
-    <finding impact="Impact score from 1-10" active="true/false - is this finding still relevant">
-      Detailed description of the security issue
+    <finding impact="{Number}" active="{Boolean}">
+      <description>{String}</description>
     </finding>
     /*etc.*/
   </findings>
 </analysis>
 ```
 
-### Best Practices for Hints
+### Best Practices
 
-1. Match your schema structure exactly
-2. Provide specific formats and constraints
-3. Include examples in the hints
-4. Use hints for all important fields
-5. Consider edge cases the AI should handle
-
-```javascript
-const schema = {
-  book: {
-    $isbn: String,
-    title: String,
-    price: {
-      $currency: String,
-      $text: Number
-    }
-  }
-};
-
-const hints = {
-  book: {
-    $isbn: "ISBN-13 format (e.g., 978-3-16-148410-0)",
-    title: "Book title using proper capitalization",
-    price: {
-      $currency: "Three-letter currency code (e.g., USD, EUR)",
-      $text: "Price as a decimal number"
-    }
-  }
-};
-```
-
-## Reserved Properties
-
-Certain properties (prefixed with `$`) are reserved because they represent the internal structure of XML elements that transformers need to access:
-
-```javascript
-// These properties are reserved for transformer access:
-element: ({
-  $text,      // The element's text content
-  $attr,      // The element's attributes
-  $tagclosed, // Whether the element is complete
-  $children,  // The element's child nodes
-  $tagname    // The element's tag name
-}) => ({
-  // Your transformation here
-})
-
-// So in schemas, use:
-element: {
-  $type: String,     // Transform the 'type' attribute
-  content: String    // Transform the text content
-}
-```
-
-This separation ensures transformers can reliably access element properties without them being overwritten by schema transformations.
+1. Always provide descriptive hints for better AI guidance
+2. Use the hint-first pattern consistently
+3. Place type constraints in the hint (e.g., "Score from 0-100")
+4. Use enums when you have a fixed set of valid values
+5. Add validation for critical constraints
+6. Provide sensible defaults for optional elements
+7. Use transforms to normalize or sanitize data
+8. Keep hints concise but informative

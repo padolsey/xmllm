@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 console.log('Starting Proxy');
-import proxy from './xmllm-proxy.mjs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file if present
@@ -26,6 +27,23 @@ var safeParseInt = function safeParseInt(value, name) {
   return parsed;
 };
 try {
+  // Get proxy type from command line or default to 'default'
+  var proxyType = getArg('type') || 'default';
+  var proxyPath = join(dirname(dirname(fileURLToPath(import.meta.url))), 'proxies', "".concat(proxyType, ".mjs"));
+  console.log("Loading proxy: ".concat(proxyType, " from ").concat(proxyPath));
+  var createProxy;
+  try {
+    var module = await import(proxyPath);
+    createProxy = module["default"];
+    if (typeof createProxy !== 'function') {
+      throw new Error("Proxy module '".concat(proxyType, "' does not export a default function"));
+    }
+  } catch (importError) {
+    if (importError.code === 'ERR_MODULE_NOT_FOUND') {
+      throw new Error("Proxy type '".concat(proxyType, "' not found. Available proxies are in the 'proxies' directory.\n") + "Try:\n" + "  - default (standard proxy)\n" + "  - cot (chain of thought proxy)\n" + "Or create a new one at: proxies/".concat(proxyType, ".mjs"));
+    }
+    throw importError;
+  }
   var config = {
     corsOrigins: getArg('corsOrigins') || '*',
     port: safeParseInt(getArg('port') || process.env.PORT, 'port') || 3124,
@@ -40,7 +58,7 @@ try {
     rateLimitMessage: getArg('rateLimitMessage')
   };
   console.log('Starting proxy with config:', config);
-  proxy(config);
+  createProxy(config);
 } catch (error) {
   console.error('\x1b[31mFailed to start proxy:\x1b[0m');
   console.error(error.message);

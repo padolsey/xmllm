@@ -1,22 +1,20 @@
 import http from 'http';
-import { configure } from './config.mjs';
-
+import { configure } from '../src/config.mjs';
 configure({
   logging: {
     level: 'INFO'
   }
 });
-
-import StreamManager from './StreamManager.mjs';
-import ValidationService from './ValidationService.mjs';
-import Stream from './Stream.mjs';
-import PROVIDERS from './PROVIDERS.mjs';
-import ResourceLimiter from './ResourceLimiter.mjs';
+import StreamManager from '../src/StreamManager.mjs';
+import ValidationService from '../src/ValidationService.mjs';
+import Stream from '../src/Stream.mjs';
+import PROVIDERS from '../src/PROVIDERS.mjs';
+import ResourceLimiter from '../src/ResourceLimiter.mjs';
 
 // Add configuration validation
 function validateProxyConfig(config) {
   const errors = [];
-  
+
   // Helper to validate numeric limits
   const validateLimit = (name, value, min = 1) => {
     if (value !== undefined && value !== null) {
@@ -29,13 +27,7 @@ function validateProxyConfig(config) {
   };
 
   // Check for unknown configuration keys
-  const validKeys = new Set([
-    'port', 'corsOrigins', 'maxRequestSize', 'timeout',
-    'debug', 'verbose', 'globalRequestsPerMinute', 'globalTokensPerMinute',
-    'globalTokensPerHour', 'globalRequestsPerHour', 'rateLimitMessage',
-    'listen', 'errorMessages'
-  ]);
-
+  const validKeys = new Set(['port', 'corsOrigins', 'maxRequestSize', 'timeout', 'debug', 'verbose', 'globalRequestsPerMinute', 'globalTokensPerMinute', 'globalTokensPerHour', 'globalRequestsPerHour', 'rateLimitMessage', 'listen', 'errorMessages']);
   Object.keys(config).forEach(key => {
     if (!validKeys.has(key)) {
       errors.push(`Unknown configuration key: "${key}". Did you mean one of: ${Array.from(validKeys).join(', ')}?`);
@@ -56,7 +48,8 @@ function validateProxyConfig(config) {
 
   // Timeout validation
   validateLimit('timeout', config.timeout, 100);
-  if (config.timeout && config.timeout > 300000) { // 5 minutes max
+  if (config.timeout && config.timeout > 300000) {
+    // 5 minutes max
     errors.push(`timeout must be <= 300000ms, got: ${config.timeout}ms`);
   }
 
@@ -68,15 +61,14 @@ function validateProxyConfig(config) {
   // Max request size validation
   if (config.maxRequestSize) {
     validateLimit('maxRequestSize', config.maxRequestSize, 100);
-    if (config.maxRequestSize > 1024 * 1024) { // 1MB max
+    if (config.maxRequestSize > 1024 * 1024) {
+      // 1MB max
       errors.push(`maxRequestSize must be <= 1048576 bytes, got: ${config.maxRequestSize}`);
     }
   }
-
   if (errors.length > 0) {
     throw new Error('Invalid proxy configuration:\n- ' + errors.join('\n- '));
   }
-
   return config;
 }
 
@@ -92,7 +84,6 @@ function createServer(config = {}) {
     console.error('\x1b[31m%s\x1b[0m', error.message);
     throw error;
   }
-
   const port = config.port || process.env.PORT || 3124;
   const streamManager = new StreamManager(config);
   const maxRequestSize = config.maxRequestSize || 1048576; // Default 1MB
@@ -117,17 +108,13 @@ function createServer(config = {}) {
       window: 3600000
     } : null
   });
-
   const server = http.createServer(async (req, res) => {
     // Set timeout
     req.setTimeout(timeout);
-    
+
     // Handle CORS with proper origin checking
     const requestOrigin = req.headers.origin;
-    const allowedOrigins = Array.isArray(config.corsOrigins) 
-      ? config.corsOrigins 
-      : [config.corsOrigins || '*'];
-
+    const allowedOrigins = Array.isArray(config.corsOrigins) ? config.corsOrigins : [config.corsOrigins || '*'];
     if (allowedOrigins.includes('*')) {
       // For wildcard, echo back the requesting origin but don't allow credentials
       res.setHeader('Access-Control-Allow-Origin', requestOrigin || '*');
@@ -141,7 +128,6 @@ function createServer(config = {}) {
       res.setHeader('Access-Control-Allow-Origin', 'null');
       res.setHeader('Access-Control-Allow-Credentials', 'false');
     }
-
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -155,16 +141,19 @@ function createServer(config = {}) {
     // Handle rate limit status endpoint
     if (req.url === '/api/limits') {
       if (req.method !== 'GET') {
-        res.writeHead(405, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
+        res.writeHead(405, {
+          'Content-Type': 'application/json'
+        });
+        res.end(JSON.stringify({
           error: 'Method not allowed',
           code: 'METHOD_NOT_ALLOWED'
         }));
         return;
       }
-
       const status = globalLimiter.checkLimits();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, {
+        'Content-Type': 'application/json'
+      });
       res.end(JSON.stringify(status));
       return;
     }
@@ -172,24 +161,26 @@ function createServer(config = {}) {
     // Handle stream endpoint
     if (req.url === '/api/stream') {
       if (req.method !== 'POST') {
-        res.writeHead(405, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
+        res.writeHead(405, {
+          'Content-Type': 'application/json'
+        });
+        res.end(JSON.stringify({
           error: 'Method not allowed',
           code: 'METHOD_NOT_ALLOWED'
         }));
         return;
       }
-
       try {
         // Parse JSON body with size limit
         const buffers = [];
         let totalSize = 0;
-
         try {
           for await (const chunk of req) {
             totalSize += chunk.length;
             if (totalSize > maxRequestSize) {
-              res.writeHead(413, { 'Content-Type': 'application/json' });
+              res.writeHead(413, {
+                'Content-Type': 'application/json'
+              });
               res.end(JSON.stringify({
                 error: 'Request entity too large',
                 code: 'PAYLOAD_TOO_LARGE',
@@ -200,36 +191,31 @@ function createServer(config = {}) {
             buffers.push(chunk);
           }
         } catch (readError) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, {
+            'Content-Type': 'application/json'
+          });
           res.end(JSON.stringify({
             error: 'Error reading request body',
             code: 'INVALID_REQUEST'
           }));
           return;
         }
-
         let data;
         try {
           data = JSON.parse(Buffer.concat(buffers).toString());
         } catch (parseError) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, {
+            'Content-Type': 'application/json'
+          });
           res.end(JSON.stringify({
             error: 'Invalid JSON in request body',
             code: 'INVALID_JSON'
           }));
           return;
         }
-
         const {
           messages,
-          model = [
-            'anthropic:good',
-            'openai:good',
-            'togetherai:good',
-            'anthropic:fast',
-            'openai:fast',
-            'togetherai:fast'
-          ],
+          model = ['anthropic:good', 'openai:good', 'togetherai:good', 'anthropic:fast', 'openai:fast', 'togetherai:fast'],
           max_tokens,
           maxTokens,
           temperature,
@@ -256,9 +242,7 @@ function createServer(config = {}) {
           ...(config.errorMessages || {}),
           ...(errorMessages || {})
         };
-
         const rateLimitMessage = errorMessagesConfig.rateLimitExceeded || 'Please try again later';
-
         try {
           // Validate inputs
           ValidationService.validateMessages(messages);
@@ -270,7 +254,9 @@ function createServer(config = {}) {
             cache
           });
         } catch (error) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, {
+            'Content-Type': 'application/json'
+          });
           res.end(JSON.stringify({
             error: error.message,
             code: error.code || 'VALIDATION_ERROR',
@@ -280,18 +266,17 @@ function createServer(config = {}) {
         }
 
         // Check global limits
-        const tokenEstimate = messages ? 
-          messages.reduce((acc, m) => acc + m.content.length / 3, 0) : 0;
-
+        const tokenEstimate = messages ? messages.reduce((acc, m) => acc + m.content.length / 3, 0) : 0;
         const limitCheck = globalLimiter.checkLimits({
           rpm: 1,
           tpm: tokenEstimate,
           tph: tokenEstimate,
           rph: 1
         });
-
         if (!limitCheck.allowed) {
-          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.writeHead(429, {
+            'Content-Type': 'application/json'
+          });
           res.end(JSON.stringify({
             error: 'Global rate limit exceeded',
             code: 'GLOBAL_RATE_LIMIT',
@@ -315,7 +300,6 @@ function createServer(config = {}) {
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive'
         });
-
         const theStream = await Stream({
           messages,
           ...normalizedParams,
@@ -327,13 +311,13 @@ function createServer(config = {}) {
           cache,
           stream: stream == null ? true : stream
         });
-
         await streamManager.createStream(theStream, res);
-
       } catch (error) {
         // If headers haven't been sent, send JSON error
         if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.writeHead(500, {
+            'Content-Type': 'application/json'
+          });
           res.end(JSON.stringify({
             error: 'Internal server error',
             code: error.code || 'INTERNAL_ERROR',
@@ -348,7 +332,6 @@ function createServer(config = {}) {
           code: error.code || 'STREAM_ERROR',
           message: error.message
         };
-        
         res.write(`event: error\ndata: ${JSON.stringify(errorResponse)}\n\n`);
         res.end();
       }
@@ -356,31 +339,29 @@ function createServer(config = {}) {
     }
 
     // Handle unknown endpoints
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ 
+    res.writeHead(404, {
+      'Content-Type': 'application/json'
+    });
+    res.end(JSON.stringify({
       error: 'Not found',
       code: 'NOT_FOUND'
     }));
   });
 
   // Handle server errors
-  server.on('error', (error) => {
+  server.on('error', error => {
     console.error('Server error:', error);
   });
-
   process.on('SIGTERM', async () => {
     console.log('SIGTERM received. Closing all streams...');
     await streamManager.closeAll();
     process.exit(0);
   });
-
   if (config.listen !== false) {
     server.listen(port, () => {
       console.log(`Proxy server listening on port ${port}`);
     });
   }
-
   return server;
 }
-
 export default createServer;
