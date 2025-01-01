@@ -47,6 +47,24 @@ export var Type = /*#__PURE__*/function () {
   }, {
     key: "parse",
     value: function parse(value) {
+      // First parse the raw value
+      var parsed = this._parse(value);
+
+      // Apply transform if present
+      if (this.transform) {
+        parsed = this.transform(parsed);
+      }
+
+      // Apply validation if present
+      if (this.validate && !this.validate(parsed)) {
+        // Instead of throwing, return default or undefined
+        return this["default"] !== undefined ? this["default"] : undefined;
+      }
+      return parsed;
+    }
+  }, {
+    key: "_parse",
+    value: function _parse(value) {
       return value;
     }
   }]);
@@ -58,8 +76,8 @@ export var StringType = /*#__PURE__*/function (_Type) {
   }
   _inherits(StringType, _Type);
   return _createClass(StringType, [{
-    key: "parse",
-    value: function parse(value) {
+    key: "_parse",
+    value: function _parse(value) {
       return (value === null || value === void 0 ? void 0 : value.trim()) || '';
     }
   }]);
@@ -71,8 +89,8 @@ export var NumberType = /*#__PURE__*/function (_Type2) {
   }
   _inherits(NumberType, _Type2);
   return _createClass(NumberType, [{
-    key: "parse",
-    value: function parse(value) {
+    key: "_parse",
+    value: function _parse(value) {
       return parseFloat((value === null || value === void 0 ? void 0 : value.trim()) || '');
     }
   }]);
@@ -84,8 +102,8 @@ export var BooleanType = /*#__PURE__*/function (_Type3) {
   }
   _inherits(BooleanType, _Type3);
   return _createClass(BooleanType, [{
-    key: "parse",
-    value: function parse(value) {
+    key: "_parse",
+    value: function _parse(value) {
       var _value$trim;
       var text = (value === null || value === void 0 || (_value$trim = value.trim()) === null || _value$trim === void 0 ? void 0 : _value$trim.toLowerCase()) || '';
       var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
@@ -104,8 +122,8 @@ export var RawType = /*#__PURE__*/function (_Type4) {
   }
   _inherits(RawType, _Type4);
   return _createClass(RawType, [{
-    key: "parse",
-    value: function parse(value) {
+    key: "_parse",
+    value: function _parse(value) {
       return value || '';
     }
   }]);
@@ -131,8 +149,8 @@ export var EnumType = /*#__PURE__*/function (_Type5) {
   }
   _inherits(EnumType, _Type5);
   return _createClass(EnumType, [{
-    key: "parse",
-    value: function parse(value) {
+    key: "_parse",
+    value: function _parse(value) {
       return (value === null || value === void 0 ? void 0 : value.trim()) || '';
     }
   }]);

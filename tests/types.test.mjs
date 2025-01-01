@@ -1,5 +1,5 @@
 import { types, StringType, NumberType, BooleanType, EnumType, RawType } from '../src/types.mjs';
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine.mjs';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine.mjs';
 
 describe('Type System', () => {
   let engine;
@@ -111,22 +111,6 @@ describe('Type System', () => {
         other: '<span>Default</span>'
       }
     });
-  });
-
-  test('enum type validates values', () => {
-    engine.add(`
-      <data>
-        <status>INVALID</status>
-      </data>
-    `);
-
-    expect(() => {
-      engine.mapSelect({
-        data: {
-          status: types.enum("Status", ['PENDING', 'ACTIVE'])
-        }
-      });
-    }).toThrow('Validation failed for value: INVALID');
   });
 
   test('types can be chained with hints and transformers', () => {
@@ -276,7 +260,7 @@ describe('Type System', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     
     expect(normalize(scaffold)).toEqual(normalize(`
       <data>
@@ -307,7 +291,7 @@ describe('Type System', () => {
     `));
 
     // Test without hints to see type information
-    const scaffoldNoHints = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const scaffoldNoHints = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     console.log('>>>>>>scaffoldNoHints', scaffoldNoHints);
     
@@ -372,7 +356,7 @@ describe('Type System', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
 
     expect(normalize(scaffold)).toEqual(normalize(`
       <data>
@@ -381,11 +365,37 @@ describe('Type System', () => {
     `));
 
     // Test scaffolding without hints
-    const scaffoldNoHints = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const scaffoldNoHints = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     expect(normalize(scaffoldNoHints)).toEqual(normalize(`
       <data>
         <status>{Enum: PENDING|ACTIVE|DONE}</status>
       </data>
     `));
+  });
+
+  test('enum type handles invalid values gracefully', () => {
+    engine.add(`
+      <data>
+        <status>INVALID</status>
+        <status2>INVALID</status2>
+      </data>
+    `);
+
+    const result = engine.mapSelect({
+      data: {
+        // With default value
+        status: types.enum("Status", ['PENDING', 'ACTIVE'])
+                    .withDefault('PENDING'),
+        // Without default value
+        status2: types.enum("Status", ['PENDING', 'ACTIVE'])
+      }
+    });
+
+    expect(result).toEqual({
+      data: {
+        status: 'PENDING',  // Falls back to default
+        // status2 is not included since it's invalid and has no default
+      }
+    });
   });
 });

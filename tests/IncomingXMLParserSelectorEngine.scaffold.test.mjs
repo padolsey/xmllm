@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('Schema and Hints Scaffold Generation', () => {
   let engine;
@@ -42,7 +42,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // The scaffold should use hints where available and fallback to generic placeholders
@@ -84,7 +84,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Should show multiple examples for arrays
@@ -116,7 +116,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Should use hints where available
@@ -165,7 +165,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Should maintain proper nesting
@@ -194,7 +194,7 @@ describe('Schema and Hints Scaffold Generation', () => {
     };
 
     // Test without hints first
-    const basicScaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const basicScaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = basicScaffold.replace(/\s+/g, ' ').trim();
 
     // Should show type hints in curly braces
@@ -216,7 +216,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const hintedScaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const hintedScaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalizedHinted = hintedScaffold.replace(/\s+/g, ' ').trim();
 
     // Should combine type hints with explicit hints
@@ -242,7 +242,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Array items should show type + hint when available
@@ -270,7 +270,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // String literals should appear as pure hints without type annotations
@@ -302,7 +302,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema, hints);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema, hints);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // String literal should be used directly without type annotation

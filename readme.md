@@ -526,6 +526,36 @@ const xmllm = require('xmllm');
 const { simple, stream } = xmllm;
 ```
 
+## Alternative Syntax: Idio
+
+In addition to XML, xmllm supports an experimental alternative markup syntax called "Idio". This syntax is designed to clearly disambiguate between structural markers and content, which is particularly useful when your LLM output itself needs to contain markup (like HTML or XML). It uses a configurable symbol (default: ⁂) that's intentionally uncommon in regular text:
+
+```javascript
+⁂START(greeting)Hello world⁂END(greeting)
+
+⁂START(colors)
+  ⁂START(color)Red⁂END(color)
+  ⁂START(color)Blue⁂END(color)
+⁂END(colors)
+```
+
+You can configure xmllm to use this syntax globally:
+
+```javascript
+import { configure } from 'xmllm';
+
+configure({
+  globalParser: 'idio',
+  // Optionally customize the symbol:
+  idioSymbol: '@'  // Now tags will look like: @START(tag)...@END(tag)
+});
+```
+
+Note: Idio doesn't support XML-style attributes, so schema properties starting with '$' (like `$text` or `$attr`) will be treated as regular tag names, which is not recommended.
+
+See [Idio Syntax Guide](docs/idio-syntax.md) for more details.
+
+
 ## License
 
-MIT 
+MIT

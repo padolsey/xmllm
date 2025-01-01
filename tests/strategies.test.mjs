@@ -1,7 +1,6 @@
 import { jest } from '@jest/globals';
 import { resetConfig } from '../src/config.mjs';
 import { stream, simple, configure } from '../src/xmllm-main.mjs';
-import { STRATEGIES } from '../src/strategies.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -24,8 +23,8 @@ describe('Strategy Configuration', () => {
     resetConfig();
   });
 
-  describe('Global Strategy Configuration', () => {
-    it('should use default strategy when none specified', async () => {
+  describe('XML Parser Strategy Configuration', () => {
+    it('should use default XML strategy when none specified', async () => {
       const TestStream = jest.fn().mockImplementation(() => ({
         getReader: () => createMockReader(['<response>test</response>'])
       }));
@@ -35,7 +34,6 @@ describe('Strategy Configuration', () => {
         schema: { response: String }
       }).last();
 
-      // Verify system message matches default strategy
       expect(TestStream).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
@@ -48,7 +46,7 @@ describe('Strategy Configuration', () => {
       );
     });
 
-    it('should use globally configured strategy', async () => {
+    it('should use globally configured strategy with XML parser', async () => {
       configure({
         defaults: {
           strategy: 'minimal'
@@ -64,7 +62,6 @@ describe('Strategy Configuration', () => {
         schema: { response: String }
       }).last();
 
-      // Verify system message matches minimal strategy
       expect(TestStream).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
@@ -78,8 +75,67 @@ describe('Strategy Configuration', () => {
     });
   });
 
-  describe('Per-Call Strategy Configuration', () => {
-    it('should allow overriding strategy in stream()', async () => {
+  describe('Simple Markup Language Strategy Configuration', () => {
+    beforeEach(() => {
+      configure({
+        globalParser: 'idio'
+      });
+    });
+
+    it('should use default simple markup strategy when none specified', async () => {
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+      }));
+
+      await stream('Test prompt', {
+        llmStream: TestStream,
+        schema: { response: String }
+      }).last();
+
+      expect(TestStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            {
+              role: 'system',
+              content: expect.stringContaining('simple markup language with only two rules')
+            }
+          ])
+        })
+      );
+    });
+
+    it('should use globally configured strategy with simple markup', async () => {
+      configure({
+        globalParser: 'idio',
+        defaults: {
+          strategy: 'minimal'
+        }
+      });
+
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+      }));
+
+      await stream('Test prompt', {
+        llmStream: TestStream,
+        schema: { response: String }
+      }).last();
+
+      expect(TestStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            {
+              role: 'system',
+              content: expect.stringContaining('OUTPUT RULES')
+            }
+          ])
+        })
+      );
+    });
+  });
+
+  describe('Strategy Override Behavior', () => {
+    it('should allow overriding strategy in stream() with XML parser', async () => {
       const TestStream = jest.fn().mockImplementation(() => ({
         getReader: () => createMockReader(['<response>test</response>'])
       }));
@@ -90,7 +146,6 @@ describe('Strategy Configuration', () => {
         schema: { response: String } 
       }).last();
 
-      // Verify system message matches assertive strategy
       expect(TestStream).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
@@ -103,23 +158,47 @@ describe('Strategy Configuration', () => {
       );
     });
 
-    it('should allow overriding strategy in simple()', async () => {
+    it('should allow overriding strategy in stream() with simple markup', async () => {
+      configure({
+        globalParser: 'idio'
+      });
+
       const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+      }));
+
+      await stream('Test prompt', {
+        llmStream: TestStream,
+        strategy: 'assertive',
+        schema: { response: String } 
+      }).last();
+
+      expect(TestStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            {
+              role: 'system',
+              content: expect.stringContaining('CRITICAL RULES')
+            }
+          ])
+        })
+      );
+    });
+
+    it('should allow overriding strategy in simple() with either parser', async () => {
+      // Test with XML parser
+      const XMLTestStream = jest.fn().mockImplementation(() => ({
         getReader: () => createMockReader(['<response>test</response>'])
       }));
 
-      await simple('Test prompt', 
-        {
-          schema: {
-            response: String
-          },
-          llmStream: TestStream,
-          strategy: 'structured'
-        }
-      );
+      await simple({
+        prompt: 'Test prompt',
+        llmStream: XMLTestStream,
+        strategy: 'structured',
+        schema: { response: String }
+      });
 
-      // Verify system message matches structured strategy
-      expect(TestStream).toHaveBeenCalledWith(
+      expect(XMLTestStream).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             {
@@ -129,28 +208,33 @@ describe('Strategy Configuration', () => {
           ])
         })
       );
-    });
-  });
 
-  describe('Strategy Behavior', () => {
+      // Test with simple markup
+      configure({
+        globalParser: 'idio'
+      });
 
-    it('should use strategy-specific scaffold formatting', async () => {
-      const TestStream = jest.fn().mockImplementation(() => ({
-        getReader: () => createMockReader(['<response>test</response>'])
+      const IdioTestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
       }));
 
-      // Test with exemplar strategy
-      await stream('Test prompt', {
-        llmStream: TestStream,
-        schema: { response: String },
-        strategy: 'exemplar'
-      }).last();
+      await simple({
+        prompt: 'Test prompt',
+        llmStream: IdioTestStream,
+        strategy: 'structured',
+        schema: { response: String }
+      });
 
-      // exemplar strategy should include example in system prompt
-      const systemMessage = TestStream.mock.calls[0][0].messages[0];
-      expect(systemMessage.content).toContain('XML GUIDELINES WITH EXAMPLE');
-      expect(systemMessage.content).toContain('<root>');
-      expect(systemMessage.content).toContain('<example>Hello &lt;world&gt;</example>');
+      expect(IdioTestStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            {
+              role: 'system',
+              content: expect.stringContaining('RESPONSE RULES')
+            }
+          ])
+        })
+      );
     });
   });
 
@@ -163,11 +247,9 @@ describe('Strategy Configuration', () => {
       await stream('Test prompt', {
         llmStream: TestStream,
         strategy: 'nonexistent-strategy',
-        // Schema is necessary if we want to use a strategy
         schema: { response: String }
       }).last();
 
-      // Should use default strategy system message
       expect(TestStream).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
@@ -179,24 +261,32 @@ describe('Strategy Configuration', () => {
         })
       );
     });
-  });
 
-  describe('Strategy List', () => {
-    it('should have all expected strategies available', () => {
-      const expectedStrategies = [
-        'default',
-        'minimal',
-        'structured',
-        'assertive',
-        'exemplar'
-      ];
-
-      expectedStrategies.forEach(strategyId => {
-        expect(STRATEGIES[strategyId]).toBeDefined();
-        expect(STRATEGIES[strategyId].id).toBe(strategyId);
-        expect(STRATEGIES[strategyId].genSystemPrompt).toBeInstanceOf(Function);
-        expect(STRATEGIES[strategyId].genUserPrompt).toBeInstanceOf(Function);
+    it('should fall back to default strategy with simple markup', async () => {
+      configure({
+        globalParser: 'idio'
       });
+
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+      }));
+
+      await stream('Test prompt', {
+        llmStream: TestStream,
+        strategy: 'nonexistent-strategy',
+        schema: { response: String }
+      }).last();
+
+      expect(TestStream).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            {
+              role: 'system',
+              content: expect.stringContaining('simple markup language with only two rules')
+            }
+          ])
+        })
+      );
     });
   });
 }); 

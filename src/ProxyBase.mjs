@@ -110,9 +110,16 @@ export class ProxyBase {
 
     this.paths = {
       stream: '/api/stream',
-      limits: '/api/limits',
-      ...this.config.paths
+      limits: '/api/limits'
     };
+
+    if (this.config?.paths?.stream) {
+      this.paths.stream = this.config.paths.stream;
+    }
+
+    if (this.config?.paths?.limits) {
+      this.paths.limits = this.config.paths.limits;
+    }
   }
 
   handleCORS(req, res) {
@@ -338,9 +345,13 @@ export class ProxyBase {
     });
 
     if (this.config.listen !== false) {
-      server.listen(this.port, () => {
-        console.log(`Proxy server listening on port ${this.port}`);
-      });
+      try {
+        server.listen(this.port, () => {
+          console.log(`Proxy server listening on port ${this.port}`);
+        });
+      } catch (error) {
+        console.error('Failed to listen on port', this.port, error);
+      }
     }
 
     return server;

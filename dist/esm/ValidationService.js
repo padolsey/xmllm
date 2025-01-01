@@ -12,7 +12,7 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 import { MessageValidationError, ModelValidationError, PayloadValidationError } from './errors/ValidationErrors.mjs';
 import PROVIDERS, { PROVIDER_ALIASES } from './PROVIDERS.mjs';
-import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
+import IncomingXMLParserSelectorEngine from './parsers/IncomingXMLParserSelectorEngine.mjs';
 var ValidationService = /*#__PURE__*/function () {
   function ValidationService() {
     _classCallCheck(this, ValidationService);

@@ -1,4 +1,4 @@
-import { Node } from '../src/IncomingXMLParserSelectorEngine.mjs';
+import { Node } from '../src/parsers/IncomingXMLParserSelectorEngine.mjs';
 
 expect.extend({
   toBeNode(received, expected) {

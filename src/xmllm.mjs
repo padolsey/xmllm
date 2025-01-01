@@ -1,8 +1,9 @@
 import createStreaming from 'streamops';
-import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
+import IncomingXMLParserSelectorEngine from './parsers/IncomingXMLParserSelectorEngine.mjs';
+import IncomingIdioParserSelectorEngine from './parsers/IncomingIdioParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
 import { getConfig, configure } from './config.mjs';
-import { getStrategy } from './strategies.mjs';
+import { getStrategy } from './strategies/index.mjs';
 import { types } from './types.mjs';
 
 const logger = new Logger('xmllm');
@@ -93,9 +94,14 @@ async function* xmllmGen(pipelineFn, {
   }
 
   function pushNewParser() {
-    const parser = new IncomingXMLParserSelectorEngine();
+    const config = getConfig();
+    const parser = config.globalParser === 'idio'
+      ? new IncomingIdioParserSelectorEngine()
+      : new IncomingXMLParserSelectorEngine();
+      
     const stack = parserStack.get(context);
     stack.push(parser);
+    
     return parser;
   }
 
@@ -257,7 +263,7 @@ async function* xmllmGen(pipelineFn, {
       const mapSelectionSchemaScaffold =
         schema &&
         IncomingXMLParserSelectorEngine
-          .makeMapSelectXMLScaffold(schema, hints);
+          .makeMapSelectScaffold(schema, hints);
 
       if (typeof transformedPrompt == 'function') {
         transformedPrompt = transformedPrompt(thing);

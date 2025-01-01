@@ -28,24 +28,42 @@ export class Type {
   }
 
   parse(value) {
+    // First parse the raw value
+    let parsed = this._parse(value);
+    
+    // Apply transform if present
+    if (this.transform) {
+      parsed = this.transform(parsed);
+    }
+    
+    // Apply validation if present
+    if (this.validate && !this.validate(parsed)) {
+      // Instead of throwing, return default or undefined
+      return this.default !== undefined ? this.default : undefined;
+    }
+    
+    return parsed;
+  }
+
+  _parse(value) {
     return value;
   }
 }
 
 export class StringType extends Type {
-  parse(value) {
+  _parse(value) {
     return value?.trim() || '';
   }
 }
 
 export class NumberType extends Type {
-  parse(value) {
+  _parse(value) {
     return parseFloat(value?.trim() || '');
   }
 }
 
 export class BooleanType extends Type {
-  parse(value) {
+  _parse(value) {
     const text = value?.trim()?.toLowerCase() || '';
     const isWordedAsFalse = ['false', 'no', 'null'].includes(text);
     const isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
@@ -59,7 +77,7 @@ export class RawType extends Type {
     this.isCData = true;
   }
 
-  parse(value) {
+  _parse(value) {
     return value || '';
   }
 }
@@ -82,7 +100,7 @@ export class EnumType extends Type {
     this.validate = value => this.allowedValues.includes(value);
   }
 
-  parse(value) {
+  _parse(value) {
     return value?.trim() || '';
   }
 }

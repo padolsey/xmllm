@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine mapSelect', () => {
   let engine;
@@ -405,7 +405,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     });
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for simple schema with attributes and text', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for simple schema with attributes and text', () => {
     const schema = {
       person: {
         $id: Number,
@@ -418,7 +418,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     };
 
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     const expectedXML = `
   <person id="{Number}">
@@ -433,11 +433,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     expect(result.replace(/\s+/g, '')).toBe(expectedXML);
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for super simple schema', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for super simple schema', () => {
 
     expect(
       IncomingXMLParserSelectorEngine
-        .makeMapSelectXMLScaffold({
+        .makeMapSelectScaffold({
           topic: String
         })
         .replace(/\s+/g, '')
@@ -445,7 +445,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for simple schema', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for simple schema', () => {
     const schema = {
       book: {
         title: title => title.toUpperCase(),
@@ -461,7 +461,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     };
 
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     const expectedXML = `
   <book>
@@ -485,7 +485,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     expect(result.replace(/\s+/g, '')).toBe(expectedXML);
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for complex schema', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for complex schema', () => {
     const schema = {
       book: {
         $id: Number,
@@ -509,7 +509,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     };
 
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     const expectedXML = `
   <book id="{Number}">
@@ -677,7 +677,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     });
   });
 
-  test('makeMapSelectXMLScaffold should use string literals as explanation hints', () => {
+  test('makeMapSelectScaffold should use string literals as explanation hints', () => {
     const schema = {
       person: {
         name: "The person's full name",
@@ -689,7 +689,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     expect(normalized).toContain(`<name>The person's full name</name>`);

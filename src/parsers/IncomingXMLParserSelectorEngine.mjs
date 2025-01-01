@@ -1,45 +1,91 @@
 import { Parser } from 'htmlparser2';
 import { selectOne, selectAll } from 'css-select';
-import { Type, EnumType, StringType, NumberType, BooleanType } from './types.mjs';
+import {
+  Type,
+  EnumType,
+  StringType,
+  NumberType,
+  BooleanType
+} from '../types.mjs';
 
-class Node {
+import AbstractIncomingParserSelectorEngine from './AbstractIncomingParserSelectorEngine.mjs';
 
-  constructor(name, o) {
-    // super();
-    this.length = 0;
-    this.__isNodeObj__ = true;
-    if (o) {
-      this.$tagkey = o.key;
-      this.$attr = o.attr;
-      this.$text = o.aggregateText;
-      this.$tagclosed = o.closed;
-      this.$children = o.children || [];
-      this.$tagname = name;
+import Node from './Node.mjs';
 
-      const { key, attr, text, closed, children, ...rest } = o;
+// class Node {
+
+//   constructor(name, o) {
+//     // super();
+//     this.length = 0;
+//     this.__isNodeObj__ = true;
+//     if (o) {
+//       this.$tagkey = o.key;
+//       this.$attr = o.attr;
+//       this.$text = o.aggregateText;
+//       this.$tagclosed = o.closed;
+//       this.$children = o.children || [];
+//       this.$tagname = name;
+
+//       const { key, attr, text, closed, children, ...rest } = o;
       
-      Object.assign(this, rest);
-    }
-  }
-}
+//       Object.assign(this, rest);
+//     }
+//   }
+// }
 
-class IncomingXMLParserSelectorEngine {
+class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngine {
+  
+  static GEN_ATTRIBUTE_MARKER = () => '$';
+
   static RESERVED_PROPERTIES = new Set([
-    '$attr',
     '$tagclosed',
     '$tagkey',
     '$children',
     '$tagname',
-    '__isNodeObj__'
+    '$attr',
+    '__isNodeObj__',
   ]);
 
+  static GEN_OPEN_TAG = (name, attrs, hints) => {
+    return `<${name}${attrs ? this.getAttributeString(attrs, hints) : ''}>`;
+  };
+  static GEN_CLOSE_TAG = (name) => `</${name}>`;
+
+  static getAttributeString(obj, hints = {}) {
+    if (typeof obj !== 'object' || obj === null) return '';
+
+    let attrs = '';
+    for (const key in obj) {
+      if (key.startsWith(this.GEN_ATTRIBUTE_MARKER()) && key !== '$text') {
+        const attrName = key.slice(1);
+        const value = obj[key];
+        const hint = hints?.[key];
+
+        // Handle string literals as pure hints
+        if (typeof value === 'string') {
+          attrs += ` ${attrName}="${value}"`;
+          continue;
+        }
+
+        // Handle functions (including primitives) with optional hints
+        if (typeof value === 'function') {
+          const typeHint = value === String ? '{String}' : 
+                          value === Number ? '{Number}' : 
+                          value === Boolean ? '{Boolean}' : '';
+          const content = hint ? hint : typeHint || '...';
+          attrs += ` ${attrName}="${content}"`;
+          continue;
+        }
+
+        // Default case
+        attrs += ` ${attrName}="${hint || '...'}"`;
+      }
+    }
+    return attrs;
+  }
+
   constructor() {
-    this.buffer = '';
-    this.parsedData = [];
-    this.openElements = [];
-    this.selectors = new Map();
-    this.returnedElementSignatures = new Map();
-    this.elementIndex = 0;
+    super();
     
     this.parser = new Parser({
       onopentag: (name, attributes) => {
@@ -103,8 +149,8 @@ class IncomingXMLParserSelectorEngine {
   // Helper to normalize and cache schemas
   normalizeSchemaWithCache(schema) {
     // Check cache first
-    let cached = this.normalizedSchemaCache.get(schema);
-    if (cached) return cached;
+    // let cached = this.normalizedSchemaCache.get(schema);
+    // if (cached) return cached;
 
     // Helper to validate and normalize schema
     const validateAndNormalizeSchema = (schema, path = '') => {
@@ -158,43 +204,28 @@ class IncomingXMLParserSelectorEngine {
     this.parser.write(chunk);
   }
 
-  getElementSignature(element, forDeduping = false) {
-    const ancestry = [];
-    let current = element;
+  // getElementSignature(element, forDeduping = false) {
+  //   const ancestry = [];
+  //   let current = element;
 
-    while (current.parent) {
-      ancestry.unshift(`${current.name}[${current.parent.children.indexOf(current)}]`);
-      current = current.parent;
-    }
+  //   while (current.parent) {
+  //     ancestry.unshift(`${current.name}[${current.parent.children.indexOf(current)}]`);
+  //     current = current.parent;
+  //   }
     
-    const signature = {
-      ancestry: ancestry.join('/'),
-      name: element.name,
-      key: element.key,
-      closed: element.closed
-    };
+  //   const signature = {
+  //     ancestry: ancestry.join('/'),
+  //     name: element.name,
+  //     key: element.key,
+  //     closed: element.closed
+  //   };
 
-    if (!forDeduping) {
-      signature.textContent = this.getTextContent(element);
-    }
+  //   if (!forDeduping) {
+  //     signature.textContent = this.getTextContent(element);
+  //   }
 
-    return JSON.stringify(signature);
-  }
-
-  getTextContent(element) {
-    if (element.type === 'text') {
-      return element.data;
-    }
-    const tc = (element.children || []).reduce((text, child) => {
-      if (child.type === 'text') {
-        return text + child.data;
-      } else if (child.type === 'tag') {
-        return text + this.getTextContent(child);
-      }
-      return text;
-    }, '');
-    return tc;
-  }
+  //   return JSON.stringify(signature);
+  // }
 
   select(selector, includeOpenTags = false) {
     function isClosed(el) {
@@ -379,7 +410,7 @@ class IncomingXMLParserSelectorEngine {
    * - RootOnce mode: (includeOpen=false, dedupe=true) - Shows only new complete elements
    * - Snapshot mode: (includeOpen=false, dedupe=false) - Shows current complete state
    */
-  mapSelect(mapping, includeOpenTags = true, doDedupe = true) {
+  mapSelect_0(mapping, includeOpenTags = true, doDedupe = true) {
     const normalizedMapping = this.normalizeSchemaWithCache(mapping);
     
     const applyMapping = (element, map) => {
@@ -413,12 +444,12 @@ class IncomingXMLParserSelectorEngine {
       // Handle Type instances
       if (map instanceof Type) {
         // Apply validation if present
-        if (map.validate && element) {
-          const value = element.$text?.trim() || '';
-          if (!map.validate(value)) {
-            throw new Error(`Validation failed for value: ${value}`);
-          }
-        }
+        // if (map.validate && element) {
+        //   const value = element.$text?.trim() || '';
+        //   if (!map.validate(value)) {
+        //     throw new Error(`Validation failed for value: ${value}`);
+        //   }
+        // }
         
         // If there's no element and no default, return undefined
         if (!element && map.default === undefined) {
@@ -546,215 +577,6 @@ class IncomingXMLParserSelectorEngine {
     });
 
     return results;
-  }
-
-  static validateHints(schema, hints) {
-    function validateStructure(schemaObj, hintsObj, path = '') {
-      if (!hintsObj) return; // Hints are optional
-
-      console.log('validateStructure', {
-        schemaObj,
-        hintsObj,
-        path
-      })
-
-      // Handle primitives in schema
-      if (typeof schemaObj !== 'object' || schemaObj === null || schemaObj instanceof Type) {
-        return;
-      }
-
-      // Handle arrays
-      if (Array.isArray(schemaObj)) {
-        if (schemaObj.length !== 1) {
-          throw new Error(`Schema array at ${path} must have exactly one element`);
-        }
-        if (hintsObj && !Array.isArray(hintsObj) && typeof hintsObj !== 'string') {
-          throw new Error(`Hints at ${path} must be array or string for array schema`);
-        }
-        validateStructure(schemaObj[0], Array.isArray(hintsObj) ? hintsObj[0] : hintsObj, `${path}[]`);
-        return;
-      }
-
-      // Check each hint has corresponding schema definition
-      for (const key in hintsObj) {
-        console.log('thing', {
-          hintsObj,
-          schemaObj,
-          key,
-          path
-        })
-        if (!schemaObj.hasOwnProperty(key)) {
-          throw new Error(`Hint "${key}" has no corresponding schema definition at ${path}`);
-        }
-        validateStructure(
-          schemaObj[key],
-          hintsObj[key],
-          path ? `${path}.${key}` : key
-        );
-      }
-    }
-
-    validateStructure(schema, hints);
-  }
-
-  static makeMapSelectXMLScaffold(schema, hints = {}, indent = 2) {
-    function processObject(obj, hintObj = {}, level = 0) {
-      let xml = '';
-      const indentation = ' '.repeat(level * indent);
-
-      for (let key in obj) {
-        const value = obj[key];
-        const hint = hintObj[key];
-
-        // Skip attribute markers
-        if (key.startsWith('$')) {
-          continue;
-        }
-
-        // Handle string literals as pure hints
-        if (typeof value === 'string') {
-          xml += `${indentation}<${key}>${value}</${key}>\n`;
-          continue;
-        }
-
-        // Handle functions (including primitives) with optional hints
-        if (typeof value === 'function') {
-          const typeHint = value === String ? '{String}' : 
-                          value === Number ? '{Number}' : 
-                          value === Boolean ? '{Boolean}' : '';
-          const content = hint ? hint : typeHint || '...';
-          xml += `${indentation}<${key}>${content}</${key}>\n`;
-          continue;
-        }
-
-        // Handle Type instances
-        if (value instanceof Type) {
-          // Determine content following the same pattern as other types
-          let typeHint = '';
-          if (value instanceof StringType) typeHint = '{String}';
-          else if (value instanceof NumberType) typeHint = '{Number}';
-          else if (value instanceof BooleanType) typeHint = '{Boolean}';
-          else if (value instanceof EnumType) typeHint = `{Enum: ${value.allowedValues?.join('|')}}`;
-          
-          const content = hint || typeHint || '...';
-          
-          if (value.isCData) {
-            xml += `${indentation}<${key}><![CDATA[${content}]]></${key}>\n`;
-          } else {
-            xml += `${indentation}<${key}>${content}</${key}>\n`;
-          }
-          continue;
-        }
-
-        // Handle arrays
-        if (Array.isArray(value)) {
-          const itemValue = value[0];
-          const itemHint = Array.isArray(hint) ? hint[0] : hint;
-
-          // Show two examples for arrays
-          for (let i = 0; i < 2; i++) {
-            xml += `${indentation}<${key}${getAttributeString(itemValue, itemHint)}>\n`;
-            
-            // Handle text content for array items
-            if (typeof itemValue !== 'object' || itemValue === null) {
-              // For primitive arrays, use the hint directly if it's a string
-              const content =
-                typeof itemHint === 'string' ? itemHint :
-                typeof itemValue === 'string' ? itemValue :
-                itemValue === String ? '{String}' :
-                itemValue === Number ? '{Number}' :
-                itemValue === Boolean ? '{Boolean}' : '...';
-              xml += `${indentation}  ${content}\n`;
-            } else {
-              // Handle text content from $text in object
-              if (itemValue.$text !== undefined) {
-                const textContent = itemHint?.$text || (
-                  typeof itemValue.$text === 'function' ? 
-                    (itemValue.$text === String ? '{String}' :
-                     itemValue.$text === Number ? '{Number}' :
-                     itemValue.$text === Boolean ? '{Boolean}' : '...') :
-                    (typeof itemValue.$text === 'string' ? itemValue.$text : '...')
-                );
-                xml += `${indentation}  ${textContent}\n`;
-              } else if (itemHint?.$text) {
-                xml += `${indentation}  ${itemHint.$text}\n`;
-              }
-              xml += processObject(itemValue, itemHint, level + 1);
-            }
-            
-            xml += `${indentation}</${key}>\n`;
-          }
-          xml += `${indentation}/*etc.*/\n`;
-          continue;
-        }
-
-        // Handle objects
-        if (typeof value === 'object' && value !== null) {
-          const attrs = getAttributeString(value, hint);
-          xml += `${indentation}<${key}${attrs}>\n`;
-          
-          // Handle text content - check if it's explicitly typed
-          if (value.$text !== undefined) {
-            const textContent = hint?.$text || (
-              typeof value.$text === 'function' ? 
-                (value.$text === String ? '{String}' :
-                 value.$text === Number ? '{Number}' :
-                 value.$text === Boolean ? '{Boolean}' :
-                 '...') :
-              (typeof value.$text === 'string' ? value.$text : '...')
-            );
-            xml += `${indentation}  ${textContent}\n`;
-          } else if (hint?.$text) {
-            xml += `${indentation}  ${hint.$text}\n`;
-          }
-          
-          xml += processObject(value, hint || {}, level + 1);
-          xml += `${indentation}</${key}>\n`;
-        }
-      }
-
-      return xml;
-    }
-
-    function getAttributeString(obj, hints = {}) {
-      if (typeof obj !== 'object' || obj === null) return '';
-
-      let attrs = '';
-      for (const key in obj) {
-        if (key.startsWith('$') && key !== '$text') {
-          const attrName = key.slice(1);
-          const value = obj[key];
-          const hint = hints?.[key];
-
-          // Handle string literals as pure hints
-          if (typeof value === 'string') {
-            attrs += ` ${attrName}="${value}"`;
-            continue;
-          }
-
-          // Handle functions (including primitives) with optional hints
-          if (typeof value === 'function') {
-            const typeHint = value === String ? '{String}' : 
-                            value === Number ? '{Number}' : 
-                            value === Boolean ? '{Boolean}' : '';
-            const content = hint ? hint : typeHint || '...';
-            attrs += ` ${attrName}="${content}"`;
-            continue;
-          }
-
-          // Default case
-          attrs += ` ${attrName}="${hint || '...'}"`;
-        }
-      }
-      return attrs;
-    }
-
-    // Validate hints against schema if provided
-    if (Object.keys(hints).length > 0) {
-      IncomingXMLParserSelectorEngine.validateHints(schema, hints);
-    }
-
-    return processObject(schema, hints);
   }
 }
 

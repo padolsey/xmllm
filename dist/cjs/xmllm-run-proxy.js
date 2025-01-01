@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
-var _url = require("url");
-var _path = require("path");
 var _dotenv = _interopRequireDefault(require("dotenv"));
+var _default = _interopRequireDefault(require("./proxies/default.js"));
+var _cot = _interopRequireDefault(require("./proxies/cot.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 console.log('Starting Proxy');
 // Load environment variables from .env file if present
@@ -33,20 +33,15 @@ var safeParseInt = function safeParseInt(value, name) {
 try {
   // Get proxy type from command line or default to 'default'
   var proxyType = getArg('type') || 'default';
-  var proxyPath = (0, _path.join)((0, _path.dirname)((0, _path.dirname)((0, _url.fileURLToPath)(import.meta.url))), 'src/proxies', "".concat(proxyType, ".mjs"));
-  console.log("Loading proxy: ".concat(proxyType, " from ").concat(proxyPath));
-  var createProxy;
-  try {
-    var _module = await import(proxyPath);
-    createProxy = _module["default"];
-    if (typeof createProxy !== 'function') {
-      throw new Error("Proxy module '".concat(proxyType, "' does not export a default function"));
-    }
-  } catch (importError) {
-    if (importError.code === 'ERR_MODULE_NOT_FOUND') {
-      throw new Error("Proxy type '".concat(proxyType, "' not found. Available proxies are in the 'proxies' directory.\n") + "Try:\n" + "  - default (standard proxy)\n" + "  - cot (chain of thought proxy)\n" + "Or create a new one at: src/proxies/".concat(proxyType, ".mjs"));
-    }
-    throw importError;
+
+  // Simple mapping of proxy types to their create functions
+  var proxyCreators = {
+    "default": _default["default"],
+    cot: _cot["default"]
+  };
+  var createProxy = proxyCreators[proxyType];
+  if (!createProxy) {
+    throw new Error("Proxy type '".concat(proxyType, "' not found. Available proxies are:\n") + "  - default (standard proxy)\n" + "  - cot (chain of thought proxy)");
   }
   var config = {
     corsOrigins: getArg('corsOrigins') || '*',
@@ -57,8 +52,7 @@ try {
     verbose: args.includes('--verbose'),
     paths: {
       stream: getArg('paths.stream'),
-      // Will be a string or undefined
-      limits: getArg('paths.limits') // Will be a string or undefined
+      limits: getArg('paths.limits')
     },
     globalRequestsPerMinute: safeParseInt(getArg('globalRequestsPerMinute') || process.env.GLOBAL_RATE_LIMIT, 'globalRequestsPerMinute'),
     globalTokensPerMinute: safeParseInt(getArg('globalTokensPerMinute') || process.env.GLOBAL_TOKENS_PER_MINUTE, 'globalTokensPerMinute'),

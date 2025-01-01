@@ -13,6 +13,8 @@ var DEFAULT_CONFIG = {
     customLogger: null
   },
   clientProvider: null,
+  globalParser: 'xml',
+  idioSymbol: '⁂',
   defaults: {
     temperature: 0.72,
     maxTokens: 300,
@@ -42,6 +44,22 @@ var validateLogLevel = function validateLogLevel(level) {
 };
 export function configure() {
   var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  // Validate parser type if provided
+  if (options.globalParser) {
+    if (!['xml', 'idio'].includes(options.globalParser)) {
+      throw new Error('Invalid parser type. Must be either "xml" or "idio"');
+    }
+    CONFIG.globalParser = options.globalParser;
+  }
+
+  // Validate idioSymbol if provided
+  if (options.idioSymbol !== undefined) {
+    if (typeof options.idioSymbol !== 'string' || options.idioSymbol.length === 0) {
+      throw new Error('idioSymbol must be a non-empty string');
+    }
+    CONFIG.idioSymbol = options.idioSymbol;
+  }
+
   // Handle clientProvider string -> ClientProvider conversion
   if (options.clientProvider) {
     var provider = typeof options.clientProvider === 'string' ? new ClientProvider(options.clientProvider) : options.clientProvider;

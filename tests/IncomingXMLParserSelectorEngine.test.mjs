@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine, { Node } from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine, { Node } from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 expect.extend({
   toBeNode(received, expected) {

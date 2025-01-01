@@ -18,10 +18,11 @@ Object.defineProperty(exports, "types", {
 });
 exports.pipeline = exports.xmllm = xmllm;
 var _streamops = _interopRequireDefault(require("streamops"));
-var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
+var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./parsers/IncomingXMLParserSelectorEngine.js"));
+var _IncomingIdioParserSelectorEngine = _interopRequireDefault(require("./parsers/IncomingIdioParserSelectorEngine.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
 var _config2 = require("./config.js");
-var _strategies = require("./strategies.js");
+var _index = require("./strategies/index.js");
 var _types = require("./types.js");
 var _excluded = ["mapper"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
@@ -621,7 +622,7 @@ function _xmllmGen() {
                 keys = _ref8.keys;
               var config = (0, _config2.getConfig)();
               var strategyId = strategy || config.defaults.strategy;
-              var selectedStrategy = (0, _strategies.getStrategy)(strategyId);
+              var selectedStrategy = (0, _index.getStrategy)(strategyId);
               messages = (messages || []).slice();
               var prompt = '';
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
@@ -645,7 +646,7 @@ function _xmllmGen() {
                       case 0:
                         parser = pushNewParser();
                         transformedPrompt = prompt;
-                        mapSelectionSchemaScaffold = schema && _IncomingXMLParserSelectorEngine["default"].makeMapSelectXMLScaffold(schema, hints);
+                        mapSelectionSchemaScaffold = schema && _IncomingXMLParserSelectorEngine["default"].makeMapSelectScaffold(schema, hints);
                         if (typeof transformedPrompt == 'function') {
                           transformedPrompt = transformedPrompt(thing);
                         }
@@ -879,7 +880,8 @@ function _xmllmGen() {
               }();
             };
             pushNewParser = function _pushNewParser() {
-              var parser = new _IncomingXMLParserSelectorEngine["default"]();
+              var config = (0, _config2.getConfig)();
+              var parser = config.globalParser === 'idio' ? new _IncomingIdioParserSelectorEngine["default"]() : new _IncomingXMLParserSelectorEngine["default"]();
               var stack = parserStack.get(context);
               stack.push(parser);
               return parser;

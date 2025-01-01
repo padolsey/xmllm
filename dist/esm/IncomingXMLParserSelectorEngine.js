@@ -427,13 +427,12 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         // Handle Type instances
         if (map instanceof Type) {
           // Apply validation if present
-          if (map.validate && element) {
-            var _element$$text;
-            var _value = ((_element$$text = element.$text) === null || _element$$text === void 0 ? void 0 : _element$$text.trim()) || '';
-            if (!map.validate(_value)) {
-              throw new Error("Validation failed for value: ".concat(_value));
-            }
-          }
+          // if (map.validate && element) {
+          //   const value = element.$text?.trim() || '';
+          //   if (!map.validate(value)) {
+          //     throw new Error(`Validation failed for value: ${value}`);
+          //   }
+          // }
 
           // If there's no element and no default, return undefined
           if (!element && map["default"] === undefined) {
@@ -461,15 +460,15 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
         // Handle built-in constructors
         if (typeof map === 'function') {
           if (map === Number) {
-            var _element$$text2, _element$$text2$trim;
-            return parseFloat(((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2)) || '');
+            var _element$$text, _element$$text$trim;
+            return parseFloat(((_element$$text = element.$text) === null || _element$$text === void 0 || (_element$$text$trim = _element$$text.trim) === null || _element$$text$trim === void 0 ? void 0 : _element$$text$trim.call(_element$$text)) || '');
           }
           if (map === String) {
             return String(element.$text);
           }
           if (map === Boolean) {
-            var _element$$text3, _element$$text3$trim;
-            var text = ((_element$$text3 = element.$text) === null || _element$$text3 === void 0 || (_element$$text3$trim = _element$$text3.trim) === null || _element$$text3$trim === void 0 ? void 0 : _element$$text3$trim.call(_element$$text3).toLowerCase()) || '';
+            var _element$$text2, _element$$text2$trim;
+            var text = ((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2).toLowerCase()) || '';
             var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
             var isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
             return !isEssentiallyFalsey;
@@ -483,13 +482,13 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
           for (var k in map) {
             var mapItem = map[k];
             if (k === '_' || k === '$text') {
-              var _value2 = _applyMapping(element === null || element === void 0 ? void 0 : element.$text, mapItem);
-              if (_value2 !== undefined) out[k] = _value2;
+              var _value = _applyMapping(element === null || element === void 0 ? void 0 : element.$text, mapItem);
+              if (_value !== undefined) out[k] = _value;
             } else if (k.startsWith('$')) {
               var attrName = k.slice(1);
               if (element !== null && element !== void 0 && element.$attr && element.$attr[attrName] != null) {
-                var _value3 = _applyMapping(element.$attr[attrName], mapItem);
-                if (_value3 !== undefined) out[k] = _value3;
+                var _value2 = _applyMapping(element.$attr[attrName], mapItem);
+                if (_value2 !== undefined) out[k] = _value2;
               }
             } else {
               var childElement = element === null || element === void 0 ? void 0 : element[k];
@@ -499,21 +498,21 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function () {
                   out[k] = mapItem["default"];
                 } else if (_typeof(mapItem) === 'object' && !Array.isArray(mapItem)) {
                   // Recursively handle nested objects with null element
-                  var _value4 = _applyMapping(null, mapItem);
+                  var _value3 = _applyMapping(null, mapItem);
                   // Only include the object if it has properties
-                  if (_value4 !== undefined && Object.keys(_value4).length > 0) {
-                    out[k] = _value4;
+                  if (_value3 !== undefined && Object.keys(_value3).length > 0) {
+                    out[k] = _value3;
                   }
                 } else {
                   // Don't include arrays or undefined values
                   if (Array.isArray(mapItem)) out[k] = [];
                 }
               } else if (Array.isArray(mapItem)) {
-                var _value5 = _applyMapping(childElement, mapItem);
-                if (_value5 !== undefined) out[k] = _value5;
+                var _value4 = _applyMapping(childElement, mapItem);
+                if (_value4 !== undefined) out[k] = _value4;
               } else {
-                var _value6 = _applyMapping(Array.isArray(childElement) ? childElement[0] : childElement, mapItem);
-                if (_value6 !== undefined) out[k] = _value6;
+                var _value5 = _applyMapping(Array.isArray(childElement) ? childElement[0] : childElement, mapItem);
+                if (_value5 !== undefined) out[k] = _value5;
               }
             }
           }
