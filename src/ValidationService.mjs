@@ -4,7 +4,7 @@ import {
   PayloadValidationError
 } from './errors/ValidationErrors.mjs';
 import PROVIDERS, { PROVIDER_ALIASES } from './PROVIDERS.mjs';
-import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
+import IncomingXMLParserSelectorEngine from './parsers/IncomingXMLParserSelectorEngine.mjs';
 
 class ValidationService {
   static validateMessages(messages) {

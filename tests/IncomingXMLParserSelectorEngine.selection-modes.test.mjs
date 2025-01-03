@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('Selection Modes', () => {
   let engine;
@@ -87,15 +87,15 @@ describe('Selection Modes', () => {
       engine.add('<color>red</color>');
       
       let result = engine.select('color', false); // includeOpen=false
-      expect(result.map(n => n.$text)).toEqual(['red']);
+      expect(result.map(n => n.$$text)).toEqual(['red']);
 
       engine.add('<color>blu'); // Incomplete
       result = engine.select('color', false);
-      expect(result.map(n => n.$text)).toEqual(['red']); // Still just red
+      expect(result.map(n => n.$$text)).toEqual(['red']); // Still just red
 
       engine.add('e</color>');
       result = engine.select('color', false);
-      expect(result.map(n => n.$text)).toEqual(['red', 'blue']);
+      expect(result.map(n => n.$$text)).toEqual(['red', 'blue']);
     });
   });
 
@@ -105,16 +105,16 @@ describe('Selection Modes', () => {
       
       engine.add('<colors>');
       engine.add('<color>re');
-      updates.push(engine.select('color', true).map(n => n.$text));
+      updates.push(engine.select('color', true).map(n => n.$$text));
       
       engine.add('d</color>');
-      updates.push(engine.select('color', true).map(n => n.$text));
+      updates.push(engine.select('color', true).map(n => n.$$text));
       
       engine.add('<color>blu');
-      updates.push(engine.select('color', true).map(n => n.$text));
+      updates.push(engine.select('color', true).map(n => n.$$text));
       
       engine.add('e</color>');
-      updates.push(engine.select('color', true).map(n => n.$text));
+      updates.push(engine.select('color', true).map(n => n.$$text));
 
       expect(updates).toEqual([
         ['re'],           // Partial first color
@@ -132,18 +132,18 @@ describe('Selection Modes', () => {
       
       // With deduplication
       let withDedupe = engine.dedupeSelect('item', true);
-      expect(withDedupe.map(n => n.$text)).toEqual(['1', '2']);
+      expect(withDedupe.map(n => n.$$text)).toEqual(['1', '2']);
       
       // Add another complete element
       engine.add('<item>3</item>');
       
       // With deduplication - only shows new element
       withDedupe = engine.dedupeSelect('item', true);
-      expect(withDedupe.map(n => n.$text)).toEqual(['3']);
+      expect(withDedupe.map(n => n.$$text)).toEqual(['3']);
       
       // Without deduplication - shows all elements
       let withoutDedupe = engine.select('item', true);
-      expect(withoutDedupe.map(n => n.$text)).toEqual(['1', '2', '3']);
+      expect(withoutDedupe.map(n => n.$$text)).toEqual(['1', '2', '3']);
     });
   });
 }); 

@@ -54,7 +54,7 @@ describe('Parser Isolation', () => {
       req("First request"),
       select('name'),
       async function*(x) {
-        if (x?.$text === 'Alice') {
+        if (x?.$$text === 'Alice') {
           aliceCount++;
           console.log('Found Alice node:', aliceCount, 'times');
           yield x;
@@ -63,7 +63,7 @@ describe('Parser Isolation', () => {
       req("Second request"),
       select('title'),
       async function*(x) {
-        if (x?.$text === 'Hello') {
+        if (x?.$$text === 'Hello') {
           helloCount++;
           console.log('Found Hello node:', helloCount, 'times');
           yield x;

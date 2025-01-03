@@ -114,10 +114,10 @@ describe('xmllm - batch operator', () => {
     expect(results[1].length).toBe(2); // Second batch has 2 items
     
     // Verify the content of nodes
-    expect(results[0][0].$text).toBe('First');
-    expect(results[0][1].$text).toBe('Second');
-    expect(results[1][0].$text).toBe('Third');
-    expect(results[1][1].$text).toBe('Fourth');
+    expect(results[0][0].$$text).toBe('First');
+    expect(results[0][1].$$text).toBe('Second');
+    expect(results[1][0].$$text).toBe('Third');
+    expect(results[1][1].$$text).toBe('Fourth');
   });
 
   it('should work with async generators', async () => {

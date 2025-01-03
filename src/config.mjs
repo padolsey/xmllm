@@ -8,6 +8,14 @@ const DEFAULT_CONFIG = {
     customLogger: null
   },
   clientProvider: null,
+  globalParser: 'xml',
+  idioSymbols: {
+    tagPrefix: '@',
+    closePrefix: '@', 
+    openBrace: 'START(',
+    closeBrace: 'END(',
+    braceSuffix: ')'
+  },
   defaults: {
     temperature: 0.72,
     maxTokens: 300,
@@ -46,6 +54,14 @@ const validateLogLevel = (level) => {
 
 export function configure(options = {}) {
   
+  // Validate parser type if provided
+  if (options.globalParser) {
+    if (!['xml', 'idio'].includes(options.globalParser)) {
+      throw new Error('Invalid parser type. Must be either "xml" or "idio"');
+    }
+    CONFIG.globalParser = options.globalParser;
+  }
+
   // Handle clientProvider string -> ClientProvider conversion
   if (options.clientProvider) {
     const provider = typeof options.clientProvider === 'string' 
@@ -122,6 +138,32 @@ export function configure(options = {}) {
           ...options.keys
         }
       }
+    };
+  }
+
+  // Handle idioSymbols configuration
+  if (options.idioSymbols) {
+    // Validate properties that must be non-empty strings
+    const requiredNonEmptyProps = ['tagPrefix', 'closePrefix', 'braceSuffix'];
+    const optionalProps = ['openBrace', 'closeBrace'];
+    
+    // Validate each provided property
+    Object.entries(options.idioSymbols).forEach(([key, value]) => {
+      // All properties must be strings
+      if (typeof value !== 'string') {
+        throw new Error(`${key} must be a non-empty string`);
+      }
+      // Some properties must be non-empty
+      if (requiredNonEmptyProps.includes(key) && value.length === 0) {
+        throw new Error(`${key} cannot be empty`);
+      }
+    });
+
+    // Ensure we preserve defaults for non-provided values
+    CONFIG.idioSymbols = {
+      ...DEFAULT_CONFIG.idioSymbols, // Start with defaults
+      ...CONFIG.idioSymbols,         // Apply any existing config
+      ...options.idioSymbols         // Apply new options
     };
   }
 }

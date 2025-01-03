@@ -216,8 +216,8 @@ describe('xmllm simple()', () => {
       {
         schema: {
           data: {
-            date: element => new Date(element.$text),
-            tags: element => element.$text.split(',')
+            date: element => new Date(element.$$text),
+            tags: element => element.$$text.split(',')
           }
         },
         llmStream: TestStream

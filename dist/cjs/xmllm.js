@@ -10,12 +10,20 @@ Object.defineProperty(exports, "configure", {
   }
 });
 exports["default"] = void 0;
+Object.defineProperty(exports, "types", {
+  enumerable: true,
+  get: function get() {
+    return _types.types;
+  }
+});
 exports.pipeline = exports.xmllm = xmllm;
 var _streamops = _interopRequireDefault(require("streamops"));
-var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./IncomingXMLParserSelectorEngine.js"));
+var _IncomingXMLParserSelectorEngine = _interopRequireDefault(require("./parsers/IncomingXMLParserSelectorEngine.js"));
+var _IncomingIdioParserSelectorEngine = _interopRequireDefault(require("./parsers/IncomingIdioParserSelectorEngine.js"));
 var _Logger = _interopRequireDefault(require("./Logger.js"));
 var _config2 = require("./config.js");
-var _strategies = require("./strategies.js");
+var _index = require("./strategies/index.js");
+var _types = require("./types.js");
 var _excluded = ["mapper"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -46,20 +54,20 @@ function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r
 var logger = new _Logger["default"]('xmllm');
 var text = function text(fn) {
   return function (_ref5) {
-    var $text = _ref5.$text;
-    return fn ? fn($text) : $text;
+    var $$text = _ref5.$$text;
+    return fn ? fn($$text) : $$text;
   };
 };
 var withAttrs = function withAttrs(fn) {
   return function (_ref6) {
-    var $text = _ref6.$text,
-      $attr = _ref6.$attr;
-    return fn($text, $attr);
+    var $$text = _ref6.$$text,
+      $$attr = _ref6.$$attr;
+    return fn($$text, $$attr);
   };
 };
 var whenClosed = function whenClosed(fn) {
   return function (el) {
-    return el.$tagclosed ? fn(el) : undefined;
+    return el.$$tagclosed ? fn(el) : undefined;
   };
 };
 var parserStack = new WeakMap();
@@ -614,7 +622,7 @@ function _xmllmGen() {
                 keys = _ref8.keys;
               var config = (0, _config2.getConfig)();
               var strategyId = strategy || config.defaults.strategy;
-              var selectedStrategy = (0, _strategies.getStrategy)(strategyId);
+              var selectedStrategy = (0, _index.getStrategy)(strategyId);
               messages = (messages || []).slice();
               var prompt = '';
               if ((_messages = messages) !== null && _messages !== void 0 && _messages.length) {
@@ -638,7 +646,7 @@ function _xmllmGen() {
                       case 0:
                         parser = pushNewParser();
                         transformedPrompt = prompt;
-                        mapSelectionSchemaScaffold = schema && _IncomingXMLParserSelectorEngine["default"].makeMapSelectXMLScaffold(schema, hints);
+                        mapSelectionSchemaScaffold = schema && parser.constructor.makeMapSelectScaffold(schema, hints);
                         if (typeof transformedPrompt == 'function') {
                           transformedPrompt = transformedPrompt(thing);
                         }
@@ -872,7 +880,8 @@ function _xmllmGen() {
               }();
             };
             pushNewParser = function _pushNewParser() {
-              var parser = new _IncomingXMLParserSelectorEngine["default"]();
+              var config = (0, _config2.getConfig)();
+              var parser = config.globalParser === 'idio' ? new _IncomingIdioParserSelectorEngine["default"]() : new _IncomingXMLParserSelectorEngine["default"]();
               var stack = parserStack.get(context);
               stack.push(parser);
               return parser;

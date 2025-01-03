@@ -87,7 +87,7 @@ describe('Stream Interface Basics', () => {
         type: typeof chunk,
         value: chunk,
         isNode: chunk?.__isNodeObj__,
-        text: chunk?.$text
+        text: chunk?.$$text
       });
       yields.push(chunk);
     }

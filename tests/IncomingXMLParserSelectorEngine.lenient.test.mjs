@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
   let engine;
@@ -14,13 +14,13 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
 
     expect(engine.mapSelect({
       outer: {
-        $text: String,
+        $$text: String,
         inner: String
       },
       root: String
     })).toEqual({
       outer: {
-        $text: 'Start...Inside...',
+        $$text: 'Start...Inside...',
         inner: '...Inside...'
       },
       root: 'Root...Start...Inside...Outside'
@@ -36,7 +36,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
       book: {
         title: String,
         author: { // query author as object.
-          $text: String,
+          $$text: String,
           pages: Number
         },
 
@@ -52,7 +52,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
       book: {
         title: 'My Book',
         author: {
-          $text: 'John Doe100',
+          $$text: 'John Doe100',
           pages: 100
         }, // author is still _open_
         pages: undefined // pages is not root level
@@ -77,9 +77,9 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
     
     const result = engine.mapSelect({
       p: {
-        $text: String,
+        $$text: String,
         b: {
-          $text: String,
+          $$text: String,
           i: String
         }
       }
@@ -87,9 +87,9 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
 
     expect(result).toEqual({
       p: {
-        $text: 'FirstBoldBold-ItalicItalic', // entire textContent
+        $$text: 'FirstBoldBold-ItalicItalic', // entire textContent
         b: {
-          $text: 'BoldBold-Italic',
+          $$text: 'BoldBold-Italic',
           i: 'Bold-Italic'
         }
       }
@@ -135,8 +135,8 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
 
     const result = engine.mapSelect({
       article: {
-        $text: text => text.trim().replace(/\s+/g, ' '),  // Normalize whitespace
-        p: [({ $text }) => $text.trim()]  // Trim each paragraph
+        $$text: text => text.trim().replace(/\s+/g, ' '),  // Normalize whitespace
+        p: [({ $$text }) => $$text.trim()]  // Trim each paragraph
       }
     });
 
@@ -144,7 +144,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
     expect(result).toEqual({
       article: {
         // _ (textContent) is entire aggregated content:
-        $text: 'Text before Paragraph Floating text Another More floating Final',
+        $$text: 'Text before Paragraph Floating text Another More floating Final',
         p: ['Paragraph', 'Another', 'Final']
       }
     });
@@ -163,7 +163,7 @@ describe('IncomingXMLParserSelectorEngine Lenient Parsing', () => {
     `);
 
     const result = engine.mapSelect({
-      name: [({$text}) => $text.trim().replace(/\s+/g, ' ')]
+      name: [({$$text}) => $$text.trim().replace(/\s+/g, ' ')]
     });
 
     // The parser should extract what it can from the messy input

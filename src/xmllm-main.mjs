@@ -4,6 +4,7 @@ import ProviderManager from './ProviderManager.mjs';
 import ChainableStreamInterface from './ChainableStreamInterface.mjs';
 import { configure, getConfig, resetConfig } from './config.mjs';
 import ValidationService from './ValidationService.mjs';
+import { types } from './types.mjs';
 
 function xmllm(pipelineFn, options = {}) {
   let providerManager;
@@ -183,7 +184,8 @@ export {
   stream,
   simple,
   getConfig,
-  resetConfig
+  resetConfig,
+  types
 };
 
 // Export pipeline as default for backward compatibility

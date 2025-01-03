@@ -120,7 +120,7 @@ var ChainableStreamInterface = exports.ChainableStreamInterface = /*#__PURE__*/f
     key: "text",
     value: function text() {
       return new ChainableStreamInterface([].concat(_toConsumableArray(this.pipeline), [['map', function (el) {
-        return el === null || el === void 0 ? void 0 : el.$text;
+        return el === null || el === void 0 ? void 0 : el.$$text;
       }]]), this.options);
     }
   }, {
@@ -302,8 +302,8 @@ var ChainableStreamInterface = exports.ChainableStreamInterface = /*#__PURE__*/f
                             return map.call(_this, arg);
                           case 'text':
                             return map.call(_this, function (_ref4) {
-                              var $text = _ref4.$text;
-                              return $text;
+                              var $$text = _ref4.$$text;
+                              return $$text;
                             });
                           case 'raw':
                             return map.call(_this, function (t) {
@@ -383,7 +383,7 @@ var ChainableStreamInterface = exports.ChainableStreamInterface = /*#__PURE__*/f
       return new ChainableStreamInterface([].concat(_toConsumableArray(this.pipeline), [
       // Only let elements pass through if they're closed
       ['filter', function (el) {
-        return el !== null && el !== void 0 && el.__isNodeObj__ ? !!el.$tagclosed : true;
+        return el !== null && el !== void 0 && el.__isNodeObj__ ? !!el.$$tagclosed : true;
       }]]), this.options);
     }
 

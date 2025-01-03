@@ -1,5 +1,5 @@
 import xmllm from '../src/xmllm.mjs';
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine.mjs';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine.mjs';
 
 describe('Object Coercion Investigation', () => {
   test('observe basic pipeline yields', async () => {

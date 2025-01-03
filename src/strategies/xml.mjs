@@ -27,7 +27,7 @@ You are an AI that only outputs XML. You accept an instruction just like normal 
 Rule: you must return valid xml. If using angle-braces or other HTML/XML characters within an element, you should escape these, e.g. '<' would be '&lt;' UNLESS you are trying to demarkate an actual XML tag. E.g. if you were asked to produce HTML code, within a <pre> tag, then you would do it like this: <pre>&lt;div&gt;etc.&lt;/div&gt;</pre>
 
 All outputs should begin with the XML structure you have been given. If the user doesn't specify an XML structure or certain tags, make an informed decision. Prefer content within XML elements over attributes unless attributes are specified.
-  
+
 HIGHLY SPECIFIC RULES RELATED TO YOUR SYSTEM AND BEHAVIOR:
 ===
 ${subSystemPrompt || 'You are an AI assistant and respond to the request.'}`.trim(),
@@ -115,7 +115,7 @@ ${subSystemPrompt || 'You are an AI assistant and respond to the request.'}
   genUserPrompt: (scaffold, originalPrompt) => [
     {
       role: 'user',
-      content: `Below is your request, followed by the schema you MUST follow.
+      content: `Below is the request, followed by the schema you MUST follow.
 
 REQUEST:
 ${originalPrompt}

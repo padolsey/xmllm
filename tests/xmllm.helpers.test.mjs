@@ -75,7 +75,7 @@ describe('xmllm transformer helpers', () => {
       prompt(
         'Test prompt',
         {
-          status: whenClosed(({$text: text}) => `Complete: ${text}`)
+          status: whenClosed(({$$text: text}) => `Complete: ${text}`)
         },
         null,
         '<status>Loading</status>'

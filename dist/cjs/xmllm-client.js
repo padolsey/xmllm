@@ -31,12 +31,19 @@ Object.defineProperty(exports, "resetConfig", {
 });
 exports.simple = simple;
 exports.stream = stream;
+Object.defineProperty(exports, "types", {
+  enumerable: true,
+  get: function get() {
+    return _types.types;
+  }
+});
 exports.pipeline = exports.xmllm = xmllmClient;
 var _xmllm = require("./xmllm.js");
 var _ChainableStreamInterface = _interopRequireDefault(require("./ChainableStreamInterface.js"));
 var _ClientProvider = require("./ClientProvider.js");
 var _config2 = require("./config.js");
 var _ValidationService = _interopRequireDefault(require("./ValidationService.js"));
+var _types = require("./types.js");
 var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }

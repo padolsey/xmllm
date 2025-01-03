@@ -5,11 +5,13 @@ When using xmllm with a schema, you get structured data streaming with built-in 
 ## Streaming Modes
 
 ```javascript
-import { stream } from 'xmllm';
+import { stream, types } from 'xmllm';
 
 // 1. State (Open) Mode - Shows growing state including partials
 const colors = stream('List colors', {
-  schema: { color: Array(String) },
+  schema: { 
+    color: [types.string("Color name")] 
+  },
   mode: 'state_open'  // default mode
 });
 
@@ -24,7 +26,9 @@ for await (const update of colors) {
 
 // 2. State (Closed) Mode - Shows complete state at each point
 const snapshots = stream('List colors', {
-  schema: { color: Array(String) },
+  schema: { 
+    color: [types.string("Color name")] 
+  },
   mode: 'state_closed'
 });
 
@@ -37,7 +41,9 @@ for await (const update of snapshots) {
 
 // 3. Root (Closed) Mode - Shows each complete root element once
 const updates = stream('List colors', {
-  schema: { color: Array(String) },
+  schema: { 
+    color: [types.string("Color name")] 
+  },
   mode: 'root_closed'
 });
 
@@ -50,7 +56,9 @@ for await (const update of updates) {
 
 // 4. Root (Open) Mode - Shows each root element's progress once
 const progress = stream('List colors', {
-  schema: { color: Array(String) },
+  schema: { 
+    color: [types.string("Color name")] 
+  },
   mode: 'root_open'
 });
 
@@ -66,21 +74,23 @@ for await (const update of progress) {
 
 ## Complex Schemas
 
-The schema system handles nested structures and arrays:
+The schema system handles nested structures and arrays with type hints and transformations:
 
 ```javascript
 const analysis = stream('Analyze this text', {
   schema: {
     analysis: {
-      sentiment: String,
+      sentiment: types.enum("Overall sentiment", ['POSITIVE', 'NEUTRAL', 'NEGATIVE'])
+        .withDefault('NEUTRAL'),
       topics: {
-        topic: [{          // Array of topics
-          $text: String,   // Topic text
-          $score: Number   // Topic score attribute
+        topic: [{          
+          $$text: types.string("Topic description"),   
+          $score: types.number("Relevance score 0-1")
+            .withTransform(n => Math.min(1, Math.max(0, n)))
         }]
       },
       key_points: {
-        point: [String]    // Array of strings
+        point: [types.string("Key insight or observation")]    
       }
     }
   }
@@ -94,6 +104,31 @@ for await (const update of analysis) {
 }
 ```
 
+## Type Processing Order
+
+The type system processes values in a consistent order:
+
+```javascript
+const stream1 = stream('Process data', {
+  schema: {
+    data: {
+      value: types.number("Score between 0-100")
+        .withTransform(n => Math.min(100, Math.max(0, n)))  // Clamp between 0-100
+        .withDefault(0),                                     // Default if invalid
+      status: types.enum("Processing status", ['PENDING', 'DONE'])
+        .withValidate(s => ['PENDING', 'DONE'].includes(s)) // Validate allowed values
+        .withDefault('PENDING')                             // Default if invalid
+    }
+  }
+});
+
+// Processing order for each value:
+// 1. Parse raw value according to type
+// 2. Apply custom transform
+// 3. Apply validation
+// 4. Use default if invalid
+```
+
 ## Handling Partial Updates
 
 Schema streaming automatically handles partial content:
@@ -103,8 +138,10 @@ const stream1 = stream('List items', {
   schema: {
     items: {
       item: [{
-        name: String,
-        count: Number
+        name: types.string("Item name")
+          .withTransform(s => s.trim()),
+        count: types.number("Quantity")
+          .withDefault(0)
       }]
     }
   },
@@ -122,14 +159,14 @@ const stream1 = stream('List items', {
 
 ## Working with Arrays
 
-Arrays in schemas require special handling:
+Arrays in schemas support type hints and transformations:
 
 ```javascript
 // 1. Simple array of values
 const tags = stream('List tags', {
   schema: {
     tags: {
-      tag: [String]  // Array of strings
+      tag: [types.string("Tag name").withTransform(s => s.toLowerCase())]
     }
   }
 });
@@ -138,9 +175,10 @@ const tags = stream('List tags', {
 const users = stream('List users', {
   schema: {
     users: {
-      user: [{        // Array of user objects
-        name: String,
-        age: Number
+      user: [{        
+        name: types.string("User's full name"),
+        age: types.number("Age in years")
+          .withTransform(n => Math.floor(n))
       }]
     }
   }
@@ -150,10 +188,10 @@ const users = stream('List users', {
 const data = stream('List data', {
   schema: {
     categories: {
-      category: [{              // Array of categories
-        name: String,
+      category: [{              
+        name: types.string("Category name"),
         items: {
-          item: [String]        // Array of items per category
+          item: [types.string("Item in category")]
         }
       }]
     }

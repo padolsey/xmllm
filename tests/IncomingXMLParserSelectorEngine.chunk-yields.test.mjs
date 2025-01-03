@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('Chunk Yield Behavior', () => {
   let engine;
@@ -85,7 +85,7 @@ describe('Chunk Yield Behavior', () => {
         const result = engine.select('color', false);
         yields.push({
           chunk: i + 1,
-          result: result.map(n => n.$text)
+          result: result.map(n => n.$$text)
         });
       });
 
@@ -107,7 +107,7 @@ describe('Chunk Yield Behavior', () => {
         const result = engine.select('color', true);
         yields.push({
           chunk: i + 1,
-          result: result.map(n => n.$text)
+          result: result.map(n => n.$$text)
         });
       });
 

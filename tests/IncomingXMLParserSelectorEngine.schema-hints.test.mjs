@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('Schema and Hints Validation', () => {
   let engine;
@@ -11,9 +11,9 @@ describe('Schema and Hints Validation', () => {
     const schema = {
       people: {
         person: [{
-          $tagname: String,
+          $$tagname: String,
           $age: Number,
-          $text: String
+          $$text: String
         }]
       }
     };
@@ -22,8 +22,8 @@ describe('Schema and Hints Validation', () => {
     const validHints = {
       people: {
         person: [{
-          $tagname: "their full name",
-          $text: "their bio"
+          $$tagname: "their full name",
+          $$text: "their bio"
           // Note: $age doesn't need a hint, that's fine
         }]
       }
@@ -38,9 +38,9 @@ describe('Schema and Hints Validation', () => {
     const invalidHints = {
       people: {
         person: [{
-          $tagname: "their full name",
+          $$tagname: "their full name",
           $location: "where they live",  // This isn't in the schema!
-          $text: "their bio"
+          $$text: "their bio"
         }]
       }
     };
@@ -54,7 +54,7 @@ describe('Schema and Hints Validation', () => {
     const wrongStructureHints = {
       people: {
         person: {  // Should be an array!
-          $tagname: "their full name"
+          $$tagname: "their full name"
         }
       }
     };
@@ -69,7 +69,7 @@ describe('Schema and Hints Validation', () => {
       company: {
         departments: {
           department: [{
-            $tagname: String,
+            $$tagname: String,
             employees: {
               employee: [{
                 $id: Number,
@@ -86,7 +86,7 @@ describe('Schema and Hints Validation', () => {
       company: {
         departments: {
           department: [{
-            $tagname: "department name",
+            $$tagname: "department name",
             employees: {
               employee: [{
                 $role: "their job title"  // $id doesn't need a hint
@@ -106,7 +106,7 @@ describe('Schema and Hints Validation', () => {
       company: {
         departments: {
           department: [{
-            $tagname: "department name",
+            $$tagname: "department name",
             employees: {
               employee: [{
                 $role: "their job title",
@@ -146,5 +146,71 @@ describe('Schema and Hints Validation', () => {
     expect(() => {
       IncomingXMLParserSelectorEngine.validateHints(schema, validHints);
     }).not.toThrow();
+  });
+
+  test('should reject schemas with duplicate attribute/property names', () => {
+    const invalidSchemas = [
+      {
+        person: {
+          $name: String,
+          name: String
+        }
+      },
+      {
+        user: {
+          details: {
+            $role: String,
+            role: String
+          }
+        }
+      }
+    ];
+
+    invalidSchemas.forEach(schema => {
+      expect(() => {
+        IncomingXMLParserSelectorEngine.validateSchema(schema);
+      }).toThrow(/Cannot have both property .* and attribute/);
+    });
+
+    // Valid schema should pass
+    const validSchema = {
+      person: {
+        $name: String,
+        fullName: String,
+        age: Number
+      }
+    };
+
+    expect(() => {
+      IncomingXMLParserSelectorEngine.validateSchema(validSchema);
+    }).not.toThrow();
+  });
+
+  test('should allow $$text alongside $text attribute', () => {
+    const schema = {
+      element: {
+        $text: String,    // Attribute
+        $$text: String,   // Special text content property
+        otherProp: String
+      }
+    };
+
+    expect(() => {
+      IncomingXMLParserSelectorEngine.validateSchema(schema);
+    }).not.toThrow();
+
+    // But should still catch other duplicates
+    const invalidSchema = {
+      element: {
+        $text: String,
+        $$text: String,
+        otherProp: String,
+        $otherProp: String  // This should fail
+      }
+    };
+
+    expect(() => {
+      IncomingXMLParserSelectorEngine.validateSchema(invalidSchema);
+    }).toThrow(/Cannot have both property/);
   });
 }); 

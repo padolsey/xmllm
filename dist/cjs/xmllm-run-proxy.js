@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 "use strict";
 
-var _xmllmProxy = _interopRequireDefault(require("./xmllm-proxy.js"));
 var _dotenv = _interopRequireDefault(require("dotenv"));
+var _default = _interopRequireDefault(require("./proxies/default.js"));
+var _cot = _interopRequireDefault(require("./proxies/cot.js"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 console.log('Starting Proxy');
 // Load environment variables from .env file if present
 _dotenv["default"].config();
 var args = process.argv.slice(2);
 
-// Helper to parse command line args
+// Helper to parse command line args with support for nested properties
 var getArg = function getArg(prefix) {
   var arg = args.find(function (arg) {
     return arg.startsWith("--".concat(prefix, "="));
   });
-  return arg ? arg.split('=')[1] : undefined;
+  if (!arg) return undefined;
+  var value = arg.split('=')[1];
+  return value;
 };
 
 // Helper to safely parse numeric values
@@ -28,6 +31,18 @@ var safeParseInt = function safeParseInt(value, name) {
   return parsed;
 };
 try {
+  // Get proxy type from command line or default to 'default'
+  var proxyType = getArg('type') || 'default';
+
+  // Simple mapping of proxy types to their create functions
+  var proxyCreators = {
+    "default": _default["default"],
+    cot: _cot["default"]
+  };
+  var createProxy = proxyCreators[proxyType];
+  if (!createProxy) {
+    throw new Error("Proxy type '".concat(proxyType, "' not found. Available proxies are:\n") + "  - default (standard proxy)\n" + "  - cot (chain of thought proxy)");
+  }
   var config = {
     corsOrigins: getArg('corsOrigins') || '*',
     port: safeParseInt(getArg('port') || process.env.PORT, 'port') || 3124,
@@ -35,6 +50,10 @@ try {
     timeout: safeParseInt(getArg('timeout'), 'timeout'),
     debug: args.includes('--debug'),
     verbose: args.includes('--verbose'),
+    paths: {
+      stream: getArg('paths.stream'),
+      limits: getArg('paths.limits')
+    },
     globalRequestsPerMinute: safeParseInt(getArg('globalRequestsPerMinute') || process.env.GLOBAL_RATE_LIMIT, 'globalRequestsPerMinute'),
     globalTokensPerMinute: safeParseInt(getArg('globalTokensPerMinute') || process.env.GLOBAL_TOKENS_PER_MINUTE, 'globalTokensPerMinute'),
     globalTokensPerHour: safeParseInt(getArg('globalTokensPerHour') || process.env.GLOBAL_TOKENS_PER_HOUR, 'globalTokensPerHour'),
@@ -42,7 +61,7 @@ try {
     rateLimitMessage: getArg('rateLimitMessage')
   };
   console.log('Starting proxy with config:', config);
-  (0, _xmllmProxy["default"])(config);
+  createProxy(config);
 } catch (error) {
   console.error('\x1b[31mFailed to start proxy:\x1b[0m');
   console.error(error.message);

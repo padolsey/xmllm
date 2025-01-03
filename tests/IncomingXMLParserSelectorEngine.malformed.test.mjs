@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine Malformed XML Handling', () => {
   let engine;
@@ -48,19 +48,19 @@ describe('IncomingXMLParserSelectorEngine Malformed XML Handling', () => {
         $status: String,
         data: {
           $value: String,
-          $text: String
+          $$text: String
         },
         info: {
           $something: String,
-          $text: String
+          $$text: String
         }
       }
     });
 
     // htmlparser2 will do its best to salvage what it can
     expect(result.person.$name).toBe('John');
-    expect(result.person.data.$text).toBe('Content');
-    expect(result.person.info.$text).toBe('More content');
+    expect(result.person.data.$$text).toBe('Content');
+    expect(result.person.info.$$text).toBe('More content');
   });
 
   test('should handle mixed and nested angle brackets', () => {
@@ -73,10 +73,10 @@ describe('IncomingXMLParserSelectorEngine Malformed XML Handling', () => {
     `);
 
     const result = engine.select('math');
-    expect(result[0].$text).toContain('2 < 3');
-    expect(result[0].$text).toContain('5 > 4');
-    expect(result[0].$text).toContain('if (x < 10)');
-    expect(result[0].result[0].$text).toBe('true');
+    expect(result[0].$$text).toContain('2 < 3');
+    expect(result[0].$$text).toContain('5 > 4');
+    expect(result[0].$$text).toContain('if (x < 10)');
+    expect(result[0].result[0].$$text).toBe('true');
   });
 
   test('should handle LLM thinking tokens mixed with XML', () => {
@@ -145,9 +145,9 @@ describe('IncomingXMLParserSelectorEngine Malformed XML Handling', () => {
     `);
 
     const result = engine.select('root');
-    expect(result[0].$text).toContain('function test()');
-    expect(result[0].$text).toContain('if (x < 3)');
-    expect(result[0].code[0].$text).toContain('const x = ()');
+    expect(result[0].$$text).toContain('function test()');
+    expect(result[0].$$text).toContain('if (x < 3)');
+    expect(result[0].code[0].$$text).toContain('const x = ()');
   });
 
   test('should handle random line breaks and whitespace in tags', () => {
@@ -171,14 +171,14 @@ describe('IncomingXMLParserSelectorEngine Malformed XML Handling', () => {
       root: {
         item: [{
           $id: String,
-          $text: String
+          $$text: String
         }]
       }
     });
 
     expect(result.root.item).toEqual([
-      { $id: '1', $text: 'Content' },
-      { $id: '2', $text: 'More content' }
+      { $id: '1', $$text: 'Content' },
+      { $id: '2', $$text: 'More content' }
     ]);
   });
-}); 
+});

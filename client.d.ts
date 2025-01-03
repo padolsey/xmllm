@@ -1,11 +1,13 @@
+import { SchemaType, SchemaTypeCreators } from './schemaTypes';
 import type { 
   BaseLLMParams,
   BaseConfig,
   XMLElement,
   Message,
   ModelPreference,
-  SchemaType,
-  HintType,
+  Schema,
+  Hint,
+  Hints,
   ChainableStreamInterface,
   LoggingConfig,
   PipelineHelpers,
@@ -28,8 +30,9 @@ export type {
   XMLElement,
   Message,
   ModelPreference,
-  SchemaType,
-  HintType,
+  Schema,
+  Hint,
+  Hints,
   ChainableStreamInterface,
   LoggingConfig,
   PipelineHelpers,
@@ -73,6 +76,14 @@ export interface ClientStreamingConfig extends BaseStreamConfig {
 export interface ClientConfigureOptions {
   logging?: LoggingConfig;
   defaults?: ClientStreamingSchemaConfig;
+  globalParser?: string;
+  idioSymbols?: {
+    tagPrefix?: string;
+    closePrefix?: string;
+    openBrace?: string;
+    closeBrace?: string;
+    braceSuffix?: string;
+  };
   clientProvider?: ClientProvider | string;
 }
 

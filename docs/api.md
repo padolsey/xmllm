@@ -91,7 +91,7 @@ try {
 ```typescript
 async function simple<T>(
   prompt: string,
-  schema: SchemaType,
+  schema: Schema,
   options?: SimpleOptions
 ): Promise<T>
 ```
@@ -256,8 +256,8 @@ interface StreamConfig {
   
   // Schema-related options
   prompt?: string;                   // Prompt text
-  schema?: SchemaType;               // Transform schema
-  hints?: HintType;                  // Schema hints
+  schema?: Schema;               // Transform schema
+  hints?: Hint;                  // Schema hints
   system?: string;                   // System prompt
   mode?: 'state_open' | 'state_closed' | 'root_open' | 'root_closed';
   onChunk?: (chunk: string) => void; // Chunk callback
@@ -331,9 +331,9 @@ interface ChainableStreamInterface<T> {
 // Real-time updates with partial elements
 const colorUpdates = stream('List colors')
   .select('color')
-  .map(({$text, $tagclosed}) => ({
-    text: $text,
-    complete: $tagclosed
+  .map(({$$text, $$tagclosed}) => ({
+    text: $$text,
+    complete: $$tagclosed
   }));
 
 for await (const update of colorUpdates) {
@@ -425,14 +425,14 @@ const conversation = pipeline(({ p, map }) => [
 The schema system defines how XML elements are transformed into structured data.
 
 ```typescript
-type SchemaType = {
+type Schema = {
   [key: string]: 
     | StringConstructor                 // Convert to string
     | NumberConstructor                 // Convert to number
     | BooleanConstructor               // Convert to boolean
     | ((el: XMLElement) => any)        // Custom transformer
-    | SchemaType                       // Nested schema
-    | [SchemaType]                     // Array of schema
+    | Schema                       // Nested schema
+    | [Schema]                     // Array of schema
     | string                           // Hint for LLM
 }
 
@@ -457,10 +457,10 @@ const nested = {
 };
 
 const withTransformer = {
-  date: (el: XMLElement) => new Date(el.$text),
+  date: (el: XMLElement) => new Date(el.$$text),
   color: (el: XMLElement) => ({
-    name: el.$text,
-    rgb: el.$attr.rgb?.split(',').map(Number)
+    name: el.$$text,
+    rgb: el.$$attr.rgb?.split(',').map(Number)
   })
 };
 ```
@@ -471,22 +471,22 @@ The parsed XML element structure available in transformers and selectors.
 
 ```typescript
 interface XMLElement {
-  $text: string;                        // Element text content
-  $attr: Record<string, string>;        // Element attributes
-  $tagclosed: boolean;                  // Is element complete
-  $tagname: string;                     // Tag name
-  $children: XMLElement[];              // Child elements
-  $tagkey: number;                      // Internal unique ID
+  $$text: string;                        // Element text content
+  $$attr: Record<string, string>;        // Element attributes
+  $$tagclosed: boolean;                  // Is element complete
+  $$tagname: string;                     // Tag name
+  $$children: XMLElement[];              // Child elements
+  $$tagkey: number;                      // Internal unique ID
 }
 
 // Example usage in transformer:
 const schema = {
   product: (el: XMLElement) => ({
-    name: el.$text,
-    inStock: el.$attr.stock === 'true',
-    variants: el.$children
-      .filter(child => child.$tagname === 'variant')
-      .map(v => v.$text)
+    name: el.$$text,
+    inStock: el.$$attr.stock === 'true',
+    variants: el.$$children
+      .filter(child => child.$$tagname === 'variant')
+      .map(v => v.$$text)
   })
 };
 ```
@@ -728,8 +728,8 @@ Sends a prompt to the AI and processes the response. Allows for streaming and sc
 
 ```typescript
 function prompt<T>(
-  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
-  schema?: SchemaType,
+  promptText: string | ((input: any) => { messages: Message[]; schema?: Schema }),
+  schema?: Schema,
   options?: PromptOptions
 ): AsyncGenerator<T>
 ```
@@ -757,8 +757,8 @@ Similar to `prompt()`, but ensures that only complete (closed) XML tags are proc
 
 ```typescript
 function promptClosed<T>(
-  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
-  schema?: SchemaType,
+  promptText: string | ((input: any) => { messages: Message[]; schema?: Schema }),
+  schema?: Schema,
   options?: PromptOptions
 ): AsyncGenerator<T>
 ```
@@ -769,8 +769,8 @@ Creates a streaming prompt, allowing for real-time processing of the AI's respon
 
 ```typescript
 function promptStream<T>(
-  promptText: string | ((input: any) => { messages: Message[]; schema?: SchemaType }),
-  schema?: SchemaType,
+  promptText: string | ((input: any) => { messages: Message[]; schema?: Schema }),
+  schema?: Schema,
   options?: PromptOptions
 ): AsyncGenerator<T>
 ```
@@ -807,7 +807,7 @@ Example:
 
 ```javascript
 pipeline(({ select }) => [
-  select('item', el => el.$text) // Extract text content of <item> elements
+  select('item', el => el.$$text) // Extract text content of <item> elements
 ]);
 ```
 
@@ -817,7 +817,7 @@ Maps the parsed XML content to a JavaScript object based on the provided schema.
 
 ```typescript
 function mapSelect(
-  schema: SchemaType,
+  schema: Schema,
   includeOpenTags?: boolean,
   doDedupe?: boolean
 ): AsyncGenerator<any>
@@ -828,7 +828,7 @@ function mapSelect(
 Similar to `mapSelect()`, but processes only closed XML elements. Useful when you want to ensure that the data you're processing is complete.
 
 ```typescript
-function mapSelectClosed(schema: SchemaType): AsyncGenerator<any>
+function mapSelectClosed(schema: Schema): AsyncGenerator<any>
 ```
 
 ### map(fn)

@@ -1,14 +1,16 @@
 import createStreaming from 'streamops';
-import IncomingXMLParserSelectorEngine from './IncomingXMLParserSelectorEngine.mjs';
+import IncomingXMLParserSelectorEngine from './parsers/IncomingXMLParserSelectorEngine.mjs';
+import IncomingIdioParserSelectorEngine from './parsers/IncomingIdioParserSelectorEngine.mjs';
 import Logger from './Logger.mjs';
 import { getConfig, configure } from './config.mjs';
-import { getStrategy } from './strategies.mjs';
+import { getStrategy } from './strategies/index.mjs';
+import { types } from './types.mjs';
 
 const logger = new Logger('xmllm');
 
-const text = (fn) => ({ $text }) => fn ? fn($text) : $text;
-const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
-const whenClosed = (fn) => (el) => el.$tagclosed ? fn(el) : undefined;
+const text = (fn) => ({ $$text }) => fn ? fn($$text) : $$text;
+const withAttrs = (fn) => ({ $$text, $$attr }) => fn($$text, $$attr);
+const whenClosed = (fn) => (el) => el.$$tagclosed ? fn(el) : undefined;
 
 const parserStack = new WeakMap();
 
@@ -92,9 +94,14 @@ async function* xmllmGen(pipelineFn, {
   }
 
   function pushNewParser() {
-    const parser = new IncomingXMLParserSelectorEngine();
+    const config = getConfig();
+    const parser = config.globalParser === 'idio'
+      ? new IncomingIdioParserSelectorEngine()
+      : new IncomingXMLParserSelectorEngine();
+      
     const stack = parserStack.get(context);
     stack.push(parser);
+    
     return parser;
   }
 
@@ -255,8 +262,8 @@ async function* xmllmGen(pipelineFn, {
 
       const mapSelectionSchemaScaffold =
         schema &&
-        IncomingXMLParserSelectorEngine
-          .makeMapSelectXMLScaffold(schema, hints);
+        parser.constructor
+          .makeMapSelectScaffold(schema, hints);
 
       if (typeof transformedPrompt == 'function') {
         transformedPrompt = transformedPrompt(thing);
@@ -318,7 +325,7 @@ async function* xmllmGen(pipelineFn, {
       let cancelled = false;
 
       yield accrued; // Do we need this?
-      // (can't hurt?)
+      // (kicks things off?)
 
       try {
         while (true) {
@@ -666,4 +673,4 @@ function xmllm(pipelineFn, options = {}) {
 }
 
 export default xmllm;
-export { xmllm, configure, xmllm as pipeline };
+export { xmllm, configure, xmllm as pipeline, types };

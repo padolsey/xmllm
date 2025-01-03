@@ -1,6 +1,6 @@
 {
   "name": "xmllm",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "main": "./dist/cjs/xmllm-main.js",
   "module": "./dist/esm/xmllm-main.mjs",
   "types": "index.d.ts",
@@ -16,15 +16,17 @@
     "dist",
     "client.d.ts",
     "index.d.ts",
-    "src/**/*"
+    "schemaTypes.d.ts",
+    "proxies"
   ],
   "scripts": {
     "build": "npm run build:cjs && npm run build:esm",
-    "build:cjs": "cross-env BABEL_ENV=cjs babel src --out-dir dist/cjs --out-file-extension .js",
-    "build:esm": "cross-env BABEL_ENV=esm babel src --out-dir dist/esm --out-file-extension .mjs",
+    "build:cjs": "cross-env BABEL_ENV=cjs babel src --out-dir dist/cjs",
+    "build:esm": "cross-env BABEL_ENV=esm babel src --out-dir dist/esm",
     "test": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:types": "tsd",
-    "proxy": "node src/xmllm-run-proxy.mjs"
+    "proxy": "node src/xmllm-run-proxy.mjs",
+    "proxy:cot": "node src/xmllm-run-proxy.mjs --type=cot"
   },
   "exports": {
     ".": {
@@ -38,8 +40,8 @@
       "types": "./client.d.ts"
     },
     "./proxy": {
-      "import": "./src/xmllm-proxy.mjs",
-      "require": "./dist/cjs/xmllm-proxy.js"
+      "import": "./src/proxies/default.mjs",
+      "require": "./dist/cjs/proxies/default.js"
     }
   },
   "dependencies": {

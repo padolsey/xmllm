@@ -1,4 +1,4 @@
-import IncomingXMLParserSelectorEngine from '../src/IncomingXMLParserSelectorEngine';
+import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
 
 describe('IncomingXMLParserSelectorEngine mapSelect', () => {
   let engine;
@@ -182,14 +182,14 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
     const result = engine.mapSelect({
       book: {
-        title: ({ $text }) => $text.toUpperCase(),
+        title: ({ $$text }) => $$text.toUpperCase(),
         author: String,
         reviews: {
           review: [String]
         },
         isbn: [
           {
-            number: ({ $text: n }) => 'ISBN: ' + n
+            number: ({ $$text: n }) => 'ISBN: ' + n
           }
         ]
       }
@@ -236,7 +236,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
           child: [
             {
               grandchild: [
-                ({$text: text}) => text.toLowerCase()
+                ({$$text: text}) => text.toLowerCase()
               ]
             }
           ]
@@ -268,7 +268,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: {
         $id: Number,
         $category: String,
-        $text: String
+        $$text: String
       }
     });
 
@@ -276,7 +276,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: {
         $id: 123,
         $category: 'book',
-        $text: 'The Great Gatsby'
+        $$text: 'The Great Gatsby'
       }
     });
   });
@@ -299,11 +299,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         $sku: String,
         name: {
           $lang: String,
-          $text: String
+          $$text: String
         },
         price: {
           $currency: String,
-          $text: Number
+          $$text: Number
         },
         tags: {
           tag: [String]
@@ -316,11 +316,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         $sku: 'ABC123',
         name: {
           $lang: 'en',
-          $text: 'Laptop'
+          $$text: 'Laptop'
         },
         price: {
           $currency: 'USD',
-          $text: 999.99
+          $$text: 999.99
         },
         tags: {
           tag: ['electronics', 'computer']
@@ -388,7 +388,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       root: {
         simple: String,
         complex: {
-          $text: String,
+          $$text: String,
           $thing: String
         }
       }
@@ -398,14 +398,14 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       root: {
         simple: "Just text",
         complex: {
-          $text: "Text and attribute",
+          $$text: "Text and attribute",
           $thing: "value"
         }
       }
     });
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for simple schema with attributes and text', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for simple schema with attributes and text', () => {
     const schema = {
       person: {
         $id: Number,
@@ -413,12 +413,12 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         age: Number,
         address: {
           $type: String,
-          $text: String
+          $$text: String
         }
       }
     };
 
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     const expectedXML = `
   <person id="{Number}">
@@ -433,11 +433,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     expect(result.replace(/\s+/g, '')).toBe(expectedXML);
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for super simple schema', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for super simple schema', () => {
 
     expect(
       IncomingXMLParserSelectorEngine
-        .makeMapSelectXMLScaffold({
+        .makeMapSelectScaffold({
           topic: String
         })
         .replace(/\s+/g, '')
@@ -445,7 +445,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for simple schema', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for simple schema', () => {
     const schema = {
       book: {
         title: title => title.toUpperCase(),
@@ -461,7 +461,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     };
 
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     const expectedXML = `
   <book>
@@ -485,31 +485,31 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     expect(result.replace(/\s+/g, '')).toBe(expectedXML);
   });
 
-  test('makeMapSelectXMLScaffold should generate correct XML scaffold for complex schema', () => {
+  test('makeMapSelectScaffold should generate correct XML scaffold for complex schema', () => {
     const schema = {
       book: {
         $id: Number,
         title: {
-          $text: String,
+          $$text: String,
           $lang: String
         },
         author: String,
         reviews: {
           review: [{
-            $text: String,
+            $$text: String,
             $rating: Number
           }]
         },
         isbn: [
           {
             $type: String,
-            $text: n => 'ISBN: ' + n
+            $$text: n => 'ISBN: ' + n
           }
         ]
       }
     };
 
-    const result = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const result = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
 
     const expectedXML = `
   <book id="{Number}">
@@ -544,20 +544,20 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     
     let result = engine.mapSelect({
       item: [{
-        $text: String
+        $$text: String
       }],
       subitem: [{
-        $text: String
+        $$text: String
       }]
     });
 
     expect(result).toEqual({
       item: [
-        { $text: '1' },
-        { $text: '2' }
+        { $$text: '1' },
+        { $$text: '2' }
       ],
       subitem: [
-        { $text: '' }  // Open tag with no content yet
+        { $$text: '' }  // Open tag with no content yet
       ]
     });
 
@@ -565,16 +565,16 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     
     result = engine.mapSelect({
       item: [{
-        $text: String
+        $$text: String
       }],
       subitem: [{
-        $text: String
+        $$text: String
       }]
     });
 
     expect(result).toEqual({
       item: [
-        { $text: '2sub-content' }  // Updated content
+        { $$text: '2sub-content' }  // Updated content
       ],
 
       // Currently the implementation is such that subitem will
@@ -582,7 +582,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       // part of the <item>.
 
       // subitem: [
-      //   { $text: 'sub-content' }  // Now closed with content
+      //   { $$text: 'sub-content' }  // Now closed with content
       // ]
     });
   });
@@ -677,7 +677,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     });
   });
 
-  test('makeMapSelectXMLScaffold should use string literals as explanation hints', () => {
+  test('makeMapSelectScaffold should use string literals as explanation hints', () => {
     const schema = {
       person: {
         name: "The person's full name",
@@ -689,7 +689,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectXMLScaffold(schema);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     expect(normalized).toContain(`<name>The person's full name</name>`);
@@ -716,12 +716,12 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     const result = engine.mapSelect({
       user: {
         emails: {
-          email: [({$text: email}) => {
+          email: [({$$text: email}) => {
             return email.toUpperCase();
           }]
         },
         scores: {
-          score: [({$text: score}) => Number(score) * 2]
+          score: [({$$text: score}) => Number(score) * 2]
         }
       }
     });
@@ -734,6 +734,40 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         scores: {
           score: [20, 40]
         }
+      }
+    });
+  });
+
+  test('should handle incomplete nested tag structures appropriately', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    // Add partial structure
+    engine.add('<colors><color>');
+    
+    const result = engine.mapSelect({
+      colors: {
+        color: [String]
+      }
+    });
+
+    expect(result).toEqual({
+      colors: {
+        color: ['']  // Empty string for incomplete tag
+      }
+    });
+    
+    // Add the rest
+    engine.add('red</color></colors>');
+    
+    const completeResult = engine.mapSelect({
+      colors: {
+        color: [String]
+      }
+    });
+
+    expect(completeResult).toEqual({
+      colors: {
+        color: ['red']
       }
     });
   });
