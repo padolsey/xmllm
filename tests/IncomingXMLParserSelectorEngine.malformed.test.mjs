@@ -181,4 +181,4 @@ describe('IncomingXMLParserSelectorEngine Malformed XML Handling', () => {
       { $id: '2', $$text: 'More content' }
     ]);
   });
-}); 
+});

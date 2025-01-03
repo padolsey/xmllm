@@ -11,8 +11,8 @@ For example, this schema:
 const schema = {
   analysis: {                                    
     sentiment: types.string("Sentiment value"),  // Hint-first pattern
-    score: types.number("Score from 0-1"),      
-    categories: {                               
+    score: types.number("Score from 0-1"),
+    categories: {
       category: [types.string("Category name")] 
     }
   }

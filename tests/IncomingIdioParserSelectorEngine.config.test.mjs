@@ -69,7 +69,7 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
   test('should fall back to defaults if no config provided', () => {
     const engine = new IncomingIdioParserSelectorEngine();
     
-    engine.add('⁂START(test)content⁂END(test)');
+    engine.add('@START(test)content@END(test)');
 
     const result = engine.select('test');
     expect(result).toHaveLength(1);

@@ -85,7 +85,7 @@ describe('Strategy Configuration', () => {
 
     it('should use default simple markup strategy when none specified', async () => {
       const TestStream = jest.fn().mockImplementation(() => ({
-        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+        getReader: () => createMockReader(['@START(response)test@END(response)'])
       }));
 
       await stream('Test prompt', {
@@ -114,7 +114,7 @@ describe('Strategy Configuration', () => {
       });
 
       const TestStream = jest.fn().mockImplementation(() => ({
-        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+        getReader: () => createMockReader(['@START(response)test@END(response)'])
       }));
 
       await stream('Test prompt', {
@@ -165,7 +165,7 @@ describe('Strategy Configuration', () => {
       });
 
       const TestStream = jest.fn().mockImplementation(() => ({
-        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+        getReader: () => createMockReader(['@START(response)test@END(response)'])
       }));
 
       await stream('Test prompt', {
@@ -216,7 +216,7 @@ describe('Strategy Configuration', () => {
       });
 
       const IdioTestStream = jest.fn().mockImplementation(() => ({
-        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+        getReader: () => createMockReader(['@START(response)test@END(response)'])
       }));
 
       await simple({
@@ -269,7 +269,7 @@ describe('Strategy Configuration', () => {
       });
 
       const TestStream = jest.fn().mockImplementation(() => ({
-        getReader: () => createMockReader(['⁂START(response)test⁂END(response)'])
+        getReader: () => createMockReader(['@START(response)test@END(response)'])
       }));
 
       await stream('Test prompt', {

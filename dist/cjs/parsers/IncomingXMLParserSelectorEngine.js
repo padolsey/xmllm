@@ -388,4 +388,10 @@ _defineProperty(IncomingXMLParserSelectorEngine, "GEN_OPEN_TAG", function (name,
 _defineProperty(IncomingXMLParserSelectorEngine, "GEN_CLOSE_TAG", function (name) {
   return "</".concat(name, ">");
 });
+_defineProperty(IncomingXMLParserSelectorEngine, "GEN_CDATA_OPEN", function () {
+  return '<![CDATA[';
+});
+_defineProperty(IncomingXMLParserSelectorEngine, "GEN_CDATA_CLOSE", function () {
+  return ']]>';
+});
 var _default = exports["default"] = IncomingXMLParserSelectorEngine;

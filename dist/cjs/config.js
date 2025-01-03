@@ -35,8 +35,8 @@ var DEFAULT_CONFIG = {
   clientProvider: null,
   globalParser: 'xml',
   idioSymbols: {
-    tagPrefix: '⁂',
-    closePrefix: '⁂',
+    tagPrefix: '@',
+    closePrefix: '@',
     openBrace: 'START(',
     closeBrace: 'END(',
     braceSuffix: ')'

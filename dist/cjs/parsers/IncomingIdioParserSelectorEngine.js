@@ -78,11 +78,7 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
           }
           var tagName = this.buffer.slice(tagStart, endOfEndTag);
 
-          // If we're closing a non-attribute tag and have open attribute tags, close them first
-          while (this.openElements.length > 0 && this.openElements[this.openElements.length - 1].name.startsWith('@')) {
-            var attr = this.openElements.pop();
-            attr.closed = true;
-          }
+          // Close the element (with fallback)
           this.closeElement(tagName);
           this.position = endOfEndTag + this.config.braceSuffix.length;
         } else if (this.buffer.startsWith(startPattern, this.position)) {
@@ -94,15 +90,6 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
           }
           var _tagName = this.buffer.slice(_tagStart, endOfStartTag);
 
-          // If we're inside an attribute node and see another START, close the current attribute
-          if (this.openElements.length > 0) {
-            var currentElement = this.openElements[this.openElements.length - 1];
-            if (currentElement.name.startsWith('@')) {
-              currentElement.closed = true;
-              this.openElements.pop();
-            }
-          }
-
           // Create new element
           var element = {
             type: 'tag',
@@ -112,18 +99,6 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
             parent: this.openElements[this.openElements.length - 1] || null,
             closed: false
           };
-
-          // If this is an attribute node, ensure it's directly under a non-attribute parent
-          if (_tagName.startsWith('@')) {
-            // Find the nearest non-attribute parent
-            var parent = this.openElements[this.openElements.length - 1];
-            while (parent && parent.name.startsWith('@')) {
-              parent.closed = true;
-              this.openElements.pop();
-              parent = this.openElements[this.openElements.length - 1];
-            }
-            element.parent = parent;
-          }
           if (element.parent) {
             element.parent.children.push(element);
           } else {
@@ -176,15 +151,27 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
     key: "closeElement",
     value: function closeElement(name) {
       // Find the most recent unclosed element with the given name
+      var foundIndex = -1;
       for (var i = this.openElements.length - 1; i >= 0; i--) {
         var element = this.openElements[i];
         if (element.name === name) {
-          element.closed = true;
-          this.openElements.splice(i, 1);
-          return;
+          foundIndex = i;
+          break;
         }
       }
-      // Ignore unmatched end tags
+      if (foundIndex !== -1) {
+        // Close the element and any open attribute nodes above it
+        while (this.openElements.length > foundIndex) {
+          var elem = this.openElements.pop();
+          elem.closed = true;
+        }
+      } else {
+        // Fallback: close the most recently opened element
+        if (this.openElements.length > 0) {
+          var _elem = this.openElements.pop();
+          _elem.closed = true;
+        }
+      }
     }
   }, {
     key: "addTextToCurrentElement",
@@ -318,7 +305,7 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
       // Skip open tags if not included
       if (!includeOpenTags && !element.closed) return null;
 
-      // First collect attributes from @-prefixed children
+      // Collect attributes from @-prefixed elements
       var attrs = {};
       var regularChildren = [];
       var _iterator4 = _createForOfIteratorHelper(element.children || []),
@@ -358,7 +345,6 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
         children: formattedChildren,
         attr: attrs
       });
-      formatted.length = 0;
 
       // Group children by name
       var childrenByName = new Map();
@@ -405,8 +391,8 @@ _defineProperty(IncomingIdioParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", functi
   return '$';
 });
 _defineProperty(IncomingIdioParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", false);
-_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_MARKER", '⁂');
-_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_MARKER", '⁂');
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_MARKER", '@');
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_MARKER", '@');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_WRAPPER", 'START(');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_WRAPPER", 'END(');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_CLOSE_WRAPPER", ')');

@@ -50,6 +50,14 @@ class AbstractIncomingParserSelectorEngine {
     }}`;
   }
 
+  static GEN_CDATA_OPEN = () => {
+    return '';
+  }
+
+  static GEN_CDATA_CLOSE = () => {
+    return '';
+  }
+
   constructor() {
     this.buffer = '';
     this.position = 0;
@@ -390,7 +398,7 @@ class AbstractIncomingParserSelectorEngine {
           const content = hint || typeHint || '...';
           
           if (value.isCData) {
-            xml += `${indentation}${this.GEN_OPEN_TAG(key)}<![CDATA[${content}]]>${this.GEN_CLOSE_TAG(key)}\n`;
+            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${this.GEN_CDATA_OPEN()}${content}${this.GEN_CDATA_CLOSE()}${this.GEN_CLOSE_TAG(key)}\n`;
           } else {
             xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
           }

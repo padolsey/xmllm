@@ -737,4 +737,38 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     });
   });
+
+  test('should handle incomplete nested tag structures appropriately', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    // Add partial structure
+    engine.add('<colors><color>');
+    
+    const result = engine.mapSelect({
+      colors: {
+        color: [String]
+      }
+    });
+
+    expect(result).toEqual({
+      colors: {
+        color: ['']  // Empty string for incomplete tag
+      }
+    });
+    
+    // Add the rest
+    engine.add('red</color></colors>');
+    
+    const completeResult = engine.mapSelect({
+      colors: {
+        color: [String]
+      }
+    });
+
+    expect(completeResult).toEqual({
+      colors: {
+        color: ['red']
+      }
+    });
+  });
 });

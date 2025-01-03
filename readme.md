@@ -526,20 +526,22 @@ const xmllm = require('xmllm');
 const { simple, stream } = xmllm;
 ```
 
-## Alternative Syntax: Idio
+## Alternative Parser: Idio
 
-In addition to XML, xmllm supports an experimental configurable markup grammar called "Idio". This syntax is designed to clearly disambiguate between structural markers and content, which is particularly useful when your LLM output itself needs to contain markup (like HTML or XML). It uses a configurable symbol (default: ⁂) that's intentionally uncommon in regular text but is still known to LLMs.
+In addition to XML, xmllm supports an experimental configurable parser grammar "of your choide" called "Idio". Its default grammar is designed to clearly disambiguate between structural markers and content. This is particularly useful when your LLM output itself needs to contain markup things like XML. Obviously such a thing would confuse xmllm usually.
+
+The default grammar of Idio is as follows:
 
 ```javascript
-⁂START(greeting)Hello world⁂END(greeting)
+@START(greeting)Hello world@END(greeting)
 
-⁂START(colors)
-  ⁂START(color)Red⁂END(color)
-  ⁂START(color)Blue⁂END(color)
-⁂END(colors)
+@START(colors)
+  @START(color)Red@END(color)
+  @START(color)Blue@END(color)
+@END(colors)
 ```
 
-You can configure xmllm to use this syntax globally:
+You can configure xmllm to use the Idio parser globally:
 
 ```javascript
 import { configure } from 'xmllm';
@@ -549,8 +551,29 @@ configure({
 });
 ```
 
-See [Idio Syntax Guide](docs/idio-syntax.md) for more details.
+This will mean it ignores XML and sees it just as regular content/prose, meaning you can do stuff like this:
 
+```
+configure({
+  globalParser: 'idio'
+})
+
+simple('Make me "hello world" in HTML', {
+  schema: {
+    html: String
+  }
+})
+
+// LLM Raw Output:
+// @START(html)
+// <h1>hello world</h1>
+// @END(html)
+
+// Result:
+// { html: '<h1>hello world</h1>' }
+```
+
+See [Idio Syntax Guide](docs/idio-syntax.md) for more details.
 
 ## License
 

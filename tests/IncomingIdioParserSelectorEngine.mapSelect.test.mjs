@@ -9,7 +9,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
   });
 
   test('mapSelect should handle simple mapping', () => {
-    engine.add('⁂START(book)⁂START(title)The Hobbit⁂END(title)⁂START(author)Tolkien⁂END(author)⁂END(book)');
+    engine.add('@START(book)@START(title)The Hobbit@END(title)@START(author)Tolkien@END(author)@END(book)');
 
     const result = engine.mapSelect({
       book: {
@@ -28,17 +28,17 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
   test('mapSelect should handle arrays and nested content', () => {
     engine.add(
-      '⁂START(library)' +
-      '⁂START(book)' +
-      '⁂START(title)The Hobbit⁂END(title)' +
-      '⁂START(review)Great!⁂END(review)' +
-      '⁂START(review)Amazing!⁂END(review)' +
-      '⁂END(book)' +
-      '⁂START(book)' +
-      '⁂START(title)LOTR⁂END(title)' +
-      '⁂START(review)Classic⁂END(review)' +
-      '⁂END(book)' +
-      '⁂END(library)'
+      '@START(library)' +
+      '@START(book)' +
+      '@START(title)The Hobbit@END(title)' +
+      '@START(review)Great!@END(review)' +
+      '@START(review)Amazing!@END(review)' +
+      '@END(book)' +
+      '@START(book)' +
+      '@START(title)LOTR@END(title)' +
+      '@START(review)Classic@END(review)' +
+      '@END(book)' +
+      '@END(library)'
     );
 
     const result = engine.mapSelect([{
@@ -65,7 +65,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
   });
 
   test('mapSelect should handle streaming with accruing updates', () => {
-    engine.add('⁂START(feed)⁂START(item)First⁂END(item)');
+    engine.add('@START(feed)@START(item)First@END(item)');
 
     let result = engine.mapSelect({
       feed: {
@@ -79,7 +79,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
       },
     });
 
-    engine.add('⁂START(item)Second⁂END(item)');
+    engine.add('@START(item)Second@END(item)');
 
     result = engine.mapSelect({
       feed: {
@@ -95,7 +95,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
   });
 
   test('mapSelect should handle transformer functions', () => {
-    engine.add('⁂START(data)⁂START(value)42⁂END(value)⁂END(data)');
+    engine.add('@START(data)@START(value)42@END(value)@END(data)');
 
     const result = engine.mapSelect({
       data: {
@@ -112,11 +112,11 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
   test('mapSelect should handle type coercion', () => {
     engine.add(`
-      ⁂START(data)
-        ⁂START(string)hello⁂END(string)
-        ⁂START(number)42⁂END(number)
-        ⁂START(boolean)true⁂END(boolean)
-      ⁂END(data)
+      @START(data)
+        @START(string)hello@END(string)
+        @START(number)42@END(number)
+        @START(boolean)true@END(boolean)
+      @END(data)
     `);
 
     const result = engine.mapSelect({
@@ -138,15 +138,15 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
   test('mapSelect should handle nested arrays', () => {
     engine.add(
-      '⁂START(orders)' +
-      '⁂START(order)' +
-      '⁂START(item)Apple⁂END(item)' +
-      '⁂START(item)Banana⁂END(item)' +
-      '⁂END(order)' +
-      '⁂START(order)' +
-      '⁂START(item)Cherry⁂END(item)' +
-      '⁂END(order)' +
-      '⁂END(orders)'
+      '@START(orders)' +
+      '@START(order)' +
+      '@START(item)Apple@END(item)' +
+      '@START(item)Banana@END(item)' +
+      '@END(order)' +
+      '@START(order)' +
+      '@START(item)Cherry@END(item)' +
+      '@END(order)' +
+      '@END(orders)'
     );
 
     const result = engine.mapSelect({
@@ -173,13 +173,13 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
   test('mapSelect should handle Type instances', () => {
     engine.add(`
-      ⁂START(data)
-        ⁂START(str)hello⁂END(str)
-        ⁂START(num)42⁂END(num)
-        ⁂START(bool)true⁂END(bool)
-        ⁂START(enum)red⁂END(enum)
-        ⁂START(defaulted)⁂END(defaulted)
-      ⁂END(data)
+      @START(data)
+        @START(str)hello@END(str)
+        @START(num)42@END(num)
+        @START(bool)true@END(bool)
+        @START(enum)red@END(enum)
+        @START(defaulted)@END(defaulted)
+      @END(data)
     `);
 
     const result = engine.mapSelect({
@@ -204,7 +204,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
   });
 
   test('mapSelect should handle enum validation', () => {
-    engine.add('⁂START(color)invalid⁂END(color)');
+    engine.add('@START(color)invalid@END(color)');
 
     const result = engine.mapSelect({
       color: new EnumType('color', ['red', 'blue', 'green']).withDefault('blue')
@@ -217,10 +217,10 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
   test('mapSelect should handle empty values with defaults', () => {
     engine.add(`
-      ⁂START(data)
-        ⁂START(empty)⁂END(empty)
-        ⁂START(defaulted)⁂END(defaulted)
-      ⁂END(data)
+      @START(data)
+        @START(empty)@END(empty)
+        @START(defaulted)@END(defaulted)
+      @END(data)
     `);
 
     const result = engine.mapSelect({
@@ -239,7 +239,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
   });
 
   test('mapSelect should handle raw content', () => {
-    engine.add('⁂START(html)<p>content</p>⁂END(html)');
+    engine.add('@START(html)<p>content</p>@END(html)');
 
     const result = engine.mapSelect({
       html: new RawType()
@@ -252,23 +252,23 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
   test('complex case', () => {
     engine.add(`
-      ⁂START(items)
-        ⁂START(item)
-          ⁂START(@category)Urgent⁂END(@category)
-          ⁂START(@priority)5⁂END(@priority)
-          ⁂START(@text)Fix critical server issue⁂END(@text)
-        ⁂END(item)
-        ⁂START(item)
-          ⁂START(@category)High⁂END(@category)
-          ⁂START(@priority)4⁂END(@priority)
-          ⁂START(@text)Update security protocols⁂END(@text)
-        ⁂END(item)
-        ⁂START(item)
-          ⁂START(@category)Medium⁂END(@category)
-          ⁂START(@priority)3⁂END(@priority)
-          ⁂START(@text)Train new employees⁂END(@text)
-        ⁂END(item)
-      ⁂END(items)
+      @START(items)
+        @START(item)
+          @START(@category)Urgent@END(@category)
+          @START(@priority)5@END(@priority)
+          @START(@text)Fix critical server issue@END(@text)
+        @END(item)
+        @START(item)
+          @START(@category)High@END(@category)
+          @START(@priority)4@END(@priority)
+          @START(@text)Update security protocols@END(@text)
+        @END(item)
+        @START(item)
+          @START(@category)Medium@END(@category)
+          @START(@priority)3@END(@priority)
+          @START(@text)Train new employees@END(@text)
+        @END(item)
+      @END(items)
     `);
 
     const result = engine.mapSelect({
@@ -299,4 +299,38 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
       }
     });
   })
+
+  test('should handle incomplete nested tag structures appropriately', () => {
+    const engine = new IncomingIdioParserSelectorEngine();
+    
+    // Add partial structure
+    engine.add('@START(colors)@START(color)');
+    
+    const result = engine.mapSelect({
+      colors: {
+        color: [String]
+      }
+    });
+
+    expect(result).toEqual({
+      colors: {
+        color: ['']  // Empty string for incomplete tag
+      }
+    });
+    
+    // Add the rest
+    engine.add('red@END(color)@END(colors)');
+    
+    const completeResult = engine.mapSelect({
+      colors: {
+        color: [String]
+      }
+    });
+
+    expect(completeResult).toEqual({
+      colors: {
+        color: ['red']
+      }
+    });
+  });
 }); 

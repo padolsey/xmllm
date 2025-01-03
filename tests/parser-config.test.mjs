@@ -24,7 +24,7 @@ describe('Parser Configuration', () => {
     resetConfig();
     TestStream = jest.fn().mockImplementation(() => ({
       getReader: () => createMockReader([
-        '⁂START(test)hello⁂END(test)'
+        '@START(test)hello@END(test)'
       ])
     }));
   });

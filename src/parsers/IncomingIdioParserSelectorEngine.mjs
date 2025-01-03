@@ -10,8 +10,8 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
   static GEN_ATTRIBUTE_MARKER = () => '$';
   static SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD = false;
   
-  static DEFAULT_START_MARKER = '⁂';
-  static DEFAULT_END_MARKER = '⁂';
+  static DEFAULT_START_MARKER = '@';
+  static DEFAULT_END_MARKER = '@';
   static DEFAULT_START_WRAPPER = 'START(';
   static DEFAULT_END_WRAPPER = 'END(';
   static DEFAULT_CLOSE_WRAPPER = ')';
@@ -88,15 +88,7 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
 
         const tagName = this.buffer.slice(tagStart, endOfEndTag);
 
-        // If we're closing a non-attribute tag and have open attribute tags, close them first
-        while (
-          this.openElements.length > 0 && 
-          this.openElements[this.openElements.length - 1].name.startsWith('@')
-        ) {
-          const attr = this.openElements.pop();
-          attr.closed = true;
-        }
-
+        // Close the element (with fallback)
         this.closeElement(tagName);
         this.position = endOfEndTag + this.config.braceSuffix.length;
       } else if (this.buffer.startsWith(startPattern, this.position)) {
@@ -110,15 +102,6 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
 
         const tagName = this.buffer.slice(tagStart, endOfStartTag);
 
-        // If we're inside an attribute node and see another START, close the current attribute
-        if (this.openElements.length > 0) {
-          const currentElement = this.openElements[this.openElements.length - 1];
-          if (currentElement.name.startsWith('@')) {
-            currentElement.closed = true;
-            this.openElements.pop();
-          }
-        }
-
         // Create new element
         const element = {
           type: 'tag',
@@ -128,18 +111,6 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
           parent: this.openElements[this.openElements.length - 1] || null,
           closed: false,
         };
-
-        // If this is an attribute node, ensure it's directly under a non-attribute parent
-        if (tagName.startsWith('@')) {
-          // Find the nearest non-attribute parent
-          let parent = this.openElements[this.openElements.length - 1];
-          while (parent && parent.name.startsWith('@')) {
-            parent.closed = true;
-            this.openElements.pop();
-            parent = this.openElements[this.openElements.length - 1];
-          }
-          element.parent = parent;
-        }
 
         if (element.parent) {
           element.parent.children.push(element);
@@ -200,15 +171,28 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
 
   closeElement(name) {
     // Find the most recent unclosed element with the given name
+    let foundIndex = -1;
     for (let i = this.openElements.length - 1; i >= 0; i--) {
       const element = this.openElements[i];
       if (element.name === name) {
-        element.closed = true;
-        this.openElements.splice(i, 1);
-        return;
+        foundIndex = i;
+        break;
       }
     }
-    // Ignore unmatched end tags
+
+    if (foundIndex !== -1) {
+      // Close the element and any open attribute nodes above it
+      while (this.openElements.length > foundIndex) {
+        const elem = this.openElements.pop();
+        elem.closed = true;
+      }
+    } else {
+      // Fallback: close the most recently opened element
+      if (this.openElements.length > 0) {
+        const elem = this.openElements.pop();
+        elem.closed = true;
+      }
+    }
   }
 
   addTextToCurrentElement(text) {
@@ -311,10 +295,10 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     // Skip open tags if not included
     if (!includeOpenTags && !element.closed) return null;
 
-    // First collect attributes from @-prefixed children
+    // Collect attributes from @-prefixed elements
     const attrs = {};
     const regularChildren = [];
-    
+
     for (const child of (element.children || [])) {
       if (child.type === 'tag' && child.name.startsWith('@')) {
         // Store as attribute
@@ -343,8 +327,6 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
       children: formattedChildren,
       attr: attrs
     });
-
-    formatted.length = 0;
 
     // Group children by name
     const childrenByName = new Map();

@@ -361,7 +361,7 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
             if (value instanceof StringType) _typeHint = _this3.GEN_TYPE_HINT('String' + (value.hint ? ': ' + value.hint : ''));else if (value instanceof NumberType) _typeHint = _this3.GEN_TYPE_HINT('Number' + (value.hint ? ': ' + value.hint : ''));else if (value instanceof BooleanType) _typeHint = _this3.GEN_TYPE_HINT('Boolean' + (value.hint ? ': ' + value.hint : ''));else if (value instanceof EnumType) _typeHint = _this3.GEN_TYPE_HINT('Enum:' + (value.hint ? ' ' + value.hint : '') + ' (allowed values: ' + value.allowedValues.join('|') + ')');
             var _content = hint || _typeHint || '...';
             if (value.isCData) {
-              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key), "<![CDATA[").concat(_content, "]]>").concat(_this3.GEN_CLOSE_TAG(key), "\n");
+              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(_this3.GEN_CDATA_OPEN()).concat(_content).concat(_this3.GEN_CDATA_CLOSE()).concat(_this3.GEN_CLOSE_TAG(key), "\n");
             } else {
               xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(_content).concat(_this3.GEN_CLOSE_TAG(key), "\n");
             }
@@ -487,6 +487,12 @@ _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CLOSE_TAG", function 
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_TYPE_HINT", function (type) {
   var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
   return "{".concat(type).concat(enumValues !== null && enumValues !== void 0 && enumValues.length ? ": ".concat(enumValues.join('|')) : '', "}");
+});
+_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CDATA_OPEN", function () {
+  return '';
+});
+_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CDATA_CLOSE", function () {
+  return '';
 });
 export { Node };
 export default AbstractIncomingParserSelectorEngine;

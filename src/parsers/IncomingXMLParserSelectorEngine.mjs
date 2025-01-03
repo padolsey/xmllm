@@ -27,6 +27,9 @@ class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngi
   };
   static GEN_CLOSE_TAG = (name) => `</${name}>`;
 
+  static GEN_CDATA_OPEN = () => '<![CDATA[';
+  static GEN_CDATA_CLOSE = () => ']]>';
+
   static getAttributeString(obj, hints = {}) {
     if (typeof obj !== 'object' || obj === null) return '';
 

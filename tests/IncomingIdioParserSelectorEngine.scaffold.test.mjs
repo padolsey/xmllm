@@ -47,16 +47,16 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // The scaffold should use hints where available and fallback to generic placeholders
-    expect(normalized).toContain('⁂START(summary)A 2-3 sentence overview of the security assessment⁂END(summary)');
-    expect(normalized).toContain('⁂START(severity)Either \'High\', \'Medium\', or \'Low\'⁂END(severity)');
-    expect(normalized).toContain('⁂START(impact)Impact score from 1-10⁂END(impact)');
-    expect(normalized).toContain('⁂START(mitigation)Steps to fix the issue⁂END(mitigation)');
-    expect(normalized).toContain('⁂START(timeline)...String...⁂END(timeline)');
+    expect(normalized).toContain('@START(summary)A 2-3 sentence overview of the security assessment@END(summary)');
+    expect(normalized).toContain('@START(severity)Either \'High\', \'Medium\', or \'Low\'@END(severity)');
+    expect(normalized).toContain('@START(impact)Impact score from 1-10@END(impact)');
+    expect(normalized).toContain('@START(mitigation)Steps to fix the issue@END(mitigation)');
+    expect(normalized).toContain('@START(timeline)...String...@END(timeline)');
 
     // Should include example structure
-    expect(normalized).toContain('⁂START(finding)');
-    expect(normalized).toContain('⁂END(finding)');
-    expect(normalized).toContain('⁂START(finding)');  // Second example
+    expect(normalized).toContain('@START(finding)');
+    expect(normalized).toContain('@END(finding)');
+    expect(normalized).toContain('@START(finding)');  // Second example
     expect(normalized).toContain('/*etc.*/');  // Indicate more can follow
   });
 
@@ -89,12 +89,12 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Should show multiple examples for arrays
-    expect(normalized).toContain('⁂START(tag) A relevant keyword or category ⁂END(tag)');
-    expect(normalized).toContain('⁂START(priority)Priority from 1-5 (1 is highest)⁂END(priority)');
-    expect(normalized).toContain('⁂START(description)Description of the task⁂END(description)');
+    expect(normalized).toContain('@START(tag) A relevant keyword or category @END(tag)');
+    expect(normalized).toContain('@START(priority)Priority from 1-5 (1 is highest)@END(priority)');
+    expect(normalized).toContain('@START(description)Description of the task@END(description)');
     
     // Should show multiple examples for arrays
-    expect((normalized.match(/⁂START\(tag\)/g) || []).length).toBe(2);
+    expect((normalized.match(/@START\(tag\)/g) || []).length).toBe(2);
   });
 
   test('should handle missing hints gracefully', () => {
@@ -123,12 +123,12 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Should use hints where available
-    expect(normalized).toContain('⁂START(name)User\'s full name⁂END(name)');
+    expect(normalized).toContain('@START(name)User\'s full name@END(name)');
     
     // Should use generic placeholders for missing hints
-    expect(normalized).toContain('⁂START(id)...Number...⁂END(id)');
-    expect(normalized).toContain('⁂START(age)...Number...⁂END(age)');
-    expect(normalized).toContain('⁂START(bio)...String...⁂END(bio)');
+    expect(normalized).toContain('@START(id)...Number...@END(id)');
+    expect(normalized).toContain('@START(age)...Number...@END(age)');
+    expect(normalized).toContain('@START(bio)...String...@END(bio)');
   });
 
   test('should handle complex nested structures', () => {
@@ -172,14 +172,14 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // Should maintain proper nesting
-    expect(normalized).toMatch(/⁂START\(book\).*⁂START\(chapters\).*⁂START\(chapter\).*⁂START\(sections\).*⁂START\(section\)/);
+    expect(normalized).toMatch(/@START\(book\).*@START\(chapters\).*@START\(chapter\).*@START\(sections\).*@START\(section\)/);
     
     // Should include hints at all levels
-    expect(normalized).toContain('⁂START(isbn)ISBN-13 format');
-    expect(normalized).toContain('⁂START(number)Chapter number⁂END(number)');
-    expect(normalized).toContain('⁂START(title)Chapter title⁂END(title)');
-    expect(normalized).toContain('⁂START(id)Section identifier');
-    expect(normalized).toContain('⁂START(content)Section content with proper academic language⁂END(content)');
+    expect(normalized).toContain('@START(isbn)ISBN-13 format');
+    expect(normalized).toContain('@START(number)Chapter number@END(number)');
+    expect(normalized).toContain('@START(title)Chapter title@END(title)');
+    expect(normalized).toContain('@START(id)Section identifier');
+    expect(normalized).toContain('@START(content)Section content with proper academic language@END(content)');
   });
 
   test('should handle string literals as pure hints', () => {
@@ -202,16 +202,16 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     // String literals should appear as pure hints without type annotations
-    expect(normalized).toContain('⁂START(name)Full name⁂END(name)');
-    expect(normalized).toContain('⁂START(role)Admin/User/Guest⁂END(role)');
-    expect(normalized).toContain('⁂START(type)Basic/Premium⁂END(type)');
-    expect(normalized).toContain('⁂START(notes)Additional observations⁂END(notes)');
+    expect(normalized).toContain('@START(name)Full name@END(name)');
+    expect(normalized).toContain('@START(role)Admin/User/Guest@END(role)');
+    expect(normalized).toContain('@START(type)Basic/Premium@END(type)');
+    expect(normalized).toContain('@START(notes)Additional observations@END(notes)');
 
     // Regular types should have type annotations
-    expect(normalized).toContain('⁂START(age)...Number...⁂END(age)');
-    expect(normalized).toContain('⁂START(status)...String...⁂END(status)');
-    expect(normalized).toContain('⁂START(level)...Number...⁂END(level)');
-    expect(normalized).toContain('⁂START(bio)...String...⁂END(bio)');
+    expect(normalized).toContain('@START(age)...Number...@END(age)');
+    expect(normalized).toContain('@START(status)...String...@END(status)');
+    expect(normalized).toContain('@START(level)...Number...@END(level)');
+    expect(normalized).toContain('@START(bio)...String...@END(bio)');
   });
 
   test('Enums', () => {
@@ -224,7 +224,7 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
-    expect(normalized).toContain('⁂START(person) ⁂START(name)...Enum: (allowed values: John|Jane|Doe)...⁂END(name) ⁂END(person)');
+    expect(normalized).toContain('@START(person) @START(name)...Enum: (allowed values: John|Jane|Doe)...@END(name) @END(person)');
   });
 
   test('should generate scaffold with attributes', () => {
@@ -244,16 +244,16 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
 
     expect(scaffold).toBe(`
-⁂START(user)
-  ⁂START(@id)...Number...⁂END(@id)
-  ⁂START(@type)...String...⁂END(@type)
-  ⁂START(name)...String...⁂END(name)
-  ⁂START(details)
-    ⁂START(@role)admin/user/guest⁂END(@role)
-    ⁂START(@level)...Number...⁂END(@level)
-    ⁂START(bio)...String...⁂END(bio)
-  ⁂END(details)
-⁂END(user)
+@START(user)
+  @START(@id)...Number...@END(@id)
+  @START(@type)...String...@END(@type)
+  @START(name)...String...@END(name)
+  @START(details)
+    @START(@role)admin/user/guest@END(@role)
+    @START(@level)...Number...@END(@level)
+    @START(bio)...String...@END(bio)
+  @END(details)
+@END(user)
     `.trim() + '\n');
   });
 });
