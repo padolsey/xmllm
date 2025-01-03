@@ -8,9 +8,9 @@ import { types } from './types.mjs';
 
 const logger = new Logger('xmllm');
 
-const text = (fn) => ({ $text }) => fn ? fn($text) : $text;
-const withAttrs = (fn) => ({ $text, $attr }) => fn($text, $attr);
-const whenClosed = (fn) => (el) => el.$tagclosed ? fn(el) : undefined;
+const text = (fn) => ({ $$text }) => fn ? fn($$text) : $$text;
+const withAttrs = (fn) => ({ $$text, $$attr }) => fn($$text, $$attr);
+const whenClosed = (fn) => (el) => el.$$tagclosed ? fn(el) : undefined;
 
 const parserStack = new WeakMap();
 
@@ -262,7 +262,7 @@ async function* xmllmGen(pipelineFn, {
 
       const mapSelectionSchemaScaffold =
         schema &&
-        IncomingXMLParserSelectorEngine
+        parser.constructor
           .makeMapSelectScaffold(schema, hints);
 
       if (typeof transformedPrompt == 'function') {

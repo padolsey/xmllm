@@ -13,8 +13,8 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     let rootResult = engine.dedupeSelect('root', true);
 
     expect(rootResult).toHaveLength(1);
-    expect(rootResult[0].item.map(i => i.$text)).toEqual(['1', '2']);
-    expect(rootResult[0].$text).toBe('12');
+    expect(rootResult[0].item.map(i => i.$$text)).toEqual(['1', '2']);
+    expect(rootResult[0].$$text).toBe('12');
     
     engine.add('<item> NEW THING');
     engine.add(' </item>');
@@ -23,8 +23,8 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
 
     console.log('rootResult>>>>', rootResult);
     expect(rootResult).toHaveLength(1);
-    expect(rootResult[0].$text).toBe('12 NEW THING ');
-    expect(rootResult[0].item.map(i => i.$text)).toEqual(['1', '2', ' NEW THING ']);
+    expect(rootResult[0].$$text).toBe('12 NEW THING ');
+    expect(rootResult[0].item.map(i => i.$$text)).toEqual(['1', '2', ' NEW THING ']);
   });
 
 
@@ -37,8 +37,8 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     expect(rootResult).toHaveLength(1);
     console.log('rootResult>>>>', rootResult);
     
-    expect(rootResult[0].item.map(i => i.$text)).toEqual(['1', '2']);
-    expect(rootResult[0].$text).toBe('12');
+    expect(rootResult[0].item.map(i => i.$$text)).toEqual(['1', '2']);
+    expect(rootResult[0].$$text).toBe('12');
     
     engine.add('<item> NEW THING');
     engine.add(' </item>');
@@ -50,7 +50,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // same stuff we have before:
     rootResult = engine.dedupeSelect('root', true, false);
     expect(rootResult).toHaveLength(1);
-    expect(rootResult[0].item.map(i => i.$text)).toEqual([
+    expect(rootResult[0].item.map(i => i.$$text)).toEqual([
       '1',
       '2',
       ' NEW THING '
@@ -62,20 +62,20 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     
     const firstResult = engine.dedupeSelect('item', false, false);
     expect(firstResult).toHaveLength(2);
-    expect(firstResult.map(item => item.$text)).toEqual(['1', '2']);
+    expect(firstResult.map(item => item.$$text)).toEqual(['1', '2']);
     
     engine.add('<item> 3');
     engine.add(' </item>');
     
     const secondResult = engine.dedupeSelect('item', false, false);
     expect(secondResult).toHaveLength(1);
-    expect(secondResult[0].$text).toBe(' 3 ');
+    expect(secondResult[0].$$text).toBe(' 3 ');
     
     engine.add('<item>4</item></root>');
     
     const thirdResult = engine.dedupeSelect('item');
     expect(thirdResult).toHaveLength(1);
-    expect(thirdResult[0].$text).toBe('4');
+    expect(thirdResult[0].$$text).toBe('4');
     
     const fourthResult = engine.dedupeSelect('item');
     expect(fourthResult).toHaveLength(0);
@@ -86,7 +86,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     
     const firstResult = engine.dedupeSelect('item');
     expect(firstResult).toHaveLength(2);
-    expect(firstResult.map(item => item.$text)).toEqual(['First', 'Second']);
+    expect(firstResult.map(item => item.$$text)).toEqual(['First', 'Second']);
     
     const secondResult = engine.dedupeSelect('item');
     expect(secondResult).toHaveLength(0);
@@ -95,14 +95,14 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     
     const thirdResult = engine.dedupeSelect('item');
     expect(thirdResult).toHaveLength(2);
-    expect(thirdResult.map(item => item.$text)).toEqual(['Third', 'Fourth']);
+    expect(thirdResult.map(item => item.$$text)).toEqual(['Third', 'Fourth']);
     
     const fourthResult = engine.dedupeSelect('item');
     expect(fourthResult).toHaveLength(0);
     
     const allItems = engine.select('item');
     expect(allItems).toHaveLength(4);
-    expect(allItems.map(item => item.$text)).toEqual(['First', 'Second', 'Third', 'Fourth']);
+    expect(allItems.map(item => item.$$text)).toEqual(['First', 'Second', 'Third', 'Fourth']);
   });
 
   test('dedupeSelect should handle streaming XML with partial and complete elements', () => {
@@ -113,20 +113,20 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     engine.add('First item</item><item id="2">Second ');
     result = engine.dedupeSelect('item');
     expect(result).toHaveLength(1); // Only the completed first item
-    expect(result[0].$attr.id).toBe('1');
-    expect(result[0].$text).toBe('First item');
+    expect(result[0].$$attr.id).toBe('1');
+    expect(result[0].$$text).toBe('First item');
     
     engine.add('item</item><item id="3">');
     result = engine.dedupeSelect('item');
     expect(result).toHaveLength(1); // Only the completed second item
-    expect(result[0].$attr.id).toBe('2');
-    expect(result[0].$text).toBe('Second item');
+    expect(result[0].$$attr.id).toBe('2');
+    expect(result[0].$$text).toBe('Second item');
     
     engine.add('Third item</item></root>');
     result = engine.dedupeSelect('item');
     expect(result).toHaveLength(1); // Only the completed third item
-    expect(result[0].$attr.id).toBe('3');
-    expect(result[0].$text).toBe('Third item');
+    expect(result[0].$$attr.id).toBe('3');
+    expect(result[0].$$text).toBe('Third item');
     
     result = engine.dedupeSelect('item');
     expect(result).toHaveLength(0);
@@ -146,8 +146,8 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // were to be returned again, thus it is not returned again.
     expect(result).toHaveLength(2);
     expect(result.map(item => ({
-      text: item.$text.trim(),
-      nested: item.$attr.nested
+      text: item.$$text.trim(),
+      nested: item.$$attr.nested
     }))).toEqual([
       {text: 'Nested', nested: 'true'},
       // {text: 'Nested', nested: undefined},
@@ -164,18 +164,18 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     let result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(2);
     console.log('result>>>>', result);
-    expect(result.map(item => item.$text)).toEqual(['1', '2']);
+    expect(result.map(item => item.$$text)).toEqual(['1', '2']);
     
     engine.add('sub');
     result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(1);  // Only the updated open tag
-    expect(result[0].$text).toBe('2sub');
+    expect(result[0].$$text).toBe('2sub');
     
     engine.add('</subitem></item><item>3</item>');
     
     result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(2);  // The now-closed tag and the new tag
-    expect(result.map(item => item.$text)).toEqual(['2sub', '3']);
+    expect(result.map(item => item.$$text)).toEqual(['2sub', '3']);
     
     // No changes, so no results
     result = engine.dedupeSelect('item', true);
@@ -187,17 +187,17 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     
     let result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Start');
+    expect(result[0].$$text).toBe('Start');
     
     engine.add(' Middle');
     result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Start Middle');
+    expect(result[0].$$text).toBe('Start Middle');
     
     engine.add(' End</item>');
     result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Start Middle End');
+    expect(result[0].$$text).toBe('Start Middle End');
   });
 
   test('dedupeSelect should handle siblings and nested elements with open tags', () => {
@@ -205,17 +205,17 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     
     let result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$attr.id).toBe('1');
-    expect(result[0].$text).toBe('Sub 1');
+    expect(result[0].$$attr.id).toBe('1');
+    expect(result[0].$$text).toBe('Sub 1');
     
     engine.add('</subitem></item><item id="2"><subitem>Sub 2</subitem>');
     
     result = engine.dedupeSelect('item', true);
     expect(result).toHaveLength(2);  // Both items should be returned
-    expect(result[0].$attr.id).toBe('1');  // First item is now closed
-    expect(result[0].$text).toBe('Sub 1');
-    expect(result[1].$attr.id).toBe('2');
-    expect(result[1].$text).toBe('Sub 2');
+    expect(result[0].$$attr.id).toBe('1');  // First item is now closed
+    expect(result[0].$$text).toBe('Sub 1');
+    expect(result[1].$$attr.id).toBe('2');
+    expect(result[1].$$text).toBe('Sub 2');
     
     result = engine.dedupeSelect('subitem', true);
     // ^ we have already seen this but it is not closed
@@ -223,7 +223,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     expect(result).toHaveLength(1); 
     // result = engine.dedupeSelect('subitem', true, false);
     // expect(result).toHaveLength(2); 
-    // expect(result.map(item => item.$text)).toEqual(['Sub 1', 'Sub 2']);
+    // expect(result.map(item => item.$$text)).toEqual(['Sub 1', 'Sub 2']);
     
     engine.add('</item>');
     // Additional check to ensure no more selections are made
@@ -257,23 +257,23 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // Test immediate selection of completed elements
 
     let openResults = engine.select('book[category="fantasy"] > title', true);
-    console.log('Results>>>>', openResults[0].$children);
+    console.log('Results>>>>', openResults[0].$$children);
 
     // It will include open tags
     expect(openResults).toHaveLength(2);
-    expect(openResults[0].$text).toBe('The Hobbit');
-    expect(openResults[1].$text).toBe('The Way of K');
+    expect(openResults[0].$$text).toBe('The Hobbit');
+    expect(openResults[1].$$text).toBe('The Way of K');
     // return;
 
     let closedResults = engine.select('book[category="fantasy"] > title');
     expect(closedResults).toHaveLength(1);
-    expect(closedResults[0].$text).toBe('The Hobbit');
+    expect(closedResults[0].$$text).toBe('The Hobbit');
 
     let results;
     // Test parent-based selector
     results = engine.select('shelf > book[category="sci-fi"]');
     expect(results).toHaveLength(1);
-    expect(results[0].title[0].$text).toBe('Dune');
+    expect(results[0].title[0].$$text).toBe('Dune');
 
     // Add more content, including nested structures
     engine.add(`ings</title>
@@ -294,7 +294,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // Test attribute selectors
     results = engine.select('review[stars="5"]');
     expect(results).toHaveLength(1);
-    expect(results[0].$text).toBe("Couldn't put it down!");
+    expect(results[0].$$text).toBe("Couldn't put it down!");
 
     // Test ancestor-descendant selector
     results = engine.select('section[id="fiction"] title');
@@ -322,7 +322,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // Test complex attribute + descendant selectors
     results = engine.select('book[category="mystery"] review[stars="5"]');
     expect(results).toHaveLength(2);
-    expect(results.map(r => r.$text)).toEqual([
+    expect(results.map(r => r.$$text)).toEqual([
       "Couldn't put it down!",
       "Classic!"
     ]);
@@ -330,7 +330,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // Test direct child selector with attributes
     results = engine.select('section[id="non-fiction"] > shelf > book[featured="true"]');
     expect(results).toHaveLength(1);
-    expect(results[0].title[0].$text).toBe('A Brief History of Time');
+    expect(results[0].title[0].$$text).toBe('A Brief History of Time');
 
 
     // Test sibling selectors
@@ -340,7 +340,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // Test multiple selector combinations
     results = engine.select('book[category="fantasy"] title, book[category="science"] title');
     expect(results).toHaveLength(3);
-    expect(results.map(r => r.$text)).toEqual([
+    expect(results.map(r => r.$$text)).toEqual([
       'The Hobbit',
       'The Way of Kings',
       'A Brief History of Time'
@@ -352,7 +352,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     results.forEach(book => {
       expect(book.title).toBeDefined();
       expect(book.author).toBeDefined();
-      if (book.$attr.category === 'mystery') {
+      if (book.$$attr.category === 'mystery') {
         expect(book.reviews).toBeDefined();
         expect(book.reviews[0].review).toBeDefined();
       }
@@ -371,27 +371,27 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     engine.add('<poem>Roses are');
     let result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Roses are');
+    expect(result[0].$$text).toBe('Roses are');
     
     engine.add(' red</poem>');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Roses are red');
+    expect(result[0].$$text).toBe('Roses are red');
     
     engine.add('<poem>Violets are blue</poem>');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Violets are blue');
+    expect(result[0].$$text).toBe('Violets are blue');
     
     engine.add('<poem>Sugar');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Sugar');
+    expect(result[0].$$text).toBe('Sugar');
     
     engine.add(' is sweet</poem>');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Sugar is sweet');
+    expect(result[0].$$text).toBe('Sugar is sweet');
     
   });
 
@@ -424,7 +424,7 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     // Verify we can still get all poems with a fresh select
     const selectResult = engine.select('poem');
     expect(selectResult).toHaveLength(4);
-    expect(selectResult.map(p => p.$text)).toEqual([
+    expect(selectResult.map(p => p.$$text)).toEqual([
       'Roses are red',
       'Violets are blue',
       'Sugar is sweet',
@@ -513,25 +513,25 @@ describe('IncomingXMLParserSelectorEngine Dedupe', () => {
     engine.add('<poem>Once');
     let result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Once');
+    expect(result[0].$$text).toBe('Once');
     
     // Add more text
     engine.add(' upon');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);  // Returns because content changed
-    expect(result[0].$text).toBe('Once upon');
+    expect(result[0].$$text).toBe('Once upon');
     
     // Add text and start nested element
     engine.add(' a time, <strong id="123">THERE');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);  // Returns because content changed
-    expect(result[0].$text).toBe('Once upon a time, THERE');
+    expect(result[0].$$text).toBe('Once upon a time, THERE');
     
     // Complete nested element and add more text
     engine.add(' WAS</strong> a king.</poem>');
     result = engine.dedupeSelect('poem', true);
     expect(result).toHaveLength(1);  // Returns because content changed
-    expect(result[0].$text).toBe('Once upon a time, THERE WAS a king.');
+    expect(result[0].$$text).toBe('Once upon a time, THERE WAS a king.');
   });
 
   test('mapSelect should show complete state at each point', () => {

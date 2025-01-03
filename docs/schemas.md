@@ -233,7 +233,7 @@ const schema = {
     $category: types.string("Category name"),           // <product category="electronics">
     price: {
       $currency: types.string("Currency code"),         // <price currency="USD">
-      $text: types.number("Price amount in currency")   // Price value
+      $$text: types.number("Price amount in currency")   // Price value
     }
   }
 };
@@ -264,7 +264,7 @@ const schema = {
 
 ```javascript
 const schema = {
-  enabled: ({ $text }) => $text.trim().toLowerCase() === 'true'
+  enabled: ({ $$text }) => $$text.trim().toLowerCase() === 'true'
 };
 ```
 
@@ -282,11 +282,11 @@ These properties (prefixed with `$`) have special meaning:
 
 ```javascript
 element: {
-  $text,      // The element's text content
-  $attr,      // The element's attributes
-  $tagclosed, // Whether the element is complete
-  $children,  // The element's child nodes
-  $tagname    // The element's tag name
+  $$text,      // The element's text content
+  $$attr,      // The element's attributes
+  $$tagclosed, // Whether the element is complete
+  $$children,  // The element's child nodes
+  $$tagname    // The element's tag name
 }
 ```
 

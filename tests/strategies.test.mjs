@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { resetConfig } from '../src/config.mjs';
 import { stream, simple, configure } from '../src/xmllm-main.mjs';
+import { getStrategy } from '../src/strategies/index.mjs';
 
 const createMockReader = (responses) => {
   let index = 0;
@@ -287,6 +288,190 @@ describe('Strategy Configuration', () => {
           ])
         })
       );
+    });
+  });
+});
+
+describe('Prompt Strategies with Custom Symbols', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  test('default strategy should use configured idioSymbols', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '<',
+        closePrefix: '</',
+        openBrace: '',
+        closeBrace: '',
+        braceSuffix: '>'
+      }
+    });
+
+    const strategy = getStrategy('default');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('<nodename> opens a node');
+    expect(systemPrompt).toContain('</nodename> closes a node');
+    expect(systemPrompt).toContain('<greeting>hello world</greeting>');
+  });
+
+  test('seed strategy should use three backticks to insinuate code response', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '[[',
+        closePrefix: '[[',
+        openBrace: 'BEGIN(',
+        closeBrace: 'END(',
+        braceSuffix: ')]]'
+      }
+    });
+
+    const strategy = getStrategy('seed');
+    const messages = strategy.genUserPrompt('scaffold', 'prompt');
+
+    expect(messages[1].content).toBe('```\n');
+  });
+
+  test('structured strategy should show correct examples with custom symbols', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '-->',
+        closePrefix: '<--',
+        openBrace: '{{',
+        closeBrace: '{{',
+        braceSuffix: '}}!!'
+      }
+    });
+
+    const strategy = getStrategy('structured');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('-->{{name}}!!Sarah<--{{name}}!!');
+    expect(systemPrompt).toContain('-->{{age}}!!25<--{{age}}!!');
+  });
+
+  test('exemplar strategy should show correct example with markdown-like syntax', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '#',
+        closePrefix: '#',
+        openBrace: '[',
+        closeBrace: '[/',
+        braceSuffix: ']'
+      }
+    });
+
+    const strategy = getStrategy('exemplar');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('#[root]');
+    expect(systemPrompt).toContain('#[example]Hello world#[/example]');
+    expect(systemPrompt).toContain('#[/root]');
+  });
+
+  test('assertive strategy should show correct examples with emoji syntax', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '🔵',
+        closePrefix: '🔴',
+        openBrace: '(',
+        closeBrace: '(',
+        braceSuffix: ')'
+      }
+    });
+
+    const strategy = getStrategy('assertive');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('🔵(item)Content🔴(item)');
+    expect(systemPrompt).toContain('🔵(container)');
+    expect(systemPrompt).toContain('🔵(child)Content🔴(child)');
+    expect(systemPrompt).toContain('🔴(container)');
+  });
+
+  test('minimal strategy should work with whitespace-heavy syntax', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '   ',
+        closePrefix: '   ',
+        openBrace: '>>>',
+        closeBrace: '<<<',
+        braceSuffix: '   '
+      }
+    });
+
+    const strategy = getStrategy('minimal');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('   >>>nodename    opens a node');
+    expect(systemPrompt).toContain('   <<<nodename    closes a node');
+  });
+
+  test('strategies should handle mixed symbols correctly', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '<!--',
+        closePrefix: '<!--/',
+        openBrace: '[',
+        closeBrace: '[',
+        braceSuffix: ']-->'
+      }
+    });
+
+    const strategy = getStrategy('default');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('<!--[nodename]-->');
+    expect(systemPrompt).toContain('<!--/[nodename]-->');
+  });
+
+  test('strategies should handle single character symbols', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '$',
+        closePrefix: '$',
+        openBrace: '',
+        closeBrace: '/',
+        braceSuffix: '>>>'
+      }
+    });
+
+    const strategy = getStrategy('structured');
+    const systemPrompt = strategy.genSystemPrompt();
+
+    expect(systemPrompt).toContain('$name');
+    expect(systemPrompt).toContain('$/name');
+  });
+
+  test('all strategies should handle the same symbol configuration consistently', () => {
+    configure({
+      globalParser: 'idio',
+      idioSymbols: {
+        tagPrefix: '::',
+        closePrefix: '::',
+        openBrace: '(',
+        closeBrace: '(',
+        braceSuffix: ')'
+      }
+    });
+
+    const strategies = ['default', 'minimal', 'structured', 'assertive', 'exemplar', 'seed'];
+    
+    strategies.forEach(strategyName => {
+      const strategy = getStrategy(strategyName);
+      const systemPrompt = strategy.genSystemPrompt();
+      
+      expect(systemPrompt).toContain('::(nodename)');
+      expect(systemPrompt).toContain('::(nodename)');
     });
   });
 }); 

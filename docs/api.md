@@ -331,9 +331,9 @@ interface ChainableStreamInterface<T> {
 // Real-time updates with partial elements
 const colorUpdates = stream('List colors')
   .select('color')
-  .map(({$text, $tagclosed}) => ({
-    text: $text,
-    complete: $tagclosed
+  .map(({$$text, $$tagclosed}) => ({
+    text: $$text,
+    complete: $$tagclosed
   }));
 
 for await (const update of colorUpdates) {
@@ -457,10 +457,10 @@ const nested = {
 };
 
 const withTransformer = {
-  date: (el: XMLElement) => new Date(el.$text),
+  date: (el: XMLElement) => new Date(el.$$text),
   color: (el: XMLElement) => ({
-    name: el.$text,
-    rgb: el.$attr.rgb?.split(',').map(Number)
+    name: el.$$text,
+    rgb: el.$$attr.rgb?.split(',').map(Number)
   })
 };
 ```
@@ -471,22 +471,22 @@ The parsed XML element structure available in transformers and selectors.
 
 ```typescript
 interface XMLElement {
-  $text: string;                        // Element text content
-  $attr: Record<string, string>;        // Element attributes
-  $tagclosed: boolean;                  // Is element complete
-  $tagname: string;                     // Tag name
-  $children: XMLElement[];              // Child elements
-  $tagkey: number;                      // Internal unique ID
+  $$text: string;                        // Element text content
+  $$attr: Record<string, string>;        // Element attributes
+  $$tagclosed: boolean;                  // Is element complete
+  $$tagname: string;                     // Tag name
+  $$children: XMLElement[];              // Child elements
+  $$tagkey: number;                      // Internal unique ID
 }
 
 // Example usage in transformer:
 const schema = {
   product: (el: XMLElement) => ({
-    name: el.$text,
-    inStock: el.$attr.stock === 'true',
-    variants: el.$children
-      .filter(child => child.$tagname === 'variant')
-      .map(v => v.$text)
+    name: el.$$text,
+    inStock: el.$$attr.stock === 'true',
+    variants: el.$$children
+      .filter(child => child.$$tagname === 'variant')
+      .map(v => v.$$text)
   })
 };
 ```
@@ -807,7 +807,7 @@ Example:
 
 ```javascript
 pipeline(({ select }) => [
-  select('item', el => el.$text) // Extract text content of <item> elements
+  select('item', el => el.$$text) // Extract text content of <item> elements
 ]);
 ```
 

@@ -7,6 +7,9 @@ exports["default"] = exports.Node = void 0;
 var _types = require("../types.js");
 var _excluded = ["text", "children", "key", "closed"];
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
@@ -20,11 +23,11 @@ var Node = exports.Node = /*#__PURE__*/_createClass(function Node(name) {
   _classCallCheck(this, Node);
   this.length = 0;
   this.__isNodeObj__ = true;
-  this.$tagname = name;
-  this.$text = options.text || '';
-  this.$children = options.children || [];
-  this.$tagkey = options.key;
-  this.$tagclosed = options.closed || false;
+  this.$$tagname = name;
+  this.$$text = options.text || '';
+  this.$$children = options.children || [];
+  this.$$tagkey = options.key;
+  this.$$tagclosed = options.closed || false;
   var text = options.text,
     children = options.children,
     key = options.key,
@@ -75,23 +78,39 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
     }
 
     /**
-     * Gets the text content of an element including children
+     * Gets all text content from an element and its children
+     * @param {Object} element - The element to get text from
+     * @param {Function} [filterFn] - Optional function to filter which children to include
+     * @returns {string} The concatenated text content
      */
   }, {
     key: "getTextContent",
     value: function getTextContent(element) {
-      var _this = this;
+      var filterFn = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
       if (element.type === 'text') {
         return element.data;
       }
-      return (element.children || []).reduce(function (text, child) {
-        if (child.type === 'text') {
-          return text + child.data;
-        } else if (child.type === 'tag') {
-          return text + _this.getTextContent(child);
+      var text = '';
+      var _iterator = _createForOfIteratorHelper(element.children || []),
+        _step;
+      try {
+        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+          var child = _step.value;
+          if (filterFn && !filterFn(child)) {
+            continue;
+          }
+          if (child.type === 'text') {
+            text += child.data;
+          } else if (child.type === 'tag') {
+            text += this.getTextContent(child, filterFn);
+          }
         }
-        return text;
-      }, '');
+      } catch (err) {
+        _iterator.e(err);
+      } finally {
+        _iterator.f();
+      }
+      return text;
     }
   }, {
     key: "select",
@@ -114,19 +133,20 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "formatResults",
     value: function formatResults(results) {
-      var _this2 = this;
+      var _this = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       return results.map(function (r) {
-        return _this2.formatElement(r, includeOpenTags);
+        return _this.formatElement(r, includeOpenTags);
       }).filter(Boolean);
     }
   }, {
     key: "mapSelect",
     value: function mapSelect(mapping) {
-      var _this3 = this;
+      var _this2 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
       var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
       var normalizedMapping = this.normalizeSchemaWithCache(mapping);
+      var attributeMarker = this.constructor.GEN_ATTRIBUTE_MARKER();
       var _applyMapping = function applyMapping(element, map) {
         // Handle arrays first
         if (Array.isArray(map)) {
@@ -161,7 +181,7 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
           }
 
           // Get the raw value and parse it according to the type
-          var value = map.parse(element === null || element === void 0 ? void 0 : element.$text);
+          var value = map.parse(element === null || element === void 0 ? void 0 : element.$$text);
 
           // Apply transform or use default transformer
           var result = map.transform ? map.transform(value) : value;
@@ -181,15 +201,15 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
         // Handle built-in constructors
         if (typeof map === 'function') {
           if (map === Number) {
-            var _element$$text, _element$$text$trim;
-            return parseFloat(((_element$$text = element.$text) === null || _element$$text === void 0 || (_element$$text$trim = _element$$text.trim) === null || _element$$text$trim === void 0 ? void 0 : _element$$text$trim.call(_element$$text)) || '');
+            var _element$$$text, _element$$$text$trim;
+            return parseFloat(((_element$$$text = element.$$text) === null || _element$$$text === void 0 || (_element$$$text$trim = _element$$$text.trim) === null || _element$$$text$trim === void 0 ? void 0 : _element$$$text$trim.call(_element$$$text)) || '');
           }
           if (map === String) {
-            return String(element.$text);
+            return String(element.$$text);
           }
           if (map === Boolean) {
-            var _element$$text2, _element$$text2$trim;
-            var text = ((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2).toLowerCase()) || '';
+            var _element$$$text2, _element$$$text2$trim;
+            var text = ((_element$$$text2 = element.$$text) === null || _element$$$text2 === void 0 || (_element$$$text2$trim = _element$$$text2.trim) === null || _element$$$text2$trim === void 0 ? void 0 : _element$$$text2$trim.call(_element$$$text2).toLowerCase()) || '';
             var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
             var isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
             return !isEssentiallyFalsey;
@@ -202,13 +222,15 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
           var out = {};
           for (var k in map) {
             var mapItem = map[k];
-            if (k === '_' || k === '$text') {
-              var _value = _applyMapping(element === null || element === void 0 ? void 0 : element.$text, mapItem);
+            if (k === '_' || k === '$$text') {
+              var _value = _applyMapping(element === null || element === void 0 ? void 0 : element.$$text, mapItem);
               if (_value !== undefined) out[k] = _value;
-            } else if (k.startsWith(_this3.constructor.GEN_ATTRIBUTE_MARKER())) {
+            } else if (!attributeMarker && k.startsWith('$')) {
+              throw new Error("There is no attribute marker defined for this parser (".concat(_this2.constructor.NAME, "); it looks like you are trying to use the $$attr pattern, but it will not work with this parser."));
+            } else if (attributeMarker && k.startsWith(attributeMarker)) {
               var attrName = k.slice(1);
-              if (element !== null && element !== void 0 && element.$attr && element.$attr[attrName] != null) {
-                var _value2 = _applyMapping(element.$attr[attrName], mapItem);
+              if (element !== null && element !== void 0 && element.$$attr && element.$$attr[attrName] != null) {
+                var _value2 = _applyMapping(element.$$attr[attrName], mapItem);
                 if (_value2 !== undefined) out[k] = _value2;
               }
             } else {
@@ -251,7 +273,7 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       var rootSelectors = Object.keys(normalizedMapping);
       var results = {};
       rootSelectors.forEach(function (selector) {
-        var elements = doDedupe ? _this3.dedupeSelect(selector, includeOpenTags) : _this3.select(selector, includeOpenTags);
+        var elements = doDedupe ? _this2.dedupeSelect(selector, includeOpenTags) : _this2.select(selector, includeOpenTags);
         if (!(elements !== null && elements !== void 0 && elements.length)) return;
         var resultName = selector;
         if (Array.isArray(normalizedMapping[selector])) {
@@ -306,9 +328,11 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "makeMapSelectScaffold",
     value: function makeMapSelectScaffold(schema) {
-      var _this4 = this;
+      var _this3 = this;
       var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var indent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
+      // Add validation before processing
+      this.validateSchema(schema);
       var _processObject = function processObject(obj) {
         var hintObj = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         var level = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
@@ -317,37 +341,35 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
         for (var key in obj) {
           var value = obj[key];
           var hint = hintObj[key];
-
           // Skip attribute markers
-          if (key.startsWith(_this4.GEN_ATTRIBUTE_MARKER())) {
+          if (_this3.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD && _this3.GEN_ATTRIBUTE_MARKER() && key.startsWith(_this3.GEN_ATTRIBUTE_MARKER())) {
             continue;
           }
 
           // Handle string literals as pure hints
           if (typeof value === 'string') {
-            xml += "".concat(indentation).concat(_this4.GEN_OPEN_TAG(key)).concat(value).concat(_this4.GEN_CLOSE_TAG(key), "\n");
+            xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(value).concat(_this3.GEN_CLOSE_TAG(key), "\n");
             continue;
           }
 
           // Handle functions (including primitives) with optional hints
           if (typeof value === 'function') {
-            var typeHint = value === String ? '{String}' : value === Number ? '{Number}' : value === Boolean ? '{Boolean}' : '';
+            var typeHint = value === String ? _this3.GEN_TYPE_HINT('String') : value === Number ? _this3.GEN_TYPE_HINT('Number') : value === Boolean ? _this3.GEN_TYPE_HINT('Boolean') : '';
             var content = hint ? hint : typeHint || '...';
-            xml += "".concat(indentation).concat(_this4.GEN_OPEN_TAG(key)).concat(content).concat(_this4.GEN_CLOSE_TAG(key), "\n");
+            xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(content).concat(_this3.GEN_CLOSE_TAG(key), "\n");
             continue;
           }
 
           // Handle Type instances
           if (value instanceof _types.Type) {
-            var _value$allowedValues;
             // Determine content following the same pattern as other types
             var _typeHint = '';
-            if (value instanceof _types.StringType) _typeHint = '{String}';else if (value instanceof _types.NumberType) _typeHint = '{Number}';else if (value instanceof _types.BooleanType) _typeHint = '{Boolean}';else if (value instanceof _types.EnumType) _typeHint = "{Enum: ".concat((_value$allowedValues = value.allowedValues) === null || _value$allowedValues === void 0 ? void 0 : _value$allowedValues.join('|'), "}");
+            if (value instanceof _types.StringType) _typeHint = _this3.GEN_TYPE_HINT('String' + (value.hint ? ': ' + value.hint : ''));else if (value instanceof _types.NumberType) _typeHint = _this3.GEN_TYPE_HINT('Number' + (value.hint ? ': ' + value.hint : ''));else if (value instanceof _types.BooleanType) _typeHint = _this3.GEN_TYPE_HINT('Boolean' + (value.hint ? ': ' + value.hint : ''));else if (value instanceof _types.EnumType) _typeHint = _this3.GEN_TYPE_HINT('Enum:' + (value.hint ? ' ' + value.hint : '') + ' (allowed values: ' + value.allowedValues.join('|') + ')');
             var _content = hint || _typeHint || '...';
             if (value.isCData) {
-              xml += "".concat(indentation).concat(_this4.GEN_OPEN_TAG(key), "<![CDATA[").concat(_content, "]]>").concat(_this4.GEN_CLOSE_TAG(key), "\n");
+              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key), "<![CDATA[").concat(_content, "]]>").concat(_this3.GEN_CLOSE_TAG(key), "\n");
             } else {
-              xml += "".concat(indentation).concat(_this4.GEN_OPEN_TAG(key)).concat(_content).concat(_this4.GEN_CLOSE_TAG(key), "\n");
+              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(_content).concat(_this3.GEN_CLOSE_TAG(key), "\n");
             }
             continue;
           }
@@ -359,24 +381,24 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
 
             // Show two examples for arrays
             for (var i = 0; i < 2; i++) {
-              xml += "".concat(indentation).concat(_this4.GEN_OPEN_TAG(key, itemValue, itemHint), "\n");
+              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key, itemValue, itemHint), "\n");
 
               // Handle text content for array items
               if (_typeof(itemValue) !== 'object' || itemValue === null) {
                 // For primitive arrays, use the hint directly if it's a string
-                var _content2 = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : itemValue === String ? '{String}' : itemValue === Number ? '{Number}' : itemValue === Boolean ? '{Boolean}' : '...';
+                var _content2 = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : itemValue === String ? _this3.GEN_TYPE_HINT('String') : itemValue === Number ? _this3.GEN_TYPE_HINT('Number') : itemValue === Boolean ? _this3.GEN_TYPE_HINT('Boolean') : '...';
                 xml += "".concat(indentation, "  ").concat(_content2, "\n");
               } else {
-                // Handle text content from $text in object
-                if (itemValue.$text !== undefined) {
-                  var textContent = (itemHint === null || itemHint === void 0 ? void 0 : itemHint.$text) || (typeof itemValue.$text === 'function' ? itemValue.$text === String ? '{String}' : itemValue.$text === Number ? '{Number}' : itemValue.$text === Boolean ? '{Boolean}' : '...' : typeof itemValue.$text === 'string' ? itemValue.$text : '...');
+                // Handle text content from $$text in object
+                if (itemValue.$$text !== undefined) {
+                  var textContent = (itemHint === null || itemHint === void 0 ? void 0 : itemHint.$$text) || (typeof itemValue.$$text === 'function' ? itemValue.$$text === String ? _this3.GEN_TYPE_HINT('String') : itemValue.$$text === Number ? _this3.GEN_TYPE_HINT('Number') : itemValue.$$text === Boolean ? _this3.GEN_TYPE_HINT('Boolean') : '...' : typeof itemValue.$$text === 'string' ? itemValue.$$text : '...');
                   xml += "".concat(indentation, "  ").concat(textContent, "\n");
-                } else if (itemHint !== null && itemHint !== void 0 && itemHint.$text) {
-                  xml += "".concat(indentation, "  ").concat(itemHint.$text, "\n");
+                } else if (itemHint !== null && itemHint !== void 0 && itemHint.$$text) {
+                  xml += "".concat(indentation, "  ").concat(itemHint.$$text, "\n");
                 }
                 xml += _processObject(itemValue, itemHint, level + 1);
               }
-              xml += "".concat(indentation).concat(_this4.GEN_CLOSE_TAG(key), "\n");
+              xml += "".concat(indentation).concat(_this3.GEN_CLOSE_TAG(key), "\n");
             }
             xml += "".concat(indentation, "/*etc.*/\n");
             continue;
@@ -384,17 +406,17 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
 
           // Handle objects
           if (_typeof(value) === 'object' && value !== null) {
-            xml += "".concat(indentation).concat(_this4.GEN_OPEN_TAG(key, value, hint), "\n");
+            xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key, value, hint), "\n");
 
             // Handle text content - check if it's explicitly typed
-            if (value.$text !== undefined) {
-              var _textContent = (hint === null || hint === void 0 ? void 0 : hint.$text) || (typeof value.$text === 'function' ? value.$text === String ? '{String}' : value.$text === Number ? '{Number}' : value.$text === Boolean ? '{Boolean}' : '...' : typeof value.$text === 'string' ? value.$text : '...');
+            if (value.$$text !== undefined) {
+              var _textContent = (hint === null || hint === void 0 ? void 0 : hint.$$text) || (typeof value.$$text === 'function' ? value.$$text === String ? _this3.GEN_TYPE_HINT('String') : value.$$text === Number ? _this3.GEN_TYPE_HINT('Number') : value.$$text === Boolean ? _this3.GEN_TYPE_HINT('Boolean') : '...' : typeof value.$$text === 'string' ? value.$$text : '...');
               xml += "".concat(indentation, "  ").concat(_textContent, "\n");
-            } else if (hint !== null && hint !== void 0 && hint.$text) {
-              xml += "".concat(indentation, "  ").concat(hint.$text, "\n");
+            } else if (hint !== null && hint !== void 0 && hint.$$text) {
+              xml += "".concat(indentation, "  ").concat(hint.$$text, "\n");
             }
             xml += _processObject(value, hint || {}, level + 1);
-            xml += "".concat(indentation).concat(_this4.GEN_CLOSE_TAG(key), "\n");
+            xml += "".concat(indentation).concat(_this3.GEN_CLOSE_TAG(key), "\n");
           }
         }
         return xml;
@@ -406,16 +428,70 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       }
       return _processObject(schema, hints);
     }
+  }, {
+    key: "validateSchema",
+    value: function validateSchema(schema) {
+      var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+      if (!schema || _typeof(schema) !== 'object') {
+        return;
+      }
+
+      // Track property names at current level (without $ prefix)
+      var propertyNames = new Set();
+      var attributeNames = new Set();
+      for (var key in schema) {
+        // Skip internal/reserved properties
+        if (this.RESERVED_PROPERTIES.has(key)) {
+          continue;
+        }
+
+        // Special case: Allow $$text alongside $text
+        if (key === '$$text') {
+          continue;
+        }
+        var isAttribute = key.startsWith(this.GEN_ATTRIBUTE_MARKER());
+        var baseName = isAttribute ? key.slice(1) : key;
+
+        // Check for duplicate names between attributes and properties
+        if (isAttribute) {
+          if (propertyNames.has(baseName)) {
+            throw new Error("Schema validation error at ".concat(path, ": Cannot have both property \"").concat(baseName, "\" and attribute \"").concat(key, "\" at the same level"));
+          }
+          attributeNames.add(baseName);
+        } else {
+          if (attributeNames.has(baseName)) {
+            throw new Error("Schema validation error at ".concat(path, ": Cannot have both property \"").concat(key, "\" and attribute \"$").concat(baseName, "\" at the same level"));
+          }
+          propertyNames.add(baseName);
+        }
+        var value = schema[key];
+
+        // Continue validating nested objects and arrays
+        if (Array.isArray(value)) {
+          if (value.length === 1) {
+            this.validateSchema(value[0], "".concat(path, ".").concat(key, "[0]"));
+          }
+        } else if (value && _typeof(value) === 'object' && !('type' in value)) {
+          this.validateSchema(value, "".concat(path, ".").concat(key));
+        }
+      }
+    }
   }]);
 }();
+_defineProperty(AbstractIncomingParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", true);
+_defineProperty(AbstractIncomingParserSelectorEngine, "NAME", 'AbstractIncomingParserSelectorEngine');
+_defineProperty(AbstractIncomingParserSelectorEngine, "RESERVED_PROPERTIES", new Set(['$$tagclosed', '$$tagkey', '$$children', '$$tagname', '__isNodeObj__']));
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", function () {
   throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
 });
-_defineProperty(AbstractIncomingParserSelectorEngine, "RESERVED_PROPERTIES", new Set(['$tagclosed', '$tagkey', '$children', '$tagname', '__isNodeObj__']));
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_OPEN_TAG", function () {
   throw new Error('Subclass must implement GEN_OPEN_TAG');
 });
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CLOSE_TAG", function () {
   throw new Error('Subclass must implement GEN_CLOSE_TAG');
+});
+_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_TYPE_HINT", function (type) {
+  var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+  return "{".concat(type).concat(enumValues !== null && enumValues !== void 0 && enumValues.length ? ": ".concat(enumValues.join('|')) : '', "}");
 });
 var _default = exports["default"] = AbstractIncomingParserSelectorEngine;

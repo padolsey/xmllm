@@ -10,28 +10,31 @@ class Node {
   constructor(name, options = {}) {
     this.length = 0;
     this.__isNodeObj__ = true;
-    this.$tagname = name;
-    this.$text = options.text || '';
-    this.$children = options.children || [];
-    this.$tagkey = options.key;
-    this.$tagclosed = options.closed || false;
+    this.$$tagname = name;
+    this.$$text = options.text || '';
+    this.$$children = options.children || [];
+    this.$$tagkey = options.key;
+    this.$$tagclosed = options.closed || false;
     const { text, children, key, closed, ...rest } = options;
     Object.assign(this, rest);
   }
 }
 
 class AbstractIncomingParserSelectorEngine {
+
+  static SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD = true;
+  static NAME = 'AbstractIncomingParserSelectorEngine';
+  static RESERVED_PROPERTIES = new Set([
+    '$$tagclosed',
+    '$$tagkey',
+    '$$children',
+    '$$tagname',
+    '__isNodeObj__',
+  ]);
+
   static GEN_ATTRIBUTE_MARKER = () => {
     throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
   };
-
-  static RESERVED_PROPERTIES = new Set([
-    '$tagclosed',
-    '$tagkey',
-    '$children',
-    '$tagname',
-    '__isNodeObj__',
-  ]);
 
   static GEN_OPEN_TAG = () => {
     throw new Error('Subclass must implement GEN_OPEN_TAG');
@@ -39,6 +42,12 @@ class AbstractIncomingParserSelectorEngine {
 
   static GEN_CLOSE_TAG = () => {
     throw new Error('Subclass must implement GEN_CLOSE_TAG');
+  }
+
+  static GEN_TYPE_HINT = (type, enumValues = []) => {
+    return `{${type}${
+      enumValues?.length ? `: ${enumValues.join('|')}` : ''
+    }}`;
   }
 
   constructor() {
@@ -82,20 +91,27 @@ class AbstractIncomingParserSelectorEngine {
   }
 
   /**
-   * Gets the text content of an element including children
+   * Gets all text content from an element and its children
+   * @param {Object} element - The element to get text from
+   * @param {Function} [filterFn] - Optional function to filter which children to include
+   * @returns {string} The concatenated text content
    */
-  getTextContent(element) {
+  getTextContent(element, filterFn = null) {
     if (element.type === 'text') {
       return element.data;
     }
-    return (element.children || []).reduce((text, child) => {
-      if (child.type === 'text') {
-        return text + child.data;
-      } else if (child.type === 'tag') {
-        return text + this.getTextContent(child);
+    let text = '';
+    for (const child of (element.children || [])) {
+      if (filterFn && !filterFn(child)) {
+        continue;
       }
-      return text;
-    }, '');
+      if (child.type === 'text') {
+        text += child.data;
+      } else if (child.type === 'tag') {
+        text += this.getTextContent(child, filterFn);
+      }
+    }
+    return text;
   }
 
   select(selector, includeOpenTags = false) {
@@ -118,6 +134,7 @@ class AbstractIncomingParserSelectorEngine {
 
   mapSelect(mapping, includeOpenTags = true, doDedupe = true) {
     const normalizedMapping = this.normalizeSchemaWithCache(mapping);
+    const attributeMarker = this.constructor.GEN_ATTRIBUTE_MARKER()
     
     const applyMapping = (element, map) => {
       // Handle arrays first
@@ -154,7 +171,7 @@ class AbstractIncomingParserSelectorEngine {
         }
         
         // Get the raw value and parse it according to the type
-        const value = map.parse(element?.$text);
+        const value = map.parse(element?.$$text);
         
         // Apply transform or use default transformer
         let result = map.transform ? map.transform(value) : value;
@@ -175,13 +192,13 @@ class AbstractIncomingParserSelectorEngine {
       // Handle built-in constructors
       if (typeof map === 'function') {
         if (map === Number) {
-          return parseFloat(element.$text?.trim?.() || '');
+          return parseFloat(element.$$text?.trim?.() || '');
         }
         if (map === String) {
-          return String(element.$text);
+          return String(element.$$text);
         }
         if (map === Boolean) {
-          const text = element.$text?.trim?.().toLowerCase() || '';
+          const text = element.$$text?.trim?.().toLowerCase() || '';
           const isWordedAsFalse = ['false', 'no', 'null'].includes(text);
           const isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
           return !isEssentiallyFalsey;
@@ -194,13 +211,21 @@ class AbstractIncomingParserSelectorEngine {
         const out = {};
         for (const k in map) {
           const mapItem = map[k];
-          if (k === '_' || k === '$text') {
-            const value = applyMapping(element?.$text, mapItem);
+          if (k === '_' || k === '$$text') {
+            const value = applyMapping(element?.$$text, mapItem);
             if (value !== undefined) out[k] = value;
-          } else if (k.startsWith(this.constructor.GEN_ATTRIBUTE_MARKER())) {
+          } else if (
+            !attributeMarker &&
+            k.startsWith('$')
+          ) {
+            throw new Error(`There is no attribute marker defined for this parser (${this.constructor.NAME}); it looks like you are trying to use the $$attr pattern, but it will not work with this parser.`);
+          } else if (
+            attributeMarker &&
+            k.startsWith(attributeMarker)
+          ) {
             const attrName = k.slice(1);
-            if (element?.$attr && element.$attr[attrName] != null) {
-              const value = applyMapping(element.$attr[attrName], mapItem);
+            if (element?.$$attr && element.$$attr[attrName] != null) {
+              const value = applyMapping(element.$$attr[attrName], mapItem);
               if (value !== undefined) out[k] = value;
             }
           } else {
@@ -318,6 +343,9 @@ class AbstractIncomingParserSelectorEngine {
   }
 
   static makeMapSelectScaffold(schema, hints = {}, indent = 2) {
+    // Add validation before processing
+    this.validateSchema(schema);
+    
     const processObject = (obj, hintObj = {}, level = 0) => {
       let xml = '';
       const indentation = ' '.repeat(level * indent);
@@ -325,9 +353,12 @@ class AbstractIncomingParserSelectorEngine {
       for (let key in obj) {
         const value = obj[key];
         const hint = hintObj[key];
-
         // Skip attribute markers
-        if (key.startsWith(this.GEN_ATTRIBUTE_MARKER())) {
+        if (
+          this.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD &&
+          this.GEN_ATTRIBUTE_MARKER() &&
+          key.startsWith(this.GEN_ATTRIBUTE_MARKER())
+        ) {
           continue;
         }
 
@@ -339,9 +370,9 @@ class AbstractIncomingParserSelectorEngine {
 
         // Handle functions (including primitives) with optional hints
         if (typeof value === 'function') {
-          const typeHint = value === String ? '{String}' : 
-                          value === Number ? '{Number}' : 
-                          value === Boolean ? '{Boolean}' : '';
+          const typeHint = value === String ? this.GEN_TYPE_HINT('String') : 
+                          value === Number ? this.GEN_TYPE_HINT('Number') : 
+                          value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
           const content = hint ? hint : typeHint || '...';
           xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
           continue;
@@ -351,10 +382,10 @@ class AbstractIncomingParserSelectorEngine {
         if (value instanceof Type) {
           // Determine content following the same pattern as other types
           let typeHint = '';
-          if (value instanceof StringType) typeHint = '{String}';
-          else if (value instanceof NumberType) typeHint = '{Number}';
-          else if (value instanceof BooleanType) typeHint = '{Boolean}';
-          else if (value instanceof EnumType) typeHint = `{Enum: ${value.allowedValues?.join('|')}}`;
+          if (value instanceof StringType) typeHint = this.GEN_TYPE_HINT('String' + (value.hint ? ': ' + value.hint : ''));
+          else if (value instanceof NumberType) typeHint = this.GEN_TYPE_HINT('Number' + (value.hint ? ': ' + value.hint : ''));
+          else if (value instanceof BooleanType) typeHint = this.GEN_TYPE_HINT('Boolean' + (value.hint ? ': ' + value.hint : ''));
+          else if (value instanceof EnumType) typeHint = this.GEN_TYPE_HINT('Enum:' + (value.hint ? ' ' + value.hint : '') + ' (allowed values: ' + value.allowedValues.join('|') + ')');
           
           const content = hint || typeHint || '...';
           
@@ -381,23 +412,23 @@ class AbstractIncomingParserSelectorEngine {
               const content =
                 typeof itemHint === 'string' ? itemHint :
                 typeof itemValue === 'string' ? itemValue :
-                itemValue === String ? '{String}' :
-                itemValue === Number ? '{Number}' :
-                itemValue === Boolean ? '{Boolean}' : '...';
+                itemValue === String ? this.GEN_TYPE_HINT('String') :
+                itemValue === Number ? this.GEN_TYPE_HINT('Number') :
+                itemValue === Boolean ? this.GEN_TYPE_HINT('Boolean') : '...';
               xml += `${indentation}  ${content}\n`;
             } else {
-              // Handle text content from $text in object
-              if (itemValue.$text !== undefined) {
-                const textContent = itemHint?.$text || (
-                  typeof itemValue.$text === 'function' ? 
-                    (itemValue.$text === String ? '{String}' :
-                     itemValue.$text === Number ? '{Number}' :
-                     itemValue.$text === Boolean ? '{Boolean}' : '...') :
-                    (typeof itemValue.$text === 'string' ? itemValue.$text : '...')
+              // Handle text content from $$text in object
+              if (itemValue.$$text !== undefined) {
+                const textContent = itemHint?.$$text || (
+                  typeof itemValue.$$text === 'function' ? 
+                    (itemValue.$$text === String ? this.GEN_TYPE_HINT('String') :
+                     itemValue.$$text === Number ? this.GEN_TYPE_HINT('Number') :
+                     itemValue.$$text === Boolean ? this.GEN_TYPE_HINT('Boolean') : '...') :
+                    (typeof itemValue.$$text === 'string' ? itemValue.$$text : '...')
                 );
                 xml += `${indentation}  ${textContent}\n`;
-              } else if (itemHint?.$text) {
-                xml += `${indentation}  ${itemHint.$text}\n`;
+              } else if (itemHint?.$$text) {
+                xml += `${indentation}  ${itemHint.$$text}\n`;
               }
               xml += processObject(itemValue, itemHint, level + 1);
             }
@@ -413,18 +444,18 @@ class AbstractIncomingParserSelectorEngine {
           xml += `${indentation}${this.GEN_OPEN_TAG(key, value, hint)}\n`;
           
           // Handle text content - check if it's explicitly typed
-          if (value.$text !== undefined) {
-            const textContent = hint?.$text || (
-              typeof value.$text === 'function' ? 
-                (value.$text === String ? '{String}' :
-                 value.$text === Number ? '{Number}' :
-                 value.$text === Boolean ? '{Boolean}' :
+          if (value.$$text !== undefined) {
+            const textContent = hint?.$$text || (
+              typeof value.$$text === 'function' ? 
+                (value.$$text === String ? this.GEN_TYPE_HINT('String') :
+                 value.$$text === Number ? this.GEN_TYPE_HINT('Number') :
+                 value.$$text === Boolean ? this.GEN_TYPE_HINT('Boolean') :
                  '...') :
-              (typeof value.$text === 'string' ? value.$text : '...')
+              (typeof value.$$text === 'string' ? value.$$text : '...')
             );
             xml += `${indentation}  ${textContent}\n`;
-          } else if (hint?.$text) {
-            xml += `${indentation}  ${hint.$text}\n`;
+          } else if (hint?.$$text) {
+            xml += `${indentation}  ${hint.$$text}\n`;
           }
           
           xml += processObject(value, hint || {}, level + 1);
@@ -441,6 +472,59 @@ class AbstractIncomingParserSelectorEngine {
     }
 
     return processObject(schema, hints);
+  }
+
+  static validateSchema(schema, path = '') {
+    if (!schema || typeof schema !== 'object') {
+      return;
+    }
+
+    // Track property names at current level (without $ prefix)
+    const propertyNames = new Set();
+    const attributeNames = new Set();
+
+    for (const key in schema) {
+      // Skip internal/reserved properties
+      if (this.RESERVED_PROPERTIES.has(key)) {
+        continue;
+      }
+
+      // Special case: Allow $$text alongside $text
+      if (key === '$$text') {
+        continue;
+      }
+
+      const isAttribute = key.startsWith(this.GEN_ATTRIBUTE_MARKER());
+      const baseName = isAttribute ? key.slice(1) : key;
+      
+      // Check for duplicate names between attributes and properties
+      if (isAttribute) {
+        if (propertyNames.has(baseName)) {
+          throw new Error(
+            `Schema validation error at ${path}: Cannot have both property "${baseName}" and attribute "${key}" at the same level`
+          );
+        }
+        attributeNames.add(baseName);
+      } else {
+        if (attributeNames.has(baseName)) {
+          throw new Error(
+            `Schema validation error at ${path}: Cannot have both property "${key}" and attribute "$${baseName}" at the same level`
+          );
+        }
+        propertyNames.add(baseName);
+      }
+
+      const value = schema[key];
+      
+      // Continue validating nested objects and arrays
+      if (Array.isArray(value)) {
+        if (value.length === 1) {
+          this.validateSchema(value[0], `${path}.${key}[0]`);
+        }
+      } else if (value && typeof value === 'object' && !('type' in value)) {
+        this.validateSchema(value, `${path}.${key}`);
+      }
+    }
   }
 }
 

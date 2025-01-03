@@ -84,7 +84,7 @@ const analysis = stream('Analyze this text', {
         .withDefault('NEUTRAL'),
       topics: {
         topic: [{          
-          $text: types.string("Topic description"),   
+          $$text: types.string("Topic description"),   
           $score: types.number("Relevance score 0-1")
             .withTransform(n => Math.min(1, Math.max(0, n)))
         }]

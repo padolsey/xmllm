@@ -24,7 +24,7 @@ describe('ESM Imports', () => {
       select('item')
     ]);
     
-    expect((await result.next()).value).toBeNode({ $tagkey: 1, $attr: {}, $text: 'Test', $tagclosed: true });
+    expect((await result.next()).value).toBeNode({ $$tagkey: 1, $$attr: {}, $$text: 'Test', $$tagclosed: true });
   });
 
   test('Client named exports are available', () => {

@@ -22,7 +22,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
         text: String,
         number: Number,
         boolean: Boolean,
-        float: ({ $text: text }) => parseFloat(text)
+        float: ({ $$text: text }) => parseFloat(text)
       }
     });
 
@@ -48,10 +48,10 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
 
     const result = engine.mapSelect({
       data: {
-        csv: ({ $text }) => $text.split(','),
-        words: ({ $text }) => $text.split(' '),
-        date: ({ $text }) => new Date($text),
-        mixed: ({ $text }) => $text.trim().toLowerCase()
+        csv: ({ $$text }) => $$text.split(','),
+        words: ({ $$text }) => $$text.split(' '),
+        date: ({ $$text }) => new Date($$text),
+        mixed: ({ $$text }) => $$text.trim().toLowerCase()
       }
     });
 
@@ -73,15 +73,15 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
       </form>
     `);
 
-    const validateEmail = ({ $text }) => {
-      if (!/^\S+@\S+\.\S+$/.test($text)) {
+    const validateEmail = ({ $$text }) => {
+      if (!/^\S+@\S+\.\S+$/.test($$text)) {
         throw new Error('Invalid email');
       }
-      return $text;
+      return $$text;
     };
 
-    const validateAge = ({ $text }) => {
-      const age = Number($text);
+    const validateAge = ({ $$text }) => {
+      const age = Number($$text);
       if (isNaN(age) || age < 0 || age > 150) {
         throw new Error('Invalid age');
       }
@@ -131,7 +131,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
 
     const result = engine.mapSelect({
       list: {
-        item: [({$text: text}) => text.split(',').map(Number)]
+        item: [({$$text: text}) => text.split(',').map(Number)]
       }
     });
 
@@ -152,7 +152,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     
     let result = engine.mapSelect({
       data: {
-        value: ({$text: text}) => text.toUpperCase()
+        value: ({$$text: text}) => text.toUpperCase()
       }
     });
 
@@ -168,7 +168,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     
     result = engine.mapSelect({
       data: {
-        value: ({$text: text}) => text.toUpperCase()
+        value: ({$$text: text}) => text.toUpperCase()
       }
     });
 
@@ -192,13 +192,13 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
 
     const result = engine.mapSelect({
       person: {
-        name: ({ $text: name }) => ({
+        name: ({ $$text: name }) => ({
           first: name.split(' ')[0],
           last: name.split(' ')[1]
         }),
         details: {
           age: Number,
-          preferences: ({ $text }) => $text.split(',')
+          preferences: ({ $$text }) => $$text.split(',')
         }
       }
     });
@@ -288,7 +288,7 @@ describe('IncomingXMLParserSelectorEngine Schema Transformers', () => {
     // Better to use explicit transformer:
     const betterResult = engine.mapSelect({
       flags: {
-        flag: [({$text}) => $text.trim().toLowerCase() === 'true']
+        flag: [({$$text}) => $$text.trim().toLowerCase() === 'true']
       }
     }, false, false);
 

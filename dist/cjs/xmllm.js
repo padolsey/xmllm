@@ -54,20 +54,20 @@ function AsyncFromSyncIterator(r) { function AsyncFromSyncIteratorContinuation(r
 var logger = new _Logger["default"]('xmllm');
 var text = function text(fn) {
   return function (_ref5) {
-    var $text = _ref5.$text;
-    return fn ? fn($text) : $text;
+    var $$text = _ref5.$$text;
+    return fn ? fn($$text) : $$text;
   };
 };
 var withAttrs = function withAttrs(fn) {
   return function (_ref6) {
-    var $text = _ref6.$text,
-      $attr = _ref6.$attr;
-    return fn($text, $attr);
+    var $$text = _ref6.$$text,
+      $$attr = _ref6.$$attr;
+    return fn($$text, $$attr);
   };
 };
 var whenClosed = function whenClosed(fn) {
   return function (el) {
-    return el.$tagclosed ? fn(el) : undefined;
+    return el.$$tagclosed ? fn(el) : undefined;
   };
 };
 var parserStack = new WeakMap();
@@ -646,7 +646,7 @@ function _xmllmGen() {
                       case 0:
                         parser = pushNewParser();
                         transformedPrompt = prompt;
-                        mapSelectionSchemaScaffold = schema && _IncomingXMLParserSelectorEngine["default"].makeMapSelectScaffold(schema, hints);
+                        mapSelectionSchemaScaffold = schema && parser.constructor.makeMapSelectScaffold(schema, hints);
                         if (typeof transformedPrompt == 'function') {
                           transformedPrompt = transformedPrompt(thing);
                         }

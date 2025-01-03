@@ -65,17 +65,17 @@ expectError<Message>(invalidMessage2);
 
 // Positive test - valid XMLElement
 const validElement: XMLElement = {
-  $text: 'content',
-  $attr: { class: 'test' },
-  $tagkey: 1,
-  $tagclosed: true
+  $$text: 'content',
+  $$attr: { class: 'test' },
+  $$tagkey: 1,
+  $$tagclosed: true
 };
 expectType<XMLElement>(validElement);
 
 // Negative test - missing required XMLElement properties
-// @ts-expect-error - XMLElement requires $attr, $tagkey, and $tagclosed properties
+// @ts-expect-error - XMLElement requires $$attr, $$tagkey, and $$tagclosed properties
 const invalidElement: XMLElement = {
-  $text: 'content' // Missing required properties should trigger error
+  $$text: 'content' // Missing required properties should trigger error
 };
 
 // Pipeline helpers tests - all valid cases
@@ -123,7 +123,7 @@ const validPipelineWithTransformers = (helpers: PipelineHelpers) => [
         content: text,
         id: attrs.id
       })),
-      status: helpers.whenClosed(el => el.$text)
+      status: helpers.whenClosed(el => el.$$text)
     }
   })
 ];
@@ -199,7 +199,7 @@ const dateResult = await simple<{
 }>({
   prompt: "Get date",
   schema: {
-    date: (element: XMLElement) => new Date(element.$text)
+    date: (element: XMLElement) => new Date(element.$$text)
   }
 });
 expectType<{ date: Date }>(dateResult);
@@ -230,7 +230,7 @@ expectError(simple({
 // Test stream() type inference - just rename local variable
 const streamResult = stream("Count to 3")
   .select("number")
-  .map((x: XMLElement) => parseInt(x.$text));
+  .map((x: XMLElement) => parseInt(x.$$text));
 expectType<ChainableStreamInterface<number>>(streamResult);
 
 // Test stream() with schema - rename local variable
@@ -257,7 +257,7 @@ expectType<ChainableStreamInterface<{
 // Test stream chaining type inference - rename local variable
 const streamChained = stream("Test")
   .select("item")
-  .map((x: XMLElement) => x.$text)
+  .map((x: XMLElement) => x.$$text)
   .filter((x: string) => x.length > 0)
   .map((x: string) => parseInt(x));
 expectType<ChainableStreamInterface<number>>(streamChained);
@@ -333,8 +333,42 @@ expectType<void>(configure({
     maxTokens: 4000,
     model: ['anthropic:good', 'openai:fast'],
     mode: 'root_closed' as const
+  },
+  idioSymbols: {
+    tagPrefix: '@',
+    closePrefix: '@',
+    openBrace: 'START(',
+    closeBrace: 'END(',
+    braceSuffix: ')'
   }
 }));
+
+// Test partial idioSymbols config
+expectType<void>(configure({
+  idioSymbols: {
+    tagPrefix: '@',
+    closePrefix: '@'
+    // Other properties should remain default
+  }
+}));
+
+// Test XML-like syntax config
+expectType<void>(configure({
+  idioSymbols: {
+    tagPrefix: '<',
+    closePrefix: '</',
+    openBrace: '',
+    closeBrace: '',
+    braceSuffix: '>'
+  }
+}));
+
+// Test invalid idioSymbols config
+expectError<ConfigureOptions>({
+  idioSymbols: {
+    tagPrefix: 123  // Should be string
+  }
+});
 
 // Test invalid logging level
 const invalidConfig = {
@@ -515,10 +549,10 @@ expectError(xmllm(() => [], {
 
 // Test XMLElement dynamic properties
 const dynamicElement: XMLElement = {
-  $text: "Hello",
-  $attr: {},
-  $tagkey: 1,
-  $tagclosed: true,
+  $$text: "Hello",
+  $$attr: {},
+  $$tagkey: 1,
+  $$tagclosed: true,
   // Dynamic properties:
   users: [{ name: "John" }],
   metadata: { count: 42 },
@@ -533,13 +567,13 @@ expectType<XMLElement>(dynamicElement);
 
 // Test that XMLElement can handle arrays of elements
 const elementWithArrays: XMLElement = {
-  $text: "",
-  $attr: {},
-  $tagkey: 1,
-  $tagclosed: true,
+  $$text: "",
+  $$attr: {},
+  $$tagkey: 1,
+  $$tagclosed: true,
   items: [
-    { $text: "one", $attr: {}, $tagkey: 2, $tagclosed: true },
-    { $text: "two", $attr: {}, $tagkey: 3, $tagclosed: true }
+    { $$text: "one", $$attr: {}, $$tagkey: 2, $$tagclosed: true },
+    { $$text: "two", $$attr: {}, $$tagkey: 3, $$tagclosed: true }
   ]
 };
 expectType<XMLElement>(elementWithArrays);
@@ -552,10 +586,10 @@ expectError<XMLElement>({
 
 // Test that any property type is allowed except for the core properties
 const mixedElement: XMLElement = {
-  $text: "test",
-  $attr: {},
-  $tagkey: 1,
-  $tagclosed: true,
+  $$text: "test",
+  $$attr: {},
+  $$tagkey: 1,
+  $$tagclosed: true,
   numberProp: 42,
   boolProp: true,
   nullProp: null,
@@ -568,15 +602,15 @@ expectType<XMLElement>(mixedElement);
 
 // Test that core properties must be of correct type
 expectError<XMLElement>({
-  $text: 42,  // Should be string
-  $attr: {},
-  $tagkey: 1,
-  $tagclosed: true
+  $$text: 42,  // Should be string
+  $$attr: {},
+  $$tagkey: 1,
+  $$tagclosed: true
 });
 
 expectError<XMLElement>({
-  $text: "test",
-  $attr: "wrong",  // Should be Record<string, string>
-  $tagkey: 1,
-  $tagclosed: true
+  $$text: "test",
+  $$attr: "wrong",  // Should be Record<string, string>
+  $$tagkey: 1,
+  $$tagclosed: true
 });

@@ -11,10 +11,6 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
   test('mapSelect should handle simple mapping', () => {
     engine.add('⁂START(book)⁂START(title)The Hobbit⁂END(title)⁂START(author)Tolkien⁂END(author)⁂END(book)');
 
-    // Debug: Check what select returns before trying mapSelect
-    const debugSelect = engine.select('book');
-    console.log('Debug select result:', JSON.stringify(debugSelect, null, 2));
-
     const result = engine.mapSelect({
       book: {
         title: String,
@@ -103,7 +99,7 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
 
     const result = engine.mapSelect({
       data: {
-        value: (el) => parseInt(el.$text) * 2,
+        value: (el) => parseInt(el.$$text) * 2,
       },
     });
 
@@ -253,4 +249,54 @@ describe('IncomingIdioParserSelectorEngine mapSelect', () => {
       html: '<p>content</p>'
     });
   });
+
+  test('complex case', () => {
+    engine.add(`
+      ⁂START(items)
+        ⁂START(item)
+          ⁂START(@category)Urgent⁂END(@category)
+          ⁂START(@priority)5⁂END(@priority)
+          ⁂START(@text)Fix critical server issue⁂END(@text)
+        ⁂END(item)
+        ⁂START(item)
+          ⁂START(@category)High⁂END(@category)
+          ⁂START(@priority)4⁂END(@priority)
+          ⁂START(@text)Update security protocols⁂END(@text)
+        ⁂END(item)
+        ⁂START(item)
+          ⁂START(@category)Medium⁂END(@category)
+          ⁂START(@priority)3⁂END(@priority)
+          ⁂START(@text)Train new employees⁂END(@text)
+        ⁂END(item)
+      ⁂END(items)
+    `);
+
+    const result = engine.mapSelect({
+      items: {
+        item: [{
+          $category: String,
+          $priority: Number,
+          $text: String
+        }]
+      }
+    });
+
+    expect(result).toEqual({
+      items: {
+        item: [{
+          $category: 'Urgent',
+          $priority: 5,
+          $text: 'Fix critical server issue'
+        }, {
+          $category: 'High',
+          $priority: 4,
+          $text: 'Update security protocols'
+        }, {
+          $category: 'Medium',
+          $priority: 3,
+          $text: 'Train new employees'
+        }]
+      }
+    });
+  })
 }); 

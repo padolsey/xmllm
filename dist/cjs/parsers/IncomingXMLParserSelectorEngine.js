@@ -39,23 +39,6 @@ function _setPrototypeOf(t, e) { return _setPrototypeOf = Object.setPrototypeOf 
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-// class Node {
-//   constructor(name, o) {
-//     // super();
-//     this.length = 0;
-//     this.__isNodeObj__ = true;
-//     if (o) {
-//       this.$tagkey = o.key;
-//       this.$attr = o.attr;
-//       this.$text = o.aggregateText;
-//       this.$tagclosed = o.closed;
-//       this.$children = o.children || [];
-//       this.$tagname = name;
-//       const { key, attr, text, closed, children, ...rest } = o;
-//       Object.assign(this, rest);
-//     }
-//   }
-// }
 var IncomingXMLParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPars) {
   function IncomingXMLParserSelectorEngine() {
     var _this;
@@ -178,29 +161,6 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPa
       this.buffer += chunk;
       this.parser.write(chunk);
     }
-
-    // getElementSignature(element, forDeduping = false) {
-    //   const ancestry = [];
-    //   let current = element;
-
-    //   while (current.parent) {
-    //     ancestry.unshift(`${current.name}[${current.parent.children.indexOf(current)}]`);
-    //     current = current.parent;
-    //   }
-
-    //   const signature = {
-    //     ancestry: ancestry.join('/'),
-    //     name: element.name,
-    //     key: element.key,
-    //     closed: element.closed
-    //   };
-
-    //   if (!forDeduping) {
-    //     signature.textContent = this.getTextContent(element);
-    //   }
-
-    //   return JSON.stringify(signature);
-    // }
   }, {
     key: "select",
     value: function select(selector) {
@@ -381,166 +341,6 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPa
       // Add JSDoc to clarify this is "delta mode"
       return this.mapSelect(schema, false, true); // includeOpen=false, dedupe=true
     }
-
-    /**
-     * Maps schema to elements. Can operate in different modes:
-     * - State mode: (includeOpen=true, dedupe=false) - Shows growing state including partials
-     * - RootOnce mode: (includeOpen=false, dedupe=true) - Shows only new complete elements
-     * - Snapshot mode: (includeOpen=false, dedupe=false) - Shows current complete state
-     */
-  }, {
-    key: "mapSelect_0",
-    value: function mapSelect_0(mapping) {
-      var _this6 = this;
-      var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-      var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-      var normalizedMapping = this.normalizeSchemaWithCache(mapping);
-      var _applyMapping = function applyMapping(element, map) {
-        // Handle arrays first
-        if (Array.isArray(map)) {
-          if (map.length !== 1) {
-            throw new Error('A map array must only have one element');
-          }
-          return Array.isArray(element) ? element.map(function (e) {
-            return _applyMapping(e, map[0]);
-          }) : [_applyMapping(element, map[0])];
-        }
-
-        // Handle non-Node values
-        if (!(element !== null && element !== void 0 && element.__isNodeObj__) && element != null) {
-          // Treat it as a plain value:
-          if (typeof map === 'function') {
-            return map(element);
-          } else {
-            return element;
-          }
-        }
-
-        // Handle string literals as String type
-        if (typeof map === 'string') {
-          map = String;
-        }
-        console.log('map>>>', map instanceof _types.Type, map);
-
-        // Handle Type instances
-        if (map instanceof _types.Type) {
-          // Apply validation if present
-          // if (map.validate && element) {
-          //   const value = element.$text?.trim() || '';
-          //   if (!map.validate(value)) {
-          //     throw new Error(`Validation failed for value: ${value}`);
-          //   }
-          // }
-
-          // If there's no element and no default, return undefined
-          if (!element && map["default"] === undefined) {
-            return undefined;
-          }
-
-          // Get the raw value and parse it according to the type
-          var value = map.parse(element === null || element === void 0 ? void 0 : element.$text);
-
-          // Apply transform or use default transformer
-          var result = map.transform ? map.transform(value) : value;
-
-          // Apply default value if result is empty or NaN
-          if ((result === '' || typeof result === 'number' && isNaN(result)) && map["default"] !== undefined) {
-            result = map["default"];
-          }
-
-          // If we still have an empty result and no default, return undefined
-          if (result === '' && map["default"] === undefined) {
-            return undefined;
-          }
-          return result;
-        }
-
-        // Handle built-in constructors
-        if (typeof map === 'function') {
-          if (map === Number) {
-            var _element$$text, _element$$text$trim;
-            return parseFloat(((_element$$text = element.$text) === null || _element$$text === void 0 || (_element$$text$trim = _element$$text.trim) === null || _element$$text$trim === void 0 ? void 0 : _element$$text$trim.call(_element$$text)) || '');
-          }
-          if (map === String) {
-            return String(element.$text);
-          }
-          if (map === Boolean) {
-            var _element$$text2, _element$$text2$trim;
-            var text = ((_element$$text2 = element.$text) === null || _element$$text2 === void 0 || (_element$$text2$trim = _element$$text2.trim) === null || _element$$text2$trim === void 0 ? void 0 : _element$$text2$trim.call(_element$$text2).toLowerCase()) || '';
-            var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
-            var isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
-            return !isEssentiallyFalsey;
-          }
-          return map(element);
-        }
-
-        // Handle objects (nested schemas)
-        if (_typeof(map) === 'object') {
-          var out = {};
-          for (var k in map) {
-            var mapItem = map[k];
-            if (k === '_' || k === '$text') {
-              var _value = _applyMapping(element === null || element === void 0 ? void 0 : element.$text, mapItem);
-              if (_value !== undefined) out[k] = _value;
-            } else if (k.startsWith('$')) {
-              var attrName = k.slice(1);
-              if (element !== null && element !== void 0 && element.$attr && element.$attr[attrName] != null) {
-                var _value2 = _applyMapping(element.$attr[attrName], mapItem);
-                if (_value2 !== undefined) out[k] = _value2;
-              }
-            } else {
-              var childElement = element === null || element === void 0 ? void 0 : element[k];
-              if (!childElement) {
-                // Handle unfulfilled schema parts
-                if (mapItem instanceof _types.Type && mapItem["default"] !== undefined) {
-                  out[k] = mapItem["default"];
-                } else if (_typeof(mapItem) === 'object' && !Array.isArray(mapItem)) {
-                  // Recursively handle nested objects with null element
-                  var _value3 = _applyMapping(null, mapItem);
-                  // Only include the object if it has properties
-                  if (_value3 !== undefined && Object.keys(_value3).length > 0) {
-                    out[k] = _value3;
-                  }
-                } else {
-                  // Don't include arrays or undefined values
-                  if (Array.isArray(mapItem)) out[k] = [];
-                }
-              } else if (Array.isArray(mapItem)) {
-                var _value4 = _applyMapping(childElement, mapItem);
-                if (_value4 !== undefined) out[k] = _value4;
-              } else {
-                var _value5 = _applyMapping(Array.isArray(childElement) ? childElement[0] : childElement, mapItem);
-                if (_value5 !== undefined) out[k] = _value5;
-              }
-            }
-          }
-          return Object.keys(out).length > 0 ? out : undefined;
-        }
-        throw new Error('Invalid mapping type');
-      };
-      var isArrayMapping = Array.isArray(normalizedMapping);
-      if (isArrayMapping) {
-        var rootSelector = Object.keys(normalizedMapping[0])[0];
-        return (doDedupe ? this.dedupeSelect(rootSelector, includeOpenTags) : this.select(rootSelector, includeOpenTags)).map(function (element) {
-          return _defineProperty({}, rootSelector, _applyMapping(element, normalizedMapping[0][rootSelector]));
-        });
-      }
-      var rootSelectors = Object.keys(normalizedMapping);
-      var results = {};
-      rootSelectors.forEach(function (selector) {
-        var elements = doDedupe ? _this6.dedupeSelect(selector, includeOpenTags) : _this6.select(selector, includeOpenTags);
-        if (!(elements !== null && elements !== void 0 && elements.length)) return;
-        var resultName = selector;
-        if (Array.isArray(normalizedMapping[selector])) {
-          elements.forEach(function (el) {
-            results[resultName] = (results[resultName] || []).concat(_applyMapping(el, normalizedMapping[selector]));
-          });
-        } else {
-          results[resultName] = _applyMapping(elements[0], normalizedMapping[selector]);
-        }
-      });
-      return results;
-    }
   }], [{
     key: "getAttributeString",
     value: function getAttributeString(obj) {
@@ -548,7 +348,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPa
       if (_typeof(obj) !== 'object' || obj === null) return '';
       var attrs = '';
       for (var key in obj) {
-        if (key.startsWith(this.GEN_ATTRIBUTE_MARKER()) && key !== '$text') {
+        if (key.startsWith(this.GEN_ATTRIBUTE_MARKER()) && key !== '$$text') {
           var attrName = key.slice(1);
           var value = obj[key];
           var hint = hints === null || hints === void 0 ? void 0 : hints[key];
@@ -561,7 +361,7 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPa
 
           // Handle functions (including primitives) with optional hints
           if (typeof value === 'function') {
-            var typeHint = value === String ? '{String}' : value === Number ? '{Number}' : value === Boolean ? '{Boolean}' : '';
+            var typeHint = value === String ? this.GEN_TYPE_HINT('String') : value === Number ? this.GEN_TYPE_HINT('Number') : value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
             var content = hint ? hint : typeHint || '...';
             attrs += " ".concat(attrName, "=\"").concat(content, "\"");
             continue;
@@ -576,10 +376,12 @@ var IncomingXMLParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPa
   }]);
 }(_AbstractIncomingParserSelectorEngine["default"]);
 _IncomingXMLParserSelectorEngine = IncomingXMLParserSelectorEngine;
+_defineProperty(IncomingXMLParserSelectorEngine, "NAME", 'xmlParser');
+_defineProperty(IncomingXMLParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", true);
 _defineProperty(IncomingXMLParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", function () {
   return '$';
 });
-_defineProperty(IncomingXMLParserSelectorEngine, "RESERVED_PROPERTIES", new Set(['$tagclosed', '$tagkey', '$children', '$tagname', '$attr', '__isNodeObj__']));
+_defineProperty(IncomingXMLParserSelectorEngine, "RESERVED_PROPERTIES", new Set(['$$tagclosed', '$$tagkey', '$$children', '$$tagname', '$$attr', '__isNodeObj__']));
 _defineProperty(IncomingXMLParserSelectorEngine, "GEN_OPEN_TAG", function (name, attrs, hints) {
   return "<".concat(name).concat(attrs ? _IncomingXMLParserSelectorEngine.getAttributeString(attrs, hints) : '', ">");
 });

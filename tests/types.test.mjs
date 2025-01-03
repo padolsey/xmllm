@@ -231,7 +231,7 @@ describe('Type System', () => {
     const schema = {
       data: {
         person: [{
-          name: types.string(),
+          name: types.string('name of person'),
           age: types.number(),
           active: types.boolean(),
           settings: {
@@ -239,7 +239,7 @@ describe('Type System', () => {
             notifications: types.boolean()
           },
           content: types.raw(),
-          status: types.enum(['PENDING', 'ACTIVE', 'DONE'])
+          status: types.enum('Current status', ['PENDING', 'ACTIVE', 'DONE'])
         }]
       }
     };
@@ -298,7 +298,7 @@ describe('Type System', () => {
     expect(normalize(scaffoldNoHints)).toEqual(normalize(`
       <data>
         <person>
-          <name>{String}</name>
+          <name>{String: name of person}</name>
           <age>{Number}</age>
           <active>{Boolean}</active>
           <settings>
@@ -306,10 +306,10 @@ describe('Type System', () => {
             <notifications>{Boolean}</notifications>
           </settings>
           <content><![CDATA[...]]></content>
-          <status>{Enum: PENDING|ACTIVE|DONE}</status>
+          <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
         </person>
         <person>
-          <name>{String}</name>
+          <name>{String: name of person}</name>
           <age>{Number}</age>
           <active>{Boolean}</active>
           <settings>
@@ -317,7 +317,7 @@ describe('Type System', () => {
             <notifications>{Boolean}</notifications>
           </settings>
           <content><![CDATA[...]]></content>
-          <status>{Enum: PENDING|ACTIVE|DONE}</status>
+          <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
         </person>
         /*etc.*/
       </data>
@@ -368,7 +368,7 @@ describe('Type System', () => {
     const scaffoldNoHints = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     expect(normalize(scaffoldNoHints)).toEqual(normalize(`
       <data>
-        <status>{Enum: PENDING|ACTIVE|DONE}</status>
+        <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
       </data>
     `));
   });

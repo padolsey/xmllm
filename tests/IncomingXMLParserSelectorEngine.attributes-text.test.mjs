@@ -7,7 +7,7 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     engine = new IncomingXMLParserSelectorEngine();
   });
 
-  test('should handle $attr in schema', () => {
+  test('should handle $$attr in schema', () => {
     engine.add(`
       <product id="123" category="electronics" in-stock="true">
         <name lang="en">Laptop</name>
@@ -22,11 +22,11 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
         '$in-stock': (v) => v === 'true',
         name: {
           $lang: String,
-          $text: String
+          $$text: String
         },
         price: {
           $currency: String,
-          $text: Number
+          $$text: Number
         }
       }
     });
@@ -38,11 +38,11 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
         '$in-stock': true,
         name: {
           $lang: 'en',
-          $text: 'Laptop'
+          $$text: 'Laptop'
         },
         price: {
           $currency: 'USD',
-          $text: 999.99
+          $$text: 999.99
         }
       }
     });
@@ -61,26 +61,26 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     const result = engine.mapSelect({
       data: {
         number: {
-          $text: Number
+          $$text: Number
         },
         decimal: {
-          $text: parseFloat
+          $$text: parseFloat
         },
         flag: {
-          $text: text => text === 'true'
+          $$text: text => text === 'true'
         },
         text: {
-          $text: text => text.trim()
+          $$text: text => text.trim()
         }
       }
     });
 
     expect(result).toEqual({
       data: {
-        number: { $text: 42 },
-        decimal: { $text: 3.14 },
-        flag: { $text: true },
-        text: { $text: 'trim me' }
+        number: { $$text: 42 },
+        decimal: { $$text: 3.14 },
+        flag: { $$text: true },
+        text: { $$text: 'trim me' }
       }
     });
   });
@@ -92,14 +92,14 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
 
     const result = engine.mapSelect({
       article: {
-        $text: String,
+        $$text: String,
         section: [String]
       }
     });
 
     expect(result).toEqual({
       article: {
-        $text: 'Introduction First section Second section Conclusion',
+        $$text: 'Introduction First section Second section Conclusion',
         section: ['First section', 'Second section']
       }
     });
@@ -119,7 +119,7 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
         item: [{
           $priority: String,
           $done: text => text === 'true',
-          $text: String
+          $$text: String
         }]
       }
     });
@@ -127,9 +127,9 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     expect(result).toEqual({
       list: {
         item: [
-          { $priority: 'high', $done: true, $text: 'Task 1' },
-          { $priority: 'medium', $done: false, $text: 'Task 2' },
-          { $priority: 'low', $done: true, $text: 'Task 3' }
+          { $priority: 'high', $done: true, $$text: 'Task 1' },
+          { $priority: 'medium', $done: false, $$text: 'Task 2' },
+          { $priority: 'low', $done: true, $$text: 'Task 3' }
         ]
       }
     });
@@ -149,7 +149,7 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
       people: {
         person: [{
           $name: "their full name",     // This is just a hint for the LLM
-          $text: "their bio"            // This is just a hint for the LLM
+          $$text: "their bio"            // This is just a hint for the LLM
         }]
       }
     });
@@ -160,11 +160,11 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
         person: [
           {
             $name: "John Smith",
-            $text: "John is a software engineer with 10 years experience."
+            $$text: "John is a software engineer with 10 years experience."
           },
           {
             $name: "Sarah Jones", 
-            $text: "Sarah is a data scientist specializing in ML."
+            $$text: "Sarah is a data scientist specializing in ML."
           }
         ]
       }
@@ -184,7 +184,7 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
         person: [{
           $name: "their full name (we'll convert to lowercase)",
           $age: Number,
-          $text: "stuff",
+          $$text: "stuff",
           $joined: text => new Date(text)
         }]
       }
@@ -195,28 +195,28 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
         person: [{
           $name: "JOHN SMITH",
           $age: 42,
-          $text: "stuff about john",
+          $$text: "stuff about john",
           $joined: new Date('2020-01-15')
         }]
       }
     });
   });
 
-  test('should handle $text specially and not as an attribute', () => {
+  test('should handle $$text specially and not as an attribute', () => {
     engine.add(`
       <element text="this is an attribute" other="something">This is the actual text content</element>
     `);
 
     const result = engine.mapSelect({
       element: {
-        $text: String,
+        $$text: String,
         $other: String
       }
     });
 
     expect(result).toEqual({
       element: {
-        $text: "This is the actual text content",
+        $$text: "This is the actual text content",
         $other: "something"
       }
     });
@@ -228,18 +228,18 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     `);
 
     const result = engine.mapSelect({
-      element: ({$attr, $text}) => ({
-        $text: $text,
-        $other: $attr.other,
-        $text_attr: $attr.text
+      element: ({$$attr, $$text}) => ({
+        $$text: $$text,
+        $other: $$attr.other,
+        $$text_attr: $$attr.text
       })
     });
 
     expect(result).toEqual({
       element: {
-        $text: "This is the actual text content",
+        $$text: "This is the actual text content",
         $other: "something",
-        $text_attr: "this is an attribute"
+        $$text_attr: "this is an attribute"
       }
     });
   });
@@ -384,27 +384,27 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     const invalidSchemas = [
       {
         element: {
-          $attr: String,  // Can't use $attr as a schema field
+          $$attr: String,  // Can't use $$attr as a schema field
         }
       },
       {
         element: {
-          $tagclosed: Boolean  // Can't use $tagclosed
+          $$tagclosed: Boolean  // Can't use $$tagclosed
         }
       },
       {
         element: {
-          $tagkey: Number  // Can't use $tagkey
+          $$tagkey: Number  // Can't use $$tagkey
         }
       },
       {
         element: {
-          $children: Array  // Can't use $children
+          $$children: Array  // Can't use $$children
         }
       },
       {
         element: {
-          $tagname: String  // Can't use $tagname
+          $$tagname: String  // Can't use $$tagname
         }
       }
     ];
@@ -421,7 +421,7 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
       engine.mapSelect({
         root: {
           nested: {
-            $tagclosed: Boolean
+            $$tagclosed: Boolean
           }
         }
       });
@@ -437,4 +437,21 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
       });
     }).not.toThrow();
   });
+
+  test('should handle $$text in schema', () => {
+    engine.add(`
+      <product id="123" text="some text">
+        Content here
+      </product>
+    `);
+
+    // This would now fail because it has both $$text and $text
+    const result = engine.mapSelect({
+      product: {
+        $text: String,  // Attribute
+        $$text: String  // Text content
+      }
+    });
+  });
+
 }); 

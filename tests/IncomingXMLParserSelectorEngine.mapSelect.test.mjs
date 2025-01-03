@@ -182,14 +182,14 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
 
     const result = engine.mapSelect({
       book: {
-        title: ({ $text }) => $text.toUpperCase(),
+        title: ({ $$text }) => $$text.toUpperCase(),
         author: String,
         reviews: {
           review: [String]
         },
         isbn: [
           {
-            number: ({ $text: n }) => 'ISBN: ' + n
+            number: ({ $$text: n }) => 'ISBN: ' + n
           }
         ]
       }
@@ -236,7 +236,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
           child: [
             {
               grandchild: [
-                ({$text: text}) => text.toLowerCase()
+                ({$$text: text}) => text.toLowerCase()
               ]
             }
           ]
@@ -268,7 +268,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: {
         $id: Number,
         $category: String,
-        $text: String
+        $$text: String
       }
     });
 
@@ -276,7 +276,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       item: {
         $id: 123,
         $category: 'book',
-        $text: 'The Great Gatsby'
+        $$text: 'The Great Gatsby'
       }
     });
   });
@@ -299,11 +299,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         $sku: String,
         name: {
           $lang: String,
-          $text: String
+          $$text: String
         },
         price: {
           $currency: String,
-          $text: Number
+          $$text: Number
         },
         tags: {
           tag: [String]
@@ -316,11 +316,11 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         $sku: 'ABC123',
         name: {
           $lang: 'en',
-          $text: 'Laptop'
+          $$text: 'Laptop'
         },
         price: {
           $currency: 'USD',
-          $text: 999.99
+          $$text: 999.99
         },
         tags: {
           tag: ['electronics', 'computer']
@@ -388,7 +388,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       root: {
         simple: String,
         complex: {
-          $text: String,
+          $$text: String,
           $thing: String
         }
       }
@@ -398,7 +398,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       root: {
         simple: "Just text",
         complex: {
-          $text: "Text and attribute",
+          $$text: "Text and attribute",
           $thing: "value"
         }
       }
@@ -413,7 +413,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
         age: Number,
         address: {
           $type: String,
-          $text: String
+          $$text: String
         }
       }
     };
@@ -490,20 +490,20 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       book: {
         $id: Number,
         title: {
-          $text: String,
+          $$text: String,
           $lang: String
         },
         author: String,
         reviews: {
           review: [{
-            $text: String,
+            $$text: String,
             $rating: Number
           }]
         },
         isbn: [
           {
             $type: String,
-            $text: n => 'ISBN: ' + n
+            $$text: n => 'ISBN: ' + n
           }
         ]
       }
@@ -544,20 +544,20 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     
     let result = engine.mapSelect({
       item: [{
-        $text: String
+        $$text: String
       }],
       subitem: [{
-        $text: String
+        $$text: String
       }]
     });
 
     expect(result).toEqual({
       item: [
-        { $text: '1' },
-        { $text: '2' }
+        { $$text: '1' },
+        { $$text: '2' }
       ],
       subitem: [
-        { $text: '' }  // Open tag with no content yet
+        { $$text: '' }  // Open tag with no content yet
       ]
     });
 
@@ -565,16 +565,16 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     
     result = engine.mapSelect({
       item: [{
-        $text: String
+        $$text: String
       }],
       subitem: [{
-        $text: String
+        $$text: String
       }]
     });
 
     expect(result).toEqual({
       item: [
-        { $text: '2sub-content' }  // Updated content
+        { $$text: '2sub-content' }  // Updated content
       ],
 
       // Currently the implementation is such that subitem will
@@ -582,7 +582,7 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       // part of the <item>.
 
       // subitem: [
-      //   { $text: 'sub-content' }  // Now closed with content
+      //   { $$text: 'sub-content' }  // Now closed with content
       // ]
     });
   });
@@ -716,12 +716,12 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
     const result = engine.mapSelect({
       user: {
         emails: {
-          email: [({$text: email}) => {
+          email: [({$$text: email}) => {
             return email.toUpperCase();
           }]
         },
         scores: {
-          score: [({$text: score}) => Number(score) * 2]
+          score: [({$$text: score}) => Number(score) * 2]
         }
       }
     });

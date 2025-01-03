@@ -113,7 +113,7 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
     key: "text",
     value: function text() {
       return new ChainableStreamInterface([].concat(_toConsumableArray(this.pipeline), [['map', function (el) {
-        return el === null || el === void 0 ? void 0 : el.$text;
+        return el === null || el === void 0 ? void 0 : el.$$text;
       }]]), this.options);
     }
   }, {
@@ -295,8 +295,8 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
                             return map.call(_this, arg);
                           case 'text':
                             return map.call(_this, function (_ref4) {
-                              var $text = _ref4.$text;
-                              return $text;
+                              var $$text = _ref4.$$text;
+                              return $$text;
                             });
                           case 'raw':
                             return map.call(_this, function (t) {
@@ -376,7 +376,7 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
       return new ChainableStreamInterface([].concat(_toConsumableArray(this.pipeline), [
       // Only let elements pass through if they're closed
       ['filter', function (el) {
-        return el !== null && el !== void 0 && el.__isNodeObj__ ? !!el.$tagclosed : true;
+        return el !== null && el !== void 0 && el.__isNodeObj__ ? !!el.$$tagclosed : true;
       }]]), this.options);
     }
 

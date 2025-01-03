@@ -65,7 +65,7 @@ export class ChainableStreamInterface {
   text() {
     return new ChainableStreamInterface([
       ...this.pipeline,
-      ['map', el => el?.$text]
+      ['map', el => el?.$$text]
     ], this.options);
   }
 
@@ -172,7 +172,7 @@ export class ChainableStreamInterface {
                   case 'select': return select.call(this, arg);
                   case 'mergeAggregate': return mergeAggregate.call(this, arg);
                   case 'map': return map.call(this, arg);
-                  case 'text': return map.call(this, ({$text}) => $text);
+                  case 'text': return map.call(this, ({$$text}) => $$text);
                   case 'raw': return map.call(this, t=>t);
                   case 'filter': return filter.call(this, arg);
                   case 'accrue': return accrue.call(this);
@@ -218,7 +218,7 @@ export class ChainableStreamInterface {
     return new ChainableStreamInterface([
       ...this.pipeline,
       // Only let elements pass through if they're closed
-      ['filter', el => el?.__isNodeObj__ ? !!el.$tagclosed : true]
+      ['filter', el => el?.__isNodeObj__ ? !!el.$$tagclosed : true]
     ], this.options);
   }
 

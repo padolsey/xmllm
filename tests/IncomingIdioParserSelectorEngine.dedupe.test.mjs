@@ -12,7 +12,7 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
     
     let result = engine.dedupeSelect('tag1');
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Content1');
+    expect(result[0].$$text).toBe('Content1');
     
     // Subsequent call should return no elements, since tag1 was already returned
     result = engine.dedupeSelect('tag1');
@@ -24,7 +24,7 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
     // Should return the new tag
     result = engine.dedupeSelect('tag2');
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Content2');
+    expect(result[0].$$text).toBe('Content2');
   });
 
   test('dedupeSelect should handle streaming input with partial tags', () => {
@@ -39,7 +39,7 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
     engine.add('⁂END(tag)');
     result = engine.dedupeSelect('tag');
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Some content');
+    expect(result[0].$$text).toBe('Some content');
 
     // Subsequent call should return no elements
     result = engine.dedupeSelect('tag');
@@ -51,19 +51,19 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
     
     let result = engine.dedupeSelect('child');
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Child content');
+    expect(result[0].$$text).toBe('Child content');
     
     engine.add('⁂START(child)Another child⁂END(child)⁂END(parent)');
     
     // Should only return the new child
     result = engine.dedupeSelect('child');
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Another child');
+    expect(result[0].$$text).toBe('Another child');
     
     // Now, dedupeSelect for parent should return the parent node
     result = engine.dedupeSelect('parent');
     expect(result).toHaveLength(1);
-    expect(result[0].$text.replace(/\s/g, '')).toBe('Child contentAnother child'.replace(/\s/g, ''));
+    expect(result[0].$$text.replace(/\s/g, '')).toBe('Child contentAnother child'.replace(/\s/g, ''));
     
     // Subsequent calls should return nothing
     result = engine.dedupeSelect('child');
@@ -89,17 +89,17 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
     engine.add('⁂START(openTag)');
     let result = engine.dedupeSelect('openTag', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('');
+    expect(result[0].$$text).toBe('');
 
     engine.add('Some content');
     result = engine.dedupeSelect('openTag', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Some content');
+    expect(result[0].$$text).toBe('Some content');
 
     engine.add('⁂END(openTag)');
     result = engine.dedupeSelect('openTag', true);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Some content');
+    expect(result[0].$$text).toBe('Some content');
   });
 
   test('dedupeSelect should not include open tags when includeOpenTags is false', () => {
@@ -114,7 +114,7 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
     engine.add('⁂END(openTag)');
     result = engine.dedupeSelect('openTag', false);
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Some content');
+    expect(result[0].$$text).toBe('Some content');
   });
 
   test('dedupeSelect should handle tags with the same name', () => {
@@ -123,8 +123,8 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
 
     let result = engine.dedupeSelect('tag');
     expect(result).toHaveLength(2);
-    expect(result[0].$text).toBe('First instance');
-    expect(result[1].$text).toBe('Second instance');
+    expect(result[0].$$text).toBe('First instance');
+    expect(result[1].$$text).toBe('Second instance');
 
     // Subsequent call should return nothing
     result = engine.dedupeSelect('tag');
@@ -137,13 +137,13 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
 
     let resultA = engine.dedupeSelect('a');
     expect(resultA).toHaveLength(2);
-    expect(resultA[0].$text).toBe('Content A1');
-    expect(resultA[1].$text).toBe('Content A2');
+    expect(resultA[0].$$text).toBe('Content A1');
+    expect(resultA[1].$$text).toBe('Content A2');
 
     let resultB = engine.dedupeSelect('b');
     expect(resultB).toHaveLength(2);
-    expect(resultB[0].$text).toBe('Content B1');
-    expect(resultB[1].$text).toBe('Content B2');
+    expect(resultB[0].$$text).toBe('Content B1');
+    expect(resultB[1].$$text).toBe('Content B2');
   });
 
   test('dedupeSelect should handle deeply nested structures', () => {
@@ -151,12 +151,12 @@ describe('IncomingIdioParserSelectorEngine Dedupe', () => {
 
     let result = engine.dedupeSelect('level2');
     expect(result).toHaveLength(1);
-    expect(result[0].$text).toBe('Deep content');
+    expect(result[0].$$text).toBe('Deep content');
 
     // 'root' and 'level1' should also be deduped accordingly
     result = engine.dedupeSelect('root');
     expect(result).toHaveLength(1);
     // We can check that the text includes 'Deep content'
-    expect(result[0].$text.replace(/\s/g, '')).toContain('Deepcontent');
+    expect(result[0].$$text.replace(/\s/g, '')).toContain('Deepcontent');
   });
 });

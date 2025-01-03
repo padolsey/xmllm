@@ -80,10 +80,10 @@ describe('xmllm', () => {
       ]);
       
       expect((await results.next()).value).toBeNode({ 
-        $tagkey: 1, 
-        $attr: {}, 
-        $text: 'Test',
-        $tagclosed: true
+        $$tagkey: 1, 
+        $$attr: {}, 
+        $$text: 'Test',
+        $$tagclosed: true
       });
     });
   });
@@ -211,10 +211,10 @@ describe('xmllm', () => {
       ]);
 
       expect((await results.next()).value).toBeNode({ 
-        $tagkey: 1, 
-        $tagclosed: true,
-        $attr: {}, 
-        $text: 'Test' 
+        $$tagkey: 1, 
+        $$tagclosed: true,
+        $$attr: {}, 
+        $$text: 'Test' 
       });
     });
   });

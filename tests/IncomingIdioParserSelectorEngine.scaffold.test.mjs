@@ -1,4 +1,5 @@
 import IncomingIdioParserSelectorEngine from '../src/parsers/IncomingIdioParserSelectorEngine.mjs';
+import types from '../src/types';
 
 describe('Schema and Hints Scaffold Generation for Idio', () => {
   let engine;
@@ -50,7 +51,7 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     expect(normalized).toContain('⁂START(severity)Either \'High\', \'Medium\', or \'Low\'⁂END(severity)');
     expect(normalized).toContain('⁂START(impact)Impact score from 1-10⁂END(impact)');
     expect(normalized).toContain('⁂START(mitigation)Steps to fix the issue⁂END(mitigation)');
-    expect(normalized).toContain('⁂START(timeline){String}⁂END(timeline)');
+    expect(normalized).toContain('⁂START(timeline)...String...⁂END(timeline)');
 
     // Should include example structure
     expect(normalized).toContain('⁂START(finding)');
@@ -125,9 +126,9 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     expect(normalized).toContain('⁂START(name)User\'s full name⁂END(name)');
     
     // Should use generic placeholders for missing hints
-    expect(normalized).toContain('⁂START(id){Number}⁂END(id)');
-    expect(normalized).toContain('⁂START(age){Number}⁂END(age)');
-    expect(normalized).toContain('⁂START(bio){String}⁂END(bio)');
+    expect(normalized).toContain('⁂START(id)...Number...⁂END(id)');
+    expect(normalized).toContain('⁂START(age)...Number...⁂END(age)');
+    expect(normalized).toContain('⁂START(bio)...String...⁂END(bio)');
   });
 
   test('should handle complex nested structures', () => {
@@ -207,9 +208,52 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     expect(normalized).toContain('⁂START(notes)Additional observations⁂END(notes)');
 
     // Regular types should have type annotations
-    expect(normalized).toContain('⁂START(age){Number}⁂END(age)');
-    expect(normalized).toContain('⁂START(status){String}⁂END(status)');
-    expect(normalized).toContain('⁂START(level){Number}⁂END(level)');
-    expect(normalized).toContain('⁂START(bio){String}⁂END(bio)');
+    expect(normalized).toContain('⁂START(age)...Number...⁂END(age)');
+    expect(normalized).toContain('⁂START(status)...String...⁂END(status)');
+    expect(normalized).toContain('⁂START(level)...Number...⁂END(level)');
+    expect(normalized).toContain('⁂START(bio)...String...⁂END(bio)');
+  });
+
+  test('Enums', () => {
+    const schema = {
+      person: {
+        name: types.enum(null, ['John', 'Jane', 'Doe'])
+      }
+    };
+
+    const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    expect(normalized).toContain('⁂START(person) ⁂START(name)...Enum: (allowed values: John|Jane|Doe)...⁂END(name) ⁂END(person)');
+  });
+
+  test('should generate scaffold with attributes', () => {
+    const schema = {
+      user: {
+        $id: Number,
+        $type: String,
+        name: String,
+        details: {
+          $role: 'admin/user/guest',
+          $level: Number,
+          bio: String
+        }
+      }
+    };
+
+    const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
+
+    expect(scaffold).toBe(`
+⁂START(user)
+  ⁂START(@id)...Number...⁂END(@id)
+  ⁂START(@type)...String...⁂END(@type)
+  ⁂START(name)...String...⁂END(name)
+  ⁂START(details)
+    ⁂START(@role)admin/user/guest⁂END(@role)
+    ⁂START(@level)...Number...⁂END(@level)
+    ⁂START(bio)...String...⁂END(bio)
+  ⁂END(details)
+⁂END(user)
+    `.trim() + '\n');
   });
 });

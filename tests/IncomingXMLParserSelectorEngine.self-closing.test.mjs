@@ -45,19 +45,19 @@ describe('Self-closing Tags', () => {
     const result = engine.select('img, lemonade');
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchNodeData({
-      $attr: {
+      $$attr: {
         src: 'test.jpg',
         alt: 'Test'
       },
-      $text: '',
-      $tagkey: 1
-      // $tagclosed: true
+      $$text: '',
+      $$tagkey: 1
+      // $$tagclosed: true
     });
     expect(result[1]).toMatchNodeData({
-      $attr: {},
-      $text: '',
-      $tagkey: 2
-      // $tagclosed: true
+      $$attr: {},
+      $$text: '',
+      $$tagkey: 2
+      // $$tagclosed: true
     });
   });
 
@@ -103,7 +103,7 @@ describe('Self-closing Tags', () => {
     const result = engine.select('img, br, input');
     expect(result).toHaveLength(3);
     result.forEach(node => {
-      expect(node.$tagclosed).toBe(true);
+      expect(node.$$tagclosed).toBe(true);
     });
   });
 

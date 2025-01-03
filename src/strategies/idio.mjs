@@ -19,23 +19,23 @@ const defaultStrategy = {
   name: 'Default Syntax',
   description: 'Original balanced strategy for the custom syntax',
   genSystemPrompt: (subSystemPrompt = '') => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, closePrefix, braceSuffix } = getConfig().idioSymbols;
     return `
 META & OUTPUT STRUCTURE RULES:
 ===
 
 You are an AI that outputs text using a simple markup language with only two rules:
-1. ${symbol}START(nodename) opens a node.
-2. ${symbol}END(nodename) closes a node.
+1. ${tagPrefix}${openBrace}nodename${braceSuffix} opens a node.
+2. ${closePrefix}${closeBrace}nodename${braceSuffix} closes a node.
 Nodes can contain content or other nodes.
 
 Examples:
-${symbol}START(greeting)hello world${symbol}END(greeting)
+${tagPrefix}${openBrace}greeting${braceSuffix}hello world${closePrefix}${closeBrace}greeting${braceSuffix}
 
-${symbol}START(book)
-  ${symbol}START(chapter)Once upon a time${symbol}END(chapter)
-  ${symbol}START(chapter)The end${symbol}END(chapter)
-${symbol}END(book)
+${tagPrefix}${openBrace}book${braceSuffix}
+  ${tagPrefix}${openBrace}chapter${braceSuffix}Once upon a time${closePrefix}${closeBrace}chapter${braceSuffix}
+  ${tagPrefix}${openBrace}chapter${braceSuffix}The end${closePrefix}${closeBrace}chapter${braceSuffix}
+${closePrefix}${closeBrace}book${braceSuffix}
 
 You accept instructions and perform them, always following this syntax.
 
@@ -63,12 +63,12 @@ const minimalStrategy = {
   name: 'Minimal Syntax Guide',
   description: 'Bare minimum instructions focusing on output requirements',
   genSystemPrompt: (subSystemPrompt = '') => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, closePrefix, braceSuffix } = getConfig().idioSymbols;
     return `
 OUTPUT RULES:
 You are an AI that outputs text using a simple markup language with two rules:
-1. ${symbol}START(nodename) opens a node.
-2. ${symbol}END(nodename) closes a node.
+1. ${tagPrefix}${openBrace}nodename${braceSuffix} opens a node.
+2. ${closePrefix}${closeBrace}nodename${braceSuffix} closes a node.
 Nodes can contain content or other nodes.
 
 ${subSystemPrompt || 'You are an AI assistant and respond to the request.'}`.trim();
@@ -91,19 +91,19 @@ const seedStrategy = {
   name: 'Force Syntax in Seeded Response',
   description: 'Forcing response using seeding from assistant',
   genSystemPrompt: (subSystemPrompt = '') => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, closePrefix, braceSuffix } = getConfig().idioSymbols;
     return `
 OUTPUT RULES:
 You are an AI that outputs text using a simple markup language with two rules:
-1. ${symbol}START(nodename) opens a node.
-2. ${symbol}END(nodename) closes a node.
+1. ${tagPrefix}${openBrace}nodename${braceSuffix} opens a node.
+2. ${closePrefix}${closeBrace}nodename${braceSuffix} closes a node.
 Nodes can contain content or other nodes.
 
 ${subSystemPrompt || 'You are an AI assistant and respond to the request.'}`.trim();
   },
 
   genUserPrompt: (scaffold, originalPrompt) => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, braceSuffix } = getConfig().idioSymbols;
     return [
       {
         role: 'user',
@@ -115,7 +115,7 @@ ${scaffold}
       },
       {
         role: 'assistant',
-        content: `${symbol}START(response)\n`
+        content: `\`\`\`\n`
       }
     ];
   }
@@ -130,16 +130,16 @@ const structuredStrategy = {
   name: 'Structured with Syntax Examples',
   description: 'Includes concrete examples to guide the model',
   genSystemPrompt: (subSystemPrompt = '') => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, closePrefix, braceSuffix } = getConfig().idioSymbols;
     return `
 RESPONSE RULES:
 1. Output text using the simple markup language:
-   - ${symbol}START(nodename) opens a node.
-   - ${symbol}END(nodename) closes a node.
+   - ${tagPrefix}${openBrace}nodename${braceSuffix} opens a node.
+   - ${closePrefix}${closeBrace}nodename${braceSuffix} closes a node.
 2. Nodes can contain content or other nodes.
 3. For example:
-   ${symbol}START(name)Sarah${symbol}END(name)
-   ${symbol}START(age)25${symbol}END(age)
+   ${tagPrefix}${openBrace}name${braceSuffix}Sarah${closePrefix}${closeBrace}name${braceSuffix}
+   ${tagPrefix}${openBrace}age${braceSuffix}25${closePrefix}${closeBrace}age${braceSuffix}
 4. Follow the provided structure exactly.
 5. Begin with the structure provided.
 
@@ -170,21 +170,21 @@ const assertiveStrategy = {
   name: 'Assertive Instructions',
   description: 'Forceful instructions emphasizing strict compliance',
   genSystemPrompt: (subSystemPrompt = '') => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, closePrefix, braceSuffix } = getConfig().idioSymbols;
     return `
 CRITICAL RULES:
 MUST: Output text using the simple markup language with these rules:
-- ${symbol}START(nodename) opens a node.
-- ${symbol}END(nodename) closes a node.
+- ${tagPrefix}${openBrace}nodename${braceSuffix} opens a node.
+- ${closePrefix}${closeBrace}nodename${braceSuffix} closes a node.
 MUST: Follow the provided structure exactly.
 MUST: Nodes can contain content or other nodes.
 MUST: Begin with the structure provided.
 
 Examples:
-${symbol}START(item)Content${symbol}END(item)
-${symbol}START(container)
-   ${symbol}START(child)Content${symbol}END(child)
-${symbol}END(container)
+${tagPrefix}${openBrace}item${braceSuffix}Content${closePrefix}${closeBrace}item${braceSuffix}
+${tagPrefix}${openBrace}container${braceSuffix}
+   ${tagPrefix}${openBrace}child${braceSuffix}Content${closePrefix}${closeBrace}child${braceSuffix}
+${closePrefix}${closeBrace}container${braceSuffix}
 
 ${subSystemPrompt || 'You are an AI assistant and respond to the request.'}`.trim();
   },
@@ -214,19 +214,19 @@ const exampleDrivenStrategy = {
   name: 'Example-Driven Guidance',
   description: 'Provides examples to help the model understand the syntax before the real request',
   genSystemPrompt: (subSystemPrompt = '') => {
-    const symbol = getConfig().idioSymbol;
+    const { tagPrefix, openBrace, closeBrace, closePrefix, braceSuffix } = getConfig().idioSymbols;
     return `
 SYNTAX GUIDELINES WITH EXAMPLE:
 - Use the simple markup language:
-  - ${symbol}START(nodename) opens a node.
-  - ${symbol}END(nodename) closes a node.
+  - ${tagPrefix}${openBrace}nodename${braceSuffix} opens a node.
+  - ${closePrefix}${closeBrace}nodename${braceSuffix} closes a node.
 - Nodes can contain content or other nodes.
 - Follow the structure exactly.
 
 Example of compliance:
-${symbol}START(root)
-   ${symbol}START(example)Hello world${symbol}END(example)
-${symbol}END(root)
+${tagPrefix}${openBrace}root${braceSuffix}
+   ${tagPrefix}${openBrace}example${braceSuffix}Hello world${closePrefix}${closeBrace}example${braceSuffix}
+${closePrefix}${closeBrace}root${braceSuffix}
 
 ${subSystemPrompt || 'You are an AI assistant and respond to the request.'}`.trim();
   },

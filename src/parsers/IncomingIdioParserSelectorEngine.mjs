@@ -1,11 +1,3 @@
-import {
-  Type,
-  EnumType,
-  StringType,
-  NumberType,
-  BooleanType
-} from '../types.mjs';
-
 import AbstractIncomingParserSelectorEngine from './AbstractIncomingParserSelectorEngine.mjs';
 
 import Node from './Node.mjs';
@@ -13,46 +5,141 @@ import { getConfig } from '../config.mjs';
 
 class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEngine {
 
-  static GEN_ATTRIBUTE_MARKER = () => null;
+  static NAME = 'idioParser';
 
-  static GEN_OPEN_TAG = (name) => {
-    const config = getConfig();
-    return `${config.idioSymbol}START(${name})`;
-  };
-  static GEN_CLOSE_TAG = (name) => {
-    const config = getConfig();
-    return `${config.idioSymbol}END(${name})`;
-  };
+  static GEN_ATTRIBUTE_MARKER = () => '$';
+  static SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD = false;
+  
+  static DEFAULT_START_MARKER = '⁂';
+  static DEFAULT_END_MARKER = '⁂';
+  static DEFAULT_START_WRAPPER = 'START(';
+  static DEFAULT_END_WRAPPER = 'END(';
+  static DEFAULT_CLOSE_WRAPPER = ')';
 
-  constructor() {
+  constructor(config = {}) {
     super();
+    const globalConfig = getConfig();
+    
+    // Precedence: instance config > global config > class defaults
+    this.config = {
+      tagPrefix: config.tagPrefix ?? 
+                   globalConfig.idioSymbols?.tagPrefix ?? 
+                   IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER,
+      closePrefix: config.closePrefix ?? 
+                 globalConfig.idioSymbols?.closePrefix ?? 
+                 IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER,
+      openBrace: config.openBrace ?? 
+                    globalConfig.idioSymbols?.openBrace ?? 
+                    IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER,
+      closeBrace: config.closeBrace ?? 
+                  globalConfig.idioSymbols?.closeBrace ?? 
+                  IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER,
+      braceSuffix: config.braceSuffix ?? 
+                    globalConfig.idioSymbols?.braceSuffix ?? 
+                    IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+    };
+
+  }
+
+  static GEN_OPEN_TAG = (name, attrs, hints) => {
+    name = name.replace(/^\$/, '@');
+    // Get the global config for scaffold generation
+    const globalConfig = getConfig();
+    const symbols = globalConfig.idioSymbols || {
+      tagPrefix: this.DEFAULT_START_MARKER,
+      openBrace: this.DEFAULT_START_WRAPPER,
+      braceSuffix: this.DEFAULT_CLOSE_WRAPPER
+    };
+    return `${symbols.tagPrefix}${symbols.openBrace}${name}${symbols.braceSuffix}`;
+  };
+
+  static GEN_CLOSE_TAG = (name) => {
+    name = name.replace(/^\$/, '@');
+    // Get the global config for scaffold generation
+    const globalConfig = getConfig();
+    const symbols = globalConfig.idioSymbols || {
+      closePrefix: this.DEFAULT_END_MARKER,
+      closeBrace: this.DEFAULT_END_WRAPPER,
+      braceSuffix: this.DEFAULT_CLOSE_WRAPPER
+    };
+    return `${symbols.closePrefix}${symbols.closeBrace}${name}${symbols.braceSuffix}`;
+  };
+
+  static GEN_TYPE_HINT = (type, enumValues = []) => {
+    return `...${type}...`;
   }
 
   add(chunk) {
-    const config = getConfig();
     this.buffer += chunk;
     
-    // Update the parsing logic to use the configured symbol
     while (this.position < this.buffer.length) {
-      const symbol = config.idioSymbol;
-      if (this.buffer.startsWith(`${symbol}START(`, this.position)) {
-        // Attempt to parse a start tag
-        const endOfStartTag = this.buffer.indexOf(')', this.position + 7);
+      const startPattern = `${this.config.tagPrefix}${this.config.openBrace}`;
+      const endPattern = `${this.config.closePrefix}${this.config.closeBrace}`;
+
+      // Check for end tag first since it's more specific
+      if (this.buffer.startsWith(endPattern, this.position)) {
+        const tagStart = this.position + endPattern.length;
+        let endOfEndTag = this.buffer.indexOf(this.config.braceSuffix, tagStart);
+
+        if (endOfEndTag === -1) {
+          // Incomplete end tag; wait for more input
+          break;
+        }
+
+        const tagName = this.buffer.slice(tagStart, endOfEndTag);
+
+        // If we're closing a non-attribute tag and have open attribute tags, close them first
+        while (
+          this.openElements.length > 0 && 
+          this.openElements[this.openElements.length - 1].name.startsWith('@')
+        ) {
+          const attr = this.openElements.pop();
+          attr.closed = true;
+        }
+
+        this.closeElement(tagName);
+        this.position = endOfEndTag + this.config.braceSuffix.length;
+      } else if (this.buffer.startsWith(startPattern, this.position)) {
+        const tagStart = this.position + startPattern.length;
+        let endOfStartTag = this.buffer.indexOf(this.config.braceSuffix, tagStart);
+
         if (endOfStartTag === -1) {
           // Incomplete start tag; wait for more input
           break;
         }
-        const name = this.buffer.substring(this.position + 7, endOfStartTag);
+
+        const tagName = this.buffer.slice(tagStart, endOfStartTag);
+
+        // If we're inside an attribute node and see another START, close the current attribute
+        if (this.openElements.length > 0) {
+          const currentElement = this.openElements[this.openElements.length - 1];
+          if (currentElement.name.startsWith('@')) {
+            currentElement.closed = true;
+            this.openElements.pop();
+          }
+        }
 
         // Create new element
         const element = {
           type: 'tag',
           key: this.elementIndex++,
-          name,
+          name: tagName,
           children: [],
           parent: this.openElements[this.openElements.length - 1] || null,
           closed: false,
         };
+
+        // If this is an attribute node, ensure it's directly under a non-attribute parent
+        if (tagName.startsWith('@')) {
+          // Find the nearest non-attribute parent
+          let parent = this.openElements[this.openElements.length - 1];
+          while (parent && parent.name.startsWith('@')) {
+            parent.closed = true;
+            this.openElements.pop();
+            parent = this.openElements[this.openElements.length - 1];
+          }
+          element.parent = parent;
+        }
 
         if (element.parent) {
           element.parent.children.push(element);
@@ -61,37 +148,36 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
         }
 
         this.openElements.push(element);
-        this.position = endOfStartTag + 1;
-      } else if (this.buffer.startsWith(`${symbol}END(`, this.position)) {
-        // Attempt to parse an end tag
-        const endOfEndTag = this.buffer.indexOf(')', this.position + 5);
-        if (endOfEndTag === -1) {
-          // Incomplete end tag; wait for more input
-          break;
-        }
-        const tagName = this.buffer.substring(this.position + 5, endOfEndTag);
-        this.closeElement(tagName);
-        this.position = endOfEndTag + 1;
+        this.position = endOfStartTag + this.config.braceSuffix.length;
       } else {
-        const symbol = config.idioSymbol;
-        if (this.buffer[this.position] === symbol) {
+        // Update text handling to use config markers
+        if (this.buffer[this.position] === this.config.tagPrefix[0] || 
+            this.buffer[this.position] === this.config.closePrefix[0]) {
           // Potential partial marker
           const remaining = this.buffer.substring(this.position);
-          if (remaining.startsWith(`${symbol}START(`) || remaining.startsWith(`${symbol}END(`)) {
+          if (remaining.startsWith(startPattern) || remaining.startsWith(endPattern)) {
             // Should have been handled above
             // This case shouldn't occur, but to be safe
             continue;
-          } else if (remaining.length < 7) {
+          } else if (remaining.length < Math.max(
+            this.config.tagPrefix.length + this.config.openBrace.length,
+            this.config.closePrefix.length + this.config.closeBrace.length
+          )) {
             // Possible partial marker, wait for more data
             break;
           } else {
-            // Invalid marker, treat symbol as text
-            this.addTextToCurrentElement(symbol);
+            // Invalid marker, treat as text
+            this.addTextToCurrentElement(this.buffer[this.position]);
             this.position++;
           }
         } else {
-          // Collect text content up to the next symbol
-          const nextMarkerPos = this.buffer.indexOf(symbol, this.position);
+          // Collect text content up to the next marker
+          const nexttagPrefixPos = this.buffer.indexOf(this.config.tagPrefix, this.position + 1);
+          const nextclosePrefixPos = this.buffer.indexOf(this.config.closePrefix, this.position + 1);
+          const nextMarkerPos = nexttagPrefixPos === -1 ? nextclosePrefixPos :
+                               nextclosePrefixPos === -1 ? nexttagPrefixPos :
+                               Math.min(nexttagPrefixPos, nextclosePrefixPos);
+          
           let text;
           if (nextMarkerPos === -1) {
             text = this.buffer.substring(this.position);
@@ -151,6 +237,7 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
    * Finds elements matching the given selector
    */
   findElements(elements, selector, includeOpenTags = false) {
+
     if (!selector) return [];
 
     // Split selector into parts for descendant matching
@@ -208,9 +295,8 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
   }
 
   formatElement(element, includeOpenTags = false) {
-
-    element.aggregateText = element.aggregateText
-      || this.getTextContent(element);
+    // For aggregateText, we want all text including attributes
+    element.aggregateText = element.aggregateText || this.getTextContent(element);
     
     // Base case for text nodes
     if (element.type === 'text') {
@@ -225,19 +311,37 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     // Skip open tags if not included
     if (!includeOpenTags && !element.closed) return null;
 
-    // Format children recursively
-    const formattedChildren =
-      element.children?.map((child) => this.formatElement(child, includeOpenTags)).filter(Boolean) ||
-      [];
+    // First collect attributes from @-prefixed children
+    const attrs = {};
+    const regularChildren = [];
+    
+    for (const child of (element.children || [])) {
+      if (child.type === 'tag' && child.name.startsWith('@')) {
+        // Store as attribute
+        const attrName = child.name.substring(1);
+        attrs[attrName] = this.getTextContent(child);
+      } else {
+        regularChildren.push(child);
+      }
+    }
 
-    // Get all text content including from child nodes
-    const allText = this.getTextContent(element);
+    // Format remaining children recursively
+    const formattedChildren = regularChildren
+      .map(child => this.formatElement(child, includeOpenTags))
+      .filter(Boolean);
 
+    // Get text content excluding attribute nodes for the main node text
+    const allText = this.getTextContent(element, 
+      child => !(child.type === 'tag' && child.name.startsWith('@'))
+    );
+
+    // Create the formatted node with collected attributes
     const formatted = new Node(element.name, {
       key: element.key,
       text: allText,
       closed: element.closed,
       children: formattedChildren,
+      attr: attrs
     });
 
     formatted.length = 0;
@@ -245,11 +349,11 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     // Group children by name
     const childrenByName = new Map();
     for (const child of formattedChildren) {
-      if (child.$tagname !== 'TEXT_NODE') {
-        if (!childrenByName.has(child.$tagname)) {
-          childrenByName.set(child.$tagname, []);
+      if (child.$$tagname !== 'TEXT_NODE') {
+        if (!childrenByName.has(child.$$tagname)) {
+          childrenByName.set(child.$$tagname, []);
         }
-        childrenByName.get(child.$tagname).push(child);
+        childrenByName.get(child.$$tagname).push(child);
       }
     }
 
@@ -260,6 +364,7 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
 
     return formatted;
   }
+
 }
 
 export { Node };

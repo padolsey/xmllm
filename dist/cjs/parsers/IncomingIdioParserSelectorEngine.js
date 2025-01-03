@@ -11,10 +11,10 @@ Object.defineProperty(exports, "Node", {
   }
 });
 exports["default"] = void 0;
-var _types = require("../types.js");
 var _AbstractIncomingParserSelectorEngine = _interopRequireDefault(require("./AbstractIncomingParserSelectorEngine.js"));
 var _Node = _interopRequireDefault(require("./Node.js"));
 var _config = require("../config.js");
+var _IncomingIdioParserSelectorEngine;
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -42,74 +42,117 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPars) {
   function IncomingIdioParserSelectorEngine() {
+    var _ref, _config$tagPrefix, _globalConfig$idioSym, _ref2, _config$closePrefix, _globalConfig$idioSym2, _ref3, _config$openBrace, _globalConfig$idioSym3, _ref4, _config$closeBrace, _globalConfig$idioSym4, _ref5, _config$braceSuffix, _globalConfig$idioSym5;
+    var _this;
+    var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
     _classCallCheck(this, IncomingIdioParserSelectorEngine);
-    return _callSuper(this, IncomingIdioParserSelectorEngine);
+    _this = _callSuper(this, IncomingIdioParserSelectorEngine);
+    var globalConfig = (0, _config.getConfig)();
+
+    // Precedence: instance config > global config > class defaults
+    _this.config = {
+      tagPrefix: (_ref = (_config$tagPrefix = config.tagPrefix) !== null && _config$tagPrefix !== void 0 ? _config$tagPrefix : (_globalConfig$idioSym = globalConfig.idioSymbols) === null || _globalConfig$idioSym === void 0 ? void 0 : _globalConfig$idioSym.tagPrefix) !== null && _ref !== void 0 ? _ref : IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER,
+      closePrefix: (_ref2 = (_config$closePrefix = config.closePrefix) !== null && _config$closePrefix !== void 0 ? _config$closePrefix : (_globalConfig$idioSym2 = globalConfig.idioSymbols) === null || _globalConfig$idioSym2 === void 0 ? void 0 : _globalConfig$idioSym2.closePrefix) !== null && _ref2 !== void 0 ? _ref2 : IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER,
+      openBrace: (_ref3 = (_config$openBrace = config.openBrace) !== null && _config$openBrace !== void 0 ? _config$openBrace : (_globalConfig$idioSym3 = globalConfig.idioSymbols) === null || _globalConfig$idioSym3 === void 0 ? void 0 : _globalConfig$idioSym3.openBrace) !== null && _ref3 !== void 0 ? _ref3 : IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER,
+      closeBrace: (_ref4 = (_config$closeBrace = config.closeBrace) !== null && _config$closeBrace !== void 0 ? _config$closeBrace : (_globalConfig$idioSym4 = globalConfig.idioSymbols) === null || _globalConfig$idioSym4 === void 0 ? void 0 : _globalConfig$idioSym4.closeBrace) !== null && _ref4 !== void 0 ? _ref4 : IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER,
+      braceSuffix: (_ref5 = (_config$braceSuffix = config.braceSuffix) !== null && _config$braceSuffix !== void 0 ? _config$braceSuffix : (_globalConfig$idioSym5 = globalConfig.idioSymbols) === null || _globalConfig$idioSym5 === void 0 ? void 0 : _globalConfig$idioSym5.braceSuffix) !== null && _ref5 !== void 0 ? _ref5 : IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+    };
+    return _this;
   }
   _inherits(IncomingIdioParserSelectorEngine, _AbstractIncomingPars);
   return _createClass(IncomingIdioParserSelectorEngine, [{
     key: "add",
     value: function add(chunk) {
-      var config = (0, _config.getConfig)();
       this.buffer += chunk;
-
-      // Update the parsing logic to use the configured symbol
       while (this.position < this.buffer.length) {
-        var symbol = config.idioSymbol;
-        if (this.buffer.startsWith("".concat(symbol, "START("), this.position)) {
-          // Attempt to parse a start tag
-          var endOfStartTag = this.buffer.indexOf(')', this.position + 7);
+        var startPattern = "".concat(this.config.tagPrefix).concat(this.config.openBrace);
+        var endPattern = "".concat(this.config.closePrefix).concat(this.config.closeBrace);
+
+        // Check for end tag first since it's more specific
+        if (this.buffer.startsWith(endPattern, this.position)) {
+          var tagStart = this.position + endPattern.length;
+          var endOfEndTag = this.buffer.indexOf(this.config.braceSuffix, tagStart);
+          if (endOfEndTag === -1) {
+            // Incomplete end tag; wait for more input
+            break;
+          }
+          var tagName = this.buffer.slice(tagStart, endOfEndTag);
+
+          // If we're closing a non-attribute tag and have open attribute tags, close them first
+          while (this.openElements.length > 0 && this.openElements[this.openElements.length - 1].name.startsWith('@')) {
+            var attr = this.openElements.pop();
+            attr.closed = true;
+          }
+          this.closeElement(tagName);
+          this.position = endOfEndTag + this.config.braceSuffix.length;
+        } else if (this.buffer.startsWith(startPattern, this.position)) {
+          var _tagStart = this.position + startPattern.length;
+          var endOfStartTag = this.buffer.indexOf(this.config.braceSuffix, _tagStart);
           if (endOfStartTag === -1) {
             // Incomplete start tag; wait for more input
             break;
           }
-          var name = this.buffer.substring(this.position + 7, endOfStartTag);
+          var _tagName = this.buffer.slice(_tagStart, endOfStartTag);
+
+          // If we're inside an attribute node and see another START, close the current attribute
+          if (this.openElements.length > 0) {
+            var currentElement = this.openElements[this.openElements.length - 1];
+            if (currentElement.name.startsWith('@')) {
+              currentElement.closed = true;
+              this.openElements.pop();
+            }
+          }
 
           // Create new element
           var element = {
             type: 'tag',
             key: this.elementIndex++,
-            name: name,
+            name: _tagName,
             children: [],
             parent: this.openElements[this.openElements.length - 1] || null,
             closed: false
           };
+
+          // If this is an attribute node, ensure it's directly under a non-attribute parent
+          if (_tagName.startsWith('@')) {
+            // Find the nearest non-attribute parent
+            var parent = this.openElements[this.openElements.length - 1];
+            while (parent && parent.name.startsWith('@')) {
+              parent.closed = true;
+              this.openElements.pop();
+              parent = this.openElements[this.openElements.length - 1];
+            }
+            element.parent = parent;
+          }
           if (element.parent) {
             element.parent.children.push(element);
           } else {
             this.parsedData.push(element);
           }
           this.openElements.push(element);
-          this.position = endOfStartTag + 1;
-        } else if (this.buffer.startsWith("".concat(symbol, "END("), this.position)) {
-          // Attempt to parse an end tag
-          var endOfEndTag = this.buffer.indexOf(')', this.position + 5);
-          if (endOfEndTag === -1) {
-            // Incomplete end tag; wait for more input
-            break;
-          }
-          var tagName = this.buffer.substring(this.position + 5, endOfEndTag);
-          this.closeElement(tagName);
-          this.position = endOfEndTag + 1;
+          this.position = endOfStartTag + this.config.braceSuffix.length;
         } else {
-          var _symbol = config.idioSymbol;
-          if (this.buffer[this.position] === _symbol) {
+          // Update text handling to use config markers
+          if (this.buffer[this.position] === this.config.tagPrefix[0] || this.buffer[this.position] === this.config.closePrefix[0]) {
             // Potential partial marker
             var remaining = this.buffer.substring(this.position);
-            if (remaining.startsWith("".concat(_symbol, "START(")) || remaining.startsWith("".concat(_symbol, "END("))) {
+            if (remaining.startsWith(startPattern) || remaining.startsWith(endPattern)) {
               // Should have been handled above
               // This case shouldn't occur, but to be safe
               continue;
-            } else if (remaining.length < 7) {
+            } else if (remaining.length < Math.max(this.config.tagPrefix.length + this.config.openBrace.length, this.config.closePrefix.length + this.config.closeBrace.length)) {
               // Possible partial marker, wait for more data
               break;
             } else {
-              // Invalid marker, treat symbol as text
-              this.addTextToCurrentElement(_symbol);
+              // Invalid marker, treat as text
+              this.addTextToCurrentElement(this.buffer[this.position]);
               this.position++;
             }
           } else {
-            // Collect text content up to the next symbol
-            var nextMarkerPos = this.buffer.indexOf(_symbol, this.position);
+            // Collect text content up to the next marker
+            var nexttagPrefixPos = this.buffer.indexOf(this.config.tagPrefix, this.position + 1);
+            var nextclosePrefixPos = this.buffer.indexOf(this.config.closePrefix, this.position + 1);
+            var nextMarkerPos = nexttagPrefixPos === -1 ? nextclosePrefixPos : nextclosePrefixPos === -1 ? nexttagPrefixPos : Math.min(nexttagPrefixPos, nextclosePrefixPos);
             var text = void 0;
             if (nextMarkerPos === -1) {
               text = this.buffer.substring(this.position);
@@ -257,9 +300,9 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
   }, {
     key: "formatElement",
     value: function formatElement(element) {
-      var _element$children,
-        _this = this;
+      var _this2 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+      // For aggregateText, we want all text including attributes
       element.aggregateText = element.aggregateText || this.getTextContent(element);
 
       // Base case for text nodes
@@ -275,69 +318,122 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
       // Skip open tags if not included
       if (!includeOpenTags && !element.closed) return null;
 
-      // Format children recursively
-      var formattedChildren = ((_element$children = element.children) === null || _element$children === void 0 ? void 0 : _element$children.map(function (child) {
-        return _this.formatElement(child, includeOpenTags);
-      }).filter(Boolean)) || [];
-
-      // Get all text content including from child nodes
-      var allText = this.getTextContent(element);
-      var formatted = new _Node["default"](element.name, {
-        key: element.key,
-        text: allText,
-        closed: element.closed,
-        children: formattedChildren
-      });
-      formatted.length = 0;
-
-      // Group children by name
-      var childrenByName = new Map();
-      var _iterator4 = _createForOfIteratorHelper(formattedChildren),
+      // First collect attributes from @-prefixed children
+      var attrs = {};
+      var regularChildren = [];
+      var _iterator4 = _createForOfIteratorHelper(element.children || []),
         _step4;
       try {
         for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
           var child = _step4.value;
-          if (child.$tagname !== 'TEXT_NODE') {
-            if (!childrenByName.has(child.$tagname)) {
-              childrenByName.set(child.$tagname, []);
-            }
-            childrenByName.get(child.$tagname).push(child);
+          if (child.type === 'tag' && child.name.startsWith('@')) {
+            // Store as attribute
+            var attrName = child.name.substring(1);
+            attrs[attrName] = this.getTextContent(child);
+          } else {
+            regularChildren.push(child);
           }
         }
 
-        // Assign child arrays to formatted node
+        // Format remaining children recursively
       } catch (err) {
         _iterator4.e(err);
       } finally {
         _iterator4.f();
       }
-      var _iterator5 = _createForOfIteratorHelper(childrenByName),
+      var formattedChildren = regularChildren.map(function (child) {
+        return _this2.formatElement(child, includeOpenTags);
+      }).filter(Boolean);
+
+      // Get text content excluding attribute nodes for the main node text
+      var allText = this.getTextContent(element, function (child) {
+        return !(child.type === 'tag' && child.name.startsWith('@'));
+      });
+
+      // Create the formatted node with collected attributes
+      var formatted = new _Node["default"](element.name, {
+        key: element.key,
+        text: allText,
+        closed: element.closed,
+        children: formattedChildren,
+        attr: attrs
+      });
+      formatted.length = 0;
+
+      // Group children by name
+      var childrenByName = new Map();
+      var _iterator5 = _createForOfIteratorHelper(formattedChildren),
         _step5;
       try {
         for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
-          var _step5$value = _slicedToArray(_step5.value, 2),
-            name = _step5$value[0],
-            children = _step5$value[1];
-          formatted[name] = children;
+          var _child = _step5.value;
+          if (_child.$$tagname !== 'TEXT_NODE') {
+            if (!childrenByName.has(_child.$$tagname)) {
+              childrenByName.set(_child.$$tagname, []);
+            }
+            childrenByName.get(_child.$$tagname).push(_child);
+          }
         }
+
+        // Assign child arrays to formatted node
       } catch (err) {
         _iterator5.e(err);
       } finally {
         _iterator5.f();
       }
+      var _iterator6 = _createForOfIteratorHelper(childrenByName),
+        _step6;
+      try {
+        for (_iterator6.s(); !(_step6 = _iterator6.n()).done;) {
+          var _step6$value = _slicedToArray(_step6.value, 2),
+            name = _step6$value[0],
+            children = _step6$value[1];
+          formatted[name] = children;
+        }
+      } catch (err) {
+        _iterator6.e(err);
+      } finally {
+        _iterator6.f();
+      }
       return formatted;
     }
   }]);
 }(_AbstractIncomingParserSelectorEngine["default"]);
+_IncomingIdioParserSelectorEngine = IncomingIdioParserSelectorEngine;
+_defineProperty(IncomingIdioParserSelectorEngine, "NAME", 'idioParser');
 _defineProperty(IncomingIdioParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", function () {
-  return null;
+  return '$';
 });
-_defineProperty(IncomingIdioParserSelectorEngine, "GEN_OPEN_TAG", function (name) {
-  var config = (0, _config.getConfig)();
-  return "".concat(config.idioSymbol, "START(").concat(name, ")");
+_defineProperty(IncomingIdioParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", false);
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_MARKER", '⁂');
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_MARKER", '⁂');
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_WRAPPER", 'START(');
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_WRAPPER", 'END(');
+_defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_CLOSE_WRAPPER", ')');
+_defineProperty(IncomingIdioParserSelectorEngine, "GEN_OPEN_TAG", function (name, attrs, hints) {
+  name = name.replace(/^\$/, '@');
+  // Get the global config for scaffold generation
+  var globalConfig = (0, _config.getConfig)();
+  var symbols = globalConfig.idioSymbols || {
+    tagPrefix: _IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER,
+    openBrace: _IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER,
+    braceSuffix: _IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+  };
+  return "".concat(symbols.tagPrefix).concat(symbols.openBrace).concat(name).concat(symbols.braceSuffix);
 });
 _defineProperty(IncomingIdioParserSelectorEngine, "GEN_CLOSE_TAG", function (name) {
-  var config = (0, _config.getConfig)();
-  return "".concat(config.idioSymbol, "END(").concat(name, ")");
+  name = name.replace(/^\$/, '@');
+  // Get the global config for scaffold generation
+  var globalConfig = (0, _config.getConfig)();
+  var symbols = globalConfig.idioSymbols || {
+    closePrefix: _IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER,
+    closeBrace: _IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER,
+    braceSuffix: _IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+  };
+  return "".concat(symbols.closePrefix).concat(symbols.closeBrace).concat(name).concat(symbols.braceSuffix);
+});
+_defineProperty(IncomingIdioParserSelectorEngine, "GEN_TYPE_HINT", function (type) {
+  var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+  return "...".concat(type, "...");
 });
 var _default = exports["default"] = IncomingIdioParserSelectorEngine;

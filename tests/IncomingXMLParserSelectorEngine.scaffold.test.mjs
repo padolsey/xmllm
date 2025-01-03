@@ -1,4 +1,5 @@
 import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
+import types from '../src/types';
 
 describe('Schema and Hints Scaffold Generation', () => {
   let engine;
@@ -15,7 +16,7 @@ describe('Schema and Hints Scaffold Generation', () => {
           finding: [{
             $severity: String,
             $impact: Number,
-            $text: String,
+            $$text: String,
             details: {
               mitigation: String,
               timeline: String
@@ -32,7 +33,7 @@ describe('Schema and Hints Scaffold Generation', () => {
           finding: [{
             $severity: "Either 'High', 'Medium', or 'Low'",
             $impact: "Impact score from 1-10",
-            $text: "Brief description of the security issue",
+            $$text: "Brief description of the security issue",
             details: {
               mitigation: "Steps to fix the issue",
               // Note: no hint for timeline - should use generic placeholder
@@ -67,7 +68,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       items: {
         item: [{
           $priority: Number,
-          $text: String
+          $$text: String
         }]
       }
     };
@@ -79,7 +80,7 @@ describe('Schema and Hints Scaffold Generation', () => {
       items: {
         item: [{
           $priority: "Priority from 1-5 (1 is highest)",
-          $text: "Description of the task"
+          $$text: "Description of the task"
         }]
       }
     };
@@ -101,7 +102,7 @@ describe('Schema and Hints Scaffold Generation', () => {
         profile: {
           $name: String,
           $age: Number,
-          $text: String
+          $$text: String
         }
       }
     };
@@ -139,7 +140,7 @@ describe('Schema and Hints Scaffold Generation', () => {
             sections: {
               section: [{
                 $id: String,
-                $text: String
+                $$text: String
               }]
             }
           }]
@@ -157,7 +158,7 @@ describe('Schema and Hints Scaffold Generation', () => {
             sections: {
               section: [{
                 $id: "Section identifier (e.g. 1.1, 1.2)",
-                $text: "Section content with proper academic language"
+                $$text: "Section content with proper academic language"
               }]
             }
           }]
@@ -311,5 +312,18 @@ describe('Schema and Hints Scaffold Generation', () => {
     // Types with hints should show both
     expect(normalized).toContain('<age>STRING!! User\'s age in years</age>');
     expect(normalized).toContain('<bio>Brief biography</bio>');
+  });
+
+  test('Enums', () => {
+    const schema = {
+      person: {
+        name: types.enum(null, ['John', 'Jane', 'Doe'])
+      }
+    };
+
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    expect(normalized).toContain('<name>{Enum: (allowed values: John|Jane|Doe)}</name>');
   });
 }); 

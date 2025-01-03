@@ -33,11 +33,11 @@ Raw elements have several properties:
 const elements = stream('List items')
   .select('item')
   .map(element => ({
-    text: element.$text,         // Text content
-    attributes: element.$attr,    // Attribute object
-    isClosed: element.$tagclosed, // Is tag complete?
-    name: element.$tagname,      // Tag name
-    children: element.$children  // Child elements
+    text: element.$$text,         // Text content
+    attributes: element.$$attr,    // Attribute object
+    isClosed: element.$$tagclosed, // Is tag complete?
+    name: element.$$tagname,      // Tag name
+    children: element.$$children  // Child elements
   }));
 ```
 
@@ -49,10 +49,10 @@ Without a schema, you need to explicitly handle partial elements:
 const colors = stream('List colors')
   .select('color')
   .map(element => {
-    if (!element.$tagclosed) {
-      return `Still typing: ${element.$text}...`;
+    if (!element.$$tagclosed) {
+      return `Still typing: ${element.$$text}...`;
     }
-    return `Complete: ${element.$text}`;
+    return `Complete: ${element.$$text}`;
   });
 
 // You might see:
@@ -96,17 +96,17 @@ stream('List items')
 // 2. Access text and attributes together
 stream('List scores')
   .select('score')
-  .map(({$text, $attr}) => ({
-    value: parseInt($text),
-    type: $attr.type
+  .map(({$$text, $$attr}) => ({
+    value: parseInt($$text),
+    type: $$attr.type
   }));
 
 // 3. Process child elements
 stream('Get nested data')
   .select('item')
   .map(element => ({
-    title: element.title?.[0]?.$text,
-    tags: element.tags?.[0].tag?.map(t => t.$text) || []
+    title: element.title?.[0]?.$$text,
+    tags: element.tags?.[0].tag?.map(t => t.$$text) || []
   }));
 ```
 
@@ -136,7 +136,7 @@ Different ways to handle raw streams:
 ```javascript
 // 1. Process everything
 for await (const el of stream('List items').select('item')) {
-  console.log(el.$text);
+  console.log(el.$$text);
 }
 
 // 2. Get first complete element
@@ -193,7 +193,7 @@ const items = stream('List items')
       // Try to process element
       return processElement(element);
     } catch (error) {
-      if (!element.$tagclosed) {
+      if (!element.$$tagclosed) {
         return null; // Skip partial elements
       }
       console.warn('Failed to process:', element);
@@ -222,13 +222,13 @@ const data = stream(`
 const roles = data
   .select('user > roles > role')
   .map(role => ({
-    name: role.$text,
-    level: parseInt(role.$attr.level),
-    user: role.parentElement.parentElement.name[0].$text
+    name: role.$$text,
+    level: parseInt(role.$$attr.level),
+    user: role.parentElement.parentElement.name[0].$$text
   }));
 
 // Get users with specific roles
 const admins = data
   .select('user[type="admin"]')
-  .map(user => user.name[0].$text);
+  .map(user => user.name[0].$$text);
 ``` 

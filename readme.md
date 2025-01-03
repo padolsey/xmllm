@@ -327,7 +327,7 @@ const schema = {
     tag: [String],
     details: {
       $lang: String,    // Attribute
-      $text: String     // Text content
+      $$text: String     // Text content
     }
   }
 };
@@ -528,7 +528,7 @@ const { simple, stream } = xmllm;
 
 ## Alternative Syntax: Idio
 
-In addition to XML, xmllm supports an experimental alternative markup syntax called "Idio". This syntax is designed to clearly disambiguate between structural markers and content, which is particularly useful when your LLM output itself needs to contain markup (like HTML or XML). It uses a configurable symbol (default: ⁂) that's intentionally uncommon in regular text:
+In addition to XML, xmllm supports an experimental configurable markup grammar called "Idio". This syntax is designed to clearly disambiguate between structural markers and content, which is particularly useful when your LLM output itself needs to contain markup (like HTML or XML). It uses a configurable symbol (default: ⁂) that's intentionally uncommon in regular text but is still known to LLMs.
 
 ```javascript
 ⁂START(greeting)Hello world⁂END(greeting)
@@ -545,13 +545,9 @@ You can configure xmllm to use this syntax globally:
 import { configure } from 'xmllm';
 
 configure({
-  globalParser: 'idio',
-  // Optionally customize the symbol:
-  idioSymbol: '@'  // Now tags will look like: @START(tag)...@END(tag)
+  globalParser: 'idio'
 });
 ```
-
-Note: Idio doesn't support XML-style attributes, so schema properties starting with '$' (like `$text` or `$attr`) will be treated as regular tag names, which is not recommended.
 
 See [Idio Syntax Guide](docs/idio-syntax.md) for more details.
 

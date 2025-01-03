@@ -76,6 +76,14 @@ export interface ClientStreamingConfig extends BaseStreamConfig {
 export interface ClientConfigureOptions {
   logging?: LoggingConfig;
   defaults?: ClientStreamingSchemaConfig;
+  globalParser?: string;
+  idioSymbols?: {
+    tagPrefix?: string;
+    closePrefix?: string;
+    openBrace?: string;
+    closeBrace?: string;
+    braceSuffix?: string;
+  };
   clientProvider?: ClientProvider | string;
 }
 

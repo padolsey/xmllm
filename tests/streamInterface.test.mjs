@@ -32,7 +32,7 @@ describe('ChainableStreamInterface', () => {
         llmStream: TestStream
       })
         .select('score')
-        .map(({$text}) => parseInt($text))
+        .map(({$$text}) => parseInt($$text))
         .value();
       
       expect(result).toBe(8);
@@ -50,9 +50,9 @@ describe('ChainableStreamInterface', () => {
       })
         .select('analysis')
         .map(analysis => ({
-          score: parseInt(analysis.score[0].$text),
-          rating: analysis.score[0].$attr.rating,
-          comments: analysis.comments[0].comment.map(c => c.$text)
+          score: parseInt(analysis.score[0].$$text),
+          rating: analysis.score[0].$$attr.rating,
+          comments: analysis.comments[0].comment.map(c => c.$$text)
         }))
         .value();
 
@@ -103,7 +103,7 @@ describe('ChainableStreamInterface', () => {
         llmStream: TestStream
       })
         .select('thought')
-        .map(({$text}) => $text.toUpperCase());
+        .map(({$$text}) => $$text.toUpperCase());
 
       for await (const thought of thoughtStream) {
         results.push(thought);
@@ -244,7 +244,7 @@ describe('ChainableStreamInterface', () => {
           llmStream: TestStream
         })
           .select('number')
-          .map(({$text}) => parseInt($text))
+          .map(({$$text}) => parseInt($$text))
           .filter(n => n % 2 === 0);
 
         for await (const num of evenStream) {
@@ -266,7 +266,7 @@ describe('ChainableStreamInterface', () => {
           llmStream: TestStream
         })
           .select('number')
-          .map(({$text}) => parseInt($text))
+          .map(({$$text}) => parseInt($$text))
           .reduce((acc, n) => acc + n, 0);
 
         for await (const sum of sumStream) {
@@ -289,7 +289,7 @@ describe('ChainableStreamInterface', () => {
           llmStream: TestStream
         })
           .select('number')
-          .map(({$text}) => parseInt($text))
+          .map(({$$text}) => parseInt($$text))
           .filter(n => n % 2 === 0)
           .reduce((acc, n) => acc + n, 0);
 
@@ -556,7 +556,7 @@ describe('ChainableStreamInterface', () => {
         llmStream: TestStream
       })
         .select('item')
-        .map(({$text}) => ({ value: parseInt($text) }))
+        .map(({$$text}) => ({ value: parseInt($$text) }))
         .merge()
         .value();
 
@@ -585,18 +585,18 @@ describe('ChainableStreamInterface', () => {
       })
         .select('stats, tag')
         .map(el => {
-          if (el.$tagname === 'stats') {
-            const child = el.$children[0];
+          if (el.$$tagname === 'stats') {
+            const child = el.$$children[0];
             console.log('>>>child', child);
             return { 
               stats: {
-                [child.$tagname]: Number(child.$text)
+                [child.$$tagname]: Number(child.$$text)
               }
             };
           }
-          if (el.$tagname === 'tag') {
+          if (el.$$tagname === 'tag') {
             return {
-              tags: [el.$text]
+              tags: [el.$$text]
             };
           }
         })
@@ -642,9 +642,9 @@ describe('ChainableStreamInterface', () => {
         .select('analysis')
         .map(analysis => ({
           topics: {
-            main: [analysis.topics[0].topic[0].$text],
+            main: [analysis.topics[0].topic[0].$$text],
             subtopics: {
-              tech: [analysis.subtopics[0].tech[0].$text]
+              tech: [analysis.subtopics[0].tech[0].$$text]
             }
           }
         }))
@@ -674,7 +674,7 @@ describe('ChainableStreamInterface', () => {
         llmStream: TestStream
       })
         .select('num')
-        .map(({$text}) => parseInt($text));
+        .map(({$$text}) => parseInt($$text));
 
       // Get last 2 items
       const lastTwo = await stream1.last(2);
@@ -700,7 +700,7 @@ describe('ChainableStreamInterface', () => {
         llmStream: TestStream
       })
         .select('num')
-        .map(({$text}) => parseInt($text));
+        .map(({$$text}) => parseInt($$text));
 
       const lastThree = await nums.last(3);
       expect(lastThree).toEqual([1, 2]);
@@ -1168,7 +1168,7 @@ describe('Stream Terminal Operations', () => {
       llmStream: TestStream
     })
       .select('item')
-      .map(({$text}) => parseInt($text))
+      .map(({$$text}) => parseInt($$text))
       .all();
 
     expect(results).toEqual([1, 2, 3]);
@@ -1185,7 +1185,7 @@ describe('Stream Terminal Operations', () => {
       llmStream: TestStream
     })
       .select('item')
-      .map(({$text}) => parseInt($text))
+      .map(({$$text}) => parseInt($$text))
       .accrue()
       .last();
 

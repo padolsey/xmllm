@@ -47,10 +47,10 @@ export interface BaseStreamingSchemaConfig extends BaseSchemaConfig, BaseStreamC
 
 // Core types
 export interface XMLElement {
-  $text: string;
-  $attr: Record<string, string>;
-  $tagkey: number;
-  $tagclosed: boolean;
+  $$text: string;
+  $$attr: Record<string, string>;
+  $$tagkey: number;
+  $$tagclosed: boolean;
   [key: string]: any;
 }
 
@@ -220,6 +220,14 @@ export interface DefaultsConfig extends BaseStreamingSchemaConfig {}
 export interface ConfigureOptions {
   logging?: LoggingConfig;
   defaults?: DefaultsConfig;
+  globalParser?: string;
+  idioSymbols?: {
+    tagPrefix?: string;
+    closePrefix?: string;
+    openBrace?: string;
+    closeBrace?: string;
+    braceSuffix?: string;
+  };
   keys?: {
     openai?: string;
     anthropic?: string;

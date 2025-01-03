@@ -72,7 +72,7 @@ describe('Common xmllm Scenarios', () => {
         llmStream: TestStream
       })
         .select('thought')
-        .map(({$text}) => $text);
+        .map(({$$text}) => $$text);
 
       for await (const thought of thoughtStream) {
         thoughts.push(thought);
@@ -101,7 +101,7 @@ describe('Common xmllm Scenarios', () => {
         .select('story');
 
       for await (const update of storyStream) {
-        updates.push(update.$text);
+        updates.push(update.$$text);
       }
 
       expect(updates).toEqual([
@@ -180,12 +180,12 @@ describe('Common xmllm Scenarios', () => {
         .select('haiku')
         .first();
 
-      expect(poems.map(p => p.$text)).toEqual([
+      expect(poems.map(p => p.$$text)).toEqual([
         'Roses are red',
         'Violets are blue'
       ]);
 
-      expect(firstHaiku.$text).toBe('Autumn leaves falling');
+      expect(firstHaiku.$$text).toBe('Autumn leaves falling');
     });
   });
 
@@ -206,11 +206,11 @@ describe('Common xmllm Scenarios', () => {
       })
         .select('color')
         .map(color => ({
-          name: color.name[0].$text,
+          name: color.name[0].$$text,
           rgb: {
-            r: parseInt(color.rgb[0].r[0].$text),
-            g: parseInt(color.rgb[0].g[0].$text),
-            b: parseInt(color.rgb[0].b[0].$text)
+            r: parseInt(color.rgb[0].r[0].$$text),
+            g: parseInt(color.rgb[0].g[0].$$text),
+            b: parseInt(color.rgb[0].b[0].$$text)
           }
         }))
         .all();
@@ -246,21 +246,21 @@ describe('Common xmllm Scenarios', () => {
       const allBooks = await baseStream
         .select('book')
         .map(book => ({
-          title: book.title[0].$text,
-          author: book.author[0].$text
+          title: book.title[0].$$text,
+          author: book.author[0].$$text
         }))
         .all()
 
       // Get fiction books specifically
       const fictionBooks = await baseStream
         .select('shelf[category="fiction"] > book')
-        .map(book => book.title[0].$text)
+        .map(book => book.title[0].$$text)
         .all()
 
       // Get all authors
       const authors = await baseStream
         .select('author')
-        .map(author => author.$text)
+        .map(author => author.$$text)
         .all();
 
       expect(allBooks).toEqual([
