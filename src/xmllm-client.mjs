@@ -192,6 +192,7 @@ xmllmClient.xmllm = xmllmClient;
 xmllmClient.getConfig = getConfig;
 xmllmClient.resetConfig = resetConfig;
 xmllmClient.ClientProvider = ClientProvider;
+xmllmClient.types = types;
 
 // Export default
 export default xmllmClient;

@@ -190,6 +190,7 @@ pipeline.stream = stream;
 pipeline.simple = simple;
 pipeline.getConfig = getConfig;
 pipeline.resetConfig = resetConfig;
+pipeline.types = types;
 
 // Export named exports
 export { configure, pipeline, xmllm, stream, simple, getConfig, resetConfig, types };

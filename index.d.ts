@@ -1,6 +1,8 @@
 import { SchemaType, SchemaTypeCreators } from './schemaTypes';
 export { SchemaType, SchemaTypeCreators };
 
+export declare const types: SchemaTypeCreators;
+
 // Core base interfaces
 export interface BaseLLMParams {
   temperature?: number;

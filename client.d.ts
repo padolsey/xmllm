@@ -43,6 +43,9 @@ export type {
   DefaultsConfig
 };
 
+// Export types value
+export declare const types: SchemaTypeCreators;
+
 // First define the interface
 export interface IClientProvider {
   createStream(payload: any): Promise<ReadableStream>;
@@ -112,6 +115,7 @@ declare const _default: {
   xmllm: typeof xmllm;
   stream: typeof stream;
   simple: typeof simple;
+  types: typeof types;
 };
 
 export default _default; 

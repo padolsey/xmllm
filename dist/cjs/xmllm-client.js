@@ -213,6 +213,7 @@ xmllmClient.xmllm = xmllmClient;
 xmllmClient.getConfig = _config2.getConfig;
 xmllmClient.resetConfig = _config2.resetConfig;
 xmllmClient.ClientProvider = _ClientProvider.ClientProvider;
+xmllmClient.types = _types.types;
 
 // Export default
 var _default = exports["default"] = xmllmClient;

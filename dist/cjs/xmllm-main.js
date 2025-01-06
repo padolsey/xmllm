@@ -225,6 +225,7 @@ pipeline.stream = stream;
 pipeline.simple = simple;
 pipeline.getConfig = _config2.getConfig;
 pipeline.resetConfig = _config2.resetConfig;
+pipeline.types = _types.types;
 
 // Export named exports
 // Export pipeline as default for backward compatibility
