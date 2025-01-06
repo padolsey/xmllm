@@ -20,12 +20,12 @@ function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLim
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
-function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
-function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
 function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
@@ -42,59 +42,88 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingPars) {
   function IncomingIdioParserSelectorEngine() {
-    var _ref, _config$tagPrefix, _globalConfig$idioSym, _ref2, _config$closePrefix, _globalConfig$idioSym2, _ref3, _config$openBrace, _globalConfig$idioSym3, _ref4, _config$closeBrace, _globalConfig$idioSym4, _ref5, _config$braceSuffix, _globalConfig$idioSym5;
+    var _ref, _config$openTagPrefix, _globalConfig$idioSym, _ref2, _config$closeTagPrefi, _globalConfig$idioSym2, _ref3, _config$tagOpener, _globalConfig$idioSym3, _ref4, _config$tagCloser, _globalConfig$idioSym4, _ref5, _config$tagSuffix, _globalConfig$idioSym5;
     var _this;
     var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
     _classCallCheck(this, IncomingIdioParserSelectorEngine);
     _this = _callSuper(this, IncomingIdioParserSelectorEngine);
     var globalConfig = (0, _config.getConfig)();
 
-    // Precedence: instance config > global config > class defaults
-    _this.config = {
-      tagPrefix: (_ref = (_config$tagPrefix = config.tagPrefix) !== null && _config$tagPrefix !== void 0 ? _config$tagPrefix : (_globalConfig$idioSym = globalConfig.idioSymbols) === null || _globalConfig$idioSym === void 0 ? void 0 : _globalConfig$idioSym.tagPrefix) !== null && _ref !== void 0 ? _ref : IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER,
-      closePrefix: (_ref2 = (_config$closePrefix = config.closePrefix) !== null && _config$closePrefix !== void 0 ? _config$closePrefix : (_globalConfig$idioSym2 = globalConfig.idioSymbols) === null || _globalConfig$idioSym2 === void 0 ? void 0 : _globalConfig$idioSym2.closePrefix) !== null && _ref2 !== void 0 ? _ref2 : IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER,
-      openBrace: (_ref3 = (_config$openBrace = config.openBrace) !== null && _config$openBrace !== void 0 ? _config$openBrace : (_globalConfig$idioSym3 = globalConfig.idioSymbols) === null || _globalConfig$idioSym3 === void 0 ? void 0 : _globalConfig$idioSym3.openBrace) !== null && _ref3 !== void 0 ? _ref3 : IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER,
-      closeBrace: (_ref4 = (_config$closeBrace = config.closeBrace) !== null && _config$closeBrace !== void 0 ? _config$closeBrace : (_globalConfig$idioSym4 = globalConfig.idioSymbols) === null || _globalConfig$idioSym4 === void 0 ? void 0 : _globalConfig$idioSym4.closeBrace) !== null && _ref4 !== void 0 ? _ref4 : IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER,
-      braceSuffix: (_ref5 = (_config$braceSuffix = config.braceSuffix) !== null && _config$braceSuffix !== void 0 ? _config$braceSuffix : (_globalConfig$idioSym5 = globalConfig.idioSymbols) === null || _globalConfig$idioSym5 === void 0 ? void 0 : _globalConfig$idioSym5.braceSuffix) !== null && _ref5 !== void 0 ? _ref5 : IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+    // Convert to arrays and validate lengths
+    var normalizeToArray = function normalizeToArray(value) {
+      return Array.isArray(value) ? value : [value];
     };
+    var symbols = {
+      openTagPrefix: normalizeToArray((_ref = (_config$openTagPrefix = config.openTagPrefix) !== null && _config$openTagPrefix !== void 0 ? _config$openTagPrefix : (_globalConfig$idioSym = globalConfig.idioSymbols) === null || _globalConfig$idioSym === void 0 ? void 0 : _globalConfig$idioSym.openTagPrefix) !== null && _ref !== void 0 ? _ref : IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER),
+      closeTagPrefix: normalizeToArray((_ref2 = (_config$closeTagPrefi = config.closeTagPrefix) !== null && _config$closeTagPrefi !== void 0 ? _config$closeTagPrefi : (_globalConfig$idioSym2 = globalConfig.idioSymbols) === null || _globalConfig$idioSym2 === void 0 ? void 0 : _globalConfig$idioSym2.closeTagPrefix) !== null && _ref2 !== void 0 ? _ref2 : IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER),
+      tagOpener: normalizeToArray((_ref3 = (_config$tagOpener = config.tagOpener) !== null && _config$tagOpener !== void 0 ? _config$tagOpener : (_globalConfig$idioSym3 = globalConfig.idioSymbols) === null || _globalConfig$idioSym3 === void 0 ? void 0 : _globalConfig$idioSym3.tagOpener) !== null && _ref3 !== void 0 ? _ref3 : IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER),
+      tagCloser: normalizeToArray((_ref4 = (_config$tagCloser = config.tagCloser) !== null && _config$tagCloser !== void 0 ? _config$tagCloser : (_globalConfig$idioSym4 = globalConfig.idioSymbols) === null || _globalConfig$idioSym4 === void 0 ? void 0 : _globalConfig$idioSym4.tagCloser) !== null && _ref4 !== void 0 ? _ref4 : IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER),
+      tagSuffix: normalizeToArray((_ref5 = (_config$tagSuffix = config.tagSuffix) !== null && _config$tagSuffix !== void 0 ? _config$tagSuffix : (_globalConfig$idioSym5 = globalConfig.idioSymbols) === null || _globalConfig$idioSym5 === void 0 ? void 0 : _globalConfig$idioSym5.tagSuffix) !== null && _ref5 !== void 0 ? _ref5 : IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER)
+    };
+    _this.config = symbols;
     return _this;
   }
   _inherits(IncomingIdioParserSelectorEngine, _AbstractIncomingPars);
   return _createClass(IncomingIdioParserSelectorEngine, [{
     key: "add",
     value: function add(chunk) {
+      var _this2 = this;
       this.buffer += chunk;
       while (this.position < this.buffer.length) {
-        var startPattern = "".concat(this.config.tagPrefix).concat(this.config.openBrace);
-        var endPattern = "".concat(this.config.closePrefix).concat(this.config.closeBrace);
+        var startPatterns = this.config.openTagPrefix.flatMap(function (prefix) {
+          return _this2.config.tagOpener.map(function (brace) {
+            return prefix + brace;
+          });
+        });
+        var endPatterns = this.config.closeTagPrefix.flatMap(function (prefix) {
+          return _this2.config.tagCloser.map(function (brace) {
+            return prefix + brace;
+          });
+        });
 
-        // Check for end tag first since it's more specific
-        if (this.buffer.startsWith(endPattern, this.position)) {
-          var tagStart = this.position + endPattern.length;
-          var endOfEndTag = this.buffer.indexOf(this.config.braceSuffix, tagStart);
-          if (endOfEndTag === -1) {
-            // Incomplete end tag; wait for more input
+        // Check for end tag first
+        var endMatch = this.findFirstMatch(this.buffer, this.position, endPatterns);
+        if (endMatch !== null && endMatch !== void 0 && endMatch.partial) {
+          break;
+        }
+        if (endMatch) {
+          var tagStart = this.position + endMatch.length;
+          var suffixMatch = this.findFirstSuffix(this.buffer, tagStart);
+          if (!suffixMatch) {
             break;
           }
-          var tagName = this.buffer.slice(tagStart, endOfEndTag);
-
-          // Close the element (with fallback)
+          var tagName = this.buffer.slice(tagStart, suffixMatch.pos);
           this.closeElement(tagName);
-          this.position = endOfEndTag + this.config.braceSuffix.length;
-        } else if (this.buffer.startsWith(startPattern, this.position)) {
-          var _tagStart = this.position + startPattern.length;
-          var endOfStartTag = this.buffer.indexOf(this.config.braceSuffix, _tagStart);
-          if (endOfStartTag === -1) {
-            // Incomplete start tag; wait for more input
+          this.position = suffixMatch.pos + suffixMatch.suffix.length;
+          continue;
+        }
+
+        // Check for start tag
+        var startMatch = this.findFirstMatch(this.buffer, this.position, startPatterns);
+        if (startMatch !== null && startMatch !== void 0 && startMatch.partial) {
+          break;
+        }
+        if (startMatch) {
+          var _tagStart = this.position + startMatch.length;
+          var _suffixMatch = void 0;
+          if (startMatch.emptyOpener) {
+            // For empty tagOpener, we already found the suffix
+            var _tagName = this.buffer.slice(startMatch.nameStart, startMatch.suffixPos - this.config.tagSuffix[0].length);
+            _suffixMatch = {
+              pos: startMatch.suffixPos - this.config.tagSuffix[0].length,
+              suffix: this.config.tagSuffix[0]
+            };
+          } else {
+            _suffixMatch = this.findFirstSuffix(this.buffer, _tagStart);
+          }
+          if (!_suffixMatch) {
             break;
           }
-          var _tagName = this.buffer.slice(_tagStart, endOfStartTag);
-
-          // Create new element
+          var _tagName2 = this.buffer.slice(_tagStart, _suffixMatch.pos);
           var element = {
             type: 'tag',
             key: this.elementIndex++,
-            name: _tagName,
+            name: _tagName2,
             children: [],
             parent: this.openElements[this.openElements.length - 1] || null,
             closed: false
@@ -105,43 +134,29 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
             this.parsedData.push(element);
           }
           this.openElements.push(element);
-          this.position = endOfStartTag + this.config.braceSuffix.length;
-        } else {
-          // Update text handling to use config markers
-          if (this.buffer[this.position] === this.config.tagPrefix[0] || this.buffer[this.position] === this.config.closePrefix[0]) {
-            // Potential partial marker
-            var remaining = this.buffer.substring(this.position);
-            if (remaining.startsWith(startPattern) || remaining.startsWith(endPattern)) {
-              // Should have been handled above
-              // This case shouldn't occur, but to be safe
-              continue;
-            } else if (remaining.length < Math.max(this.config.tagPrefix.length + this.config.openBrace.length, this.config.closePrefix.length + this.config.closeBrace.length)) {
-              // Possible partial marker, wait for more data
-              break;
-            } else {
-              // Invalid marker, treat as text
-              this.addTextToCurrentElement(this.buffer[this.position]);
-              this.position++;
-            }
-          } else {
-            // Collect text content up to the next marker
-            var nexttagPrefixPos = this.buffer.indexOf(this.config.tagPrefix, this.position + 1);
-            var nextclosePrefixPos = this.buffer.indexOf(this.config.closePrefix, this.position + 1);
-            var nextMarkerPos = nexttagPrefixPos === -1 ? nextclosePrefixPos : nextclosePrefixPos === -1 ? nexttagPrefixPos : Math.min(nexttagPrefixPos, nextclosePrefixPos);
-            var text = void 0;
-            if (nextMarkerPos === -1) {
-              text = this.buffer.substring(this.position);
-              this.position = this.buffer.length;
-            } else {
-              text = this.buffer.substring(this.position, nextMarkerPos);
-              this.position = nextMarkerPos;
-            }
-            this.addTextToCurrentElement(text);
+          this.position = _suffixMatch.pos + _suffixMatch.suffix.length;
+          continue;
+        }
+
+        // Look ahead for potential markers
+        var nextMarkerPos = this.findNextMarkerPosition(this.buffer, this.position + 1, [].concat(_toConsumableArray(startPatterns), _toConsumableArray(endPatterns)));
+        if (nextMarkerPos === -1) {
+          // No markers found - check if last character could be start of marker
+          var lastChar = this.buffer[this.buffer.length - 1];
+          var couldBeMarker = [].concat(_toConsumableArray(this.config.openTagPrefix), _toConsumableArray(this.config.closeTagPrefix)).includes(lastChar);
+          if (this.position < this.buffer.length) {
+            var endPos = couldBeMarker ? this.buffer.length - 1 : this.buffer.length;
+            this.addTextToCurrentElement(this.buffer.substring(this.position, endPos));
+            this.position = endPos;
           }
+          break;
+        } else {
+          this.addTextToCurrentElement(this.buffer.substring(this.position, nextMarkerPos));
+          this.position = nextMarkerPos;
         }
       }
 
-      // Clean up the buffer
+      // Clean up buffer
       if (this.position > 0) {
         this.buffer = this.buffer.substring(this.position);
         this.position = 0;
@@ -287,7 +302,7 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
   }, {
     key: "formatElement",
     value: function formatElement(element) {
-      var _this2 = this;
+      var _this3 = this;
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       // For aggregateText, we want all text including attributes
       element.aggregateText = element.aggregateText || this.getTextContent(element);
@@ -329,7 +344,7 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
         _iterator4.f();
       }
       var formattedChildren = regularChildren.map(function (child) {
-        return _this2.formatElement(child, includeOpenTags);
+        return _this3.formatElement(child, includeOpenTags);
       }).filter(Boolean);
 
       // Get text content excluding attribute nodes for the main node text
@@ -383,6 +398,137 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
       }
       return formatted;
     }
+
+    // Add helper methods for finding markers
+  }, {
+    key: "findFirstMatch",
+    value: function findFirstMatch(buffer, position, patterns) {
+      var _this4 = this;
+      // First check for complete patterns
+      var _iterator7 = _createForOfIteratorHelper(patterns),
+        _step7;
+      try {
+        var _loop = function _loop() {
+            var pattern = _step7.value;
+            if (buffer.startsWith(pattern, position)) {
+              // For empty tagOpener/tagCloser, we need to include the suffix in the pattern
+              if (pattern === _this4.config.openTagPrefix[0] || pattern === _this4.config.closeTagPrefix[0]) {
+                var afterPrefix = buffer.substring(position + pattern.length);
+                var isClosing = _this4.config.tagCloser.some(function (closer) {
+                  return afterPrefix.startsWith(closer);
+                });
+                var nameStart = position + pattern.length + (isClosing ? 1 : 0);
+                var suffixPos = buffer.indexOf(_this4.config.tagSuffix[0], nameStart);
+                if (suffixPos !== -1) {
+                  return {
+                    v: {
+                      pattern: pattern,
+                      length: pattern.length,
+                      emptyOpener: true,
+                      isClosing: isClosing,
+                      nameStart: nameStart,
+                      suffixPos: suffixPos + _this4.config.tagSuffix[0].length
+                    }
+                  };
+                }
+              }
+              return {
+                v: {
+                  pattern: pattern,
+                  length: pattern.length
+                }
+              };
+            }
+          },
+          _ret;
+        for (_iterator7.s(); !(_step7 = _iterator7.n()).done;) {
+          _ret = _loop();
+          if (_ret) return _ret.v;
+        }
+
+        // If at start of buffer, check for partial matches
+      } catch (err) {
+        _iterator7.e(err);
+      } finally {
+        _iterator7.f();
+      }
+      if (position === 0) {
+        var _iterator8 = _createForOfIteratorHelper(patterns),
+          _step8;
+        try {
+          for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
+            var pattern = _step8.value;
+            // Check if buffer could be start of pattern
+            if (pattern.startsWith(buffer)) {
+              return {
+                partial: true
+              };
+            }
+            // Check if buffer content could be start of pattern
+            var bufferContent = buffer.substring(position);
+            if (pattern.startsWith(bufferContent)) {
+              return {
+                partial: true
+              };
+            }
+          }
+        } catch (err) {
+          _iterator8.e(err);
+        } finally {
+          _iterator8.f();
+        }
+      }
+      return null;
+    }
+  }, {
+    key: "findFirstSuffix",
+    value: function findFirstSuffix(buffer, position) {
+      var earliest = {
+        pos: -1,
+        suffix: null
+      };
+      var _iterator9 = _createForOfIteratorHelper(this.config.tagSuffix),
+        _step9;
+      try {
+        for (_iterator9.s(); !(_step9 = _iterator9.n()).done;) {
+          var suffix = _step9.value;
+          var pos = buffer.indexOf(suffix, position);
+          if (pos !== -1 && (earliest.pos === -1 || pos < earliest.pos)) {
+            earliest = {
+              pos: pos,
+              suffix: suffix
+            };
+          }
+        }
+      } catch (err) {
+        _iterator9.e(err);
+      } finally {
+        _iterator9.f();
+      }
+      return earliest.suffix ? earliest : null;
+    }
+  }, {
+    key: "findNextMarkerPosition",
+    value: function findNextMarkerPosition(buffer, startPos, patterns) {
+      // Find the earliest occurrence of any marker pattern
+      var positions = patterns.map(function (pattern) {
+        var prefixChar = pattern[0]; // Usually '@'
+        var pos = buffer.indexOf(prefixChar, startPos);
+        while (pos !== -1) {
+          // Verify it's actually a marker
+          if (patterns.some(function (p) {
+            return buffer.startsWith(p, pos);
+          })) {
+            return pos;
+          }
+          pos = buffer.indexOf(prefixChar, pos + 1);
+        }
+        return -1;
+      }).filter(function (pos) {
+        return pos !== -1;
+      });
+      return positions.length ? Math.min.apply(Math, _toConsumableArray(positions)) : -1;
+    }
   }]);
 }(_AbstractIncomingParserSelectorEngine["default"]);
 _IncomingIdioParserSelectorEngine = IncomingIdioParserSelectorEngine;
@@ -398,25 +544,23 @@ _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_WRAPPER", 'END(')
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_CLOSE_WRAPPER", ')');
 _defineProperty(IncomingIdioParserSelectorEngine, "GEN_OPEN_TAG", function (name, attrs, hints) {
   name = name.replace(/^\$/, '@');
-  // Get the global config for scaffold generation
   var globalConfig = (0, _config.getConfig)();
   var symbols = globalConfig.idioSymbols || {
-    tagPrefix: _IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER,
-    openBrace: _IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER,
-    braceSuffix: _IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+    openTagPrefix: [_IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER],
+    tagOpener: [_IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER],
+    tagSuffix: [_IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER]
   };
-  return "".concat(symbols.tagPrefix).concat(symbols.openBrace).concat(name).concat(symbols.braceSuffix);
+  return "".concat(symbols.openTagPrefix[0]).concat(symbols.tagOpener[0]).concat(name).concat(symbols.tagSuffix[0]);
 });
 _defineProperty(IncomingIdioParserSelectorEngine, "GEN_CLOSE_TAG", function (name) {
   name = name.replace(/^\$/, '@');
-  // Get the global config for scaffold generation
   var globalConfig = (0, _config.getConfig)();
   var symbols = globalConfig.idioSymbols || {
-    closePrefix: _IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER,
-    closeBrace: _IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER,
-    braceSuffix: _IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+    closeTagPrefix: [_IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER],
+    tagCloser: [_IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER],
+    tagSuffix: [_IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER]
   };
-  return "".concat(symbols.closePrefix).concat(symbols.closeBrace).concat(name).concat(symbols.braceSuffix);
+  return "".concat(symbols.closeTagPrefix[0]).concat(symbols.tagCloser[0]).concat(name).concat(symbols.tagSuffix[0]);
 });
 _defineProperty(IncomingIdioParserSelectorEngine, "GEN_TYPE_HINT", function (type) {
   var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];

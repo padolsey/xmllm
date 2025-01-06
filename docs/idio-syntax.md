@@ -21,9 +21,11 @@ This is all very experimental and is only worth using if **the content you're tr
 
 # About Delimiters
 
-Through a bunch of testing ([try the matrix yourself](https://xmllm.j11y.io/model-testing)), I've found that the `@START` and `@END` markers work exceptionally well as a node boundaries. For the prefix marker (`@`) (for strong differentiation from prose), while I initially used the sextile character (`⁂`) (it being both rare, available in trained material and known as a typographic boundary), `@` has proven more reliable.
+Through a bunch of testing ([try the matrix yourself](https://xmllm.j11y.io/model-testing)), I've found that the `@START` and `@END` markers work exceptionally well as a node boundaries.
 
-If `@` or `⁂` don't work well for your specific use case, consider trying other boundary or typographic symbols like `$`, `§`, `※`, or `‡`. Different LLMs might respond better to different delimiters. See how to configure them below.
+The prefix marker '@' is crucial as it means we can catch potential bounderies before they make it downstream, making it cleaner from a streaming perspective. The default prefix is `@`. While I initially used the sextile character (`⁂`) (it being both rare, available in trained material and known as a typographic boundary), `@` has proven more reliable.
+
+If `@` or `⁂` don't work well for your specific use case, consider trying other boundary or typographic symbols like `$`, `§`, `※`, or `‡`. Different LLMs might respond better to different delimiters. See how to configure them below. 
 
 # Enabling Idio
 
@@ -62,47 +64,120 @@ You can customize the exact grammar the Idio parser uses by configuring it globa
 configure({
   globalParser: 'idio',
   idioSymbols: {
-    tagPrefix: '@',      // Starts opening tag
-    closePrefix: '@',    // Starts closing tag
-    openBrace: 'START(', // Wraps element name in opening tag
-    closeBrace: 'END(',  // Wraps element name in closing tag 
-    braceSuffix: ')'     // Ends both opening/closing tags
+    openTagPrefix: '@',  // Starts opening tag
+    closeTagPrefix: '@', // Starts closing tag
+    tagOpener: 'START(', // Wraps element name in opening tag
+    tagCloser: 'END(',   // Wraps element name in closing tag 
+    tagSuffix: ')'       // Ends both opening/closing tags
   }
 });
 
 // You can also update configuration partially:
 configure({
   idioSymbols: {
-    tagPrefix: '⁂',
-    closePrefix: '⁂'
+    openTagPrefix: '⁂',
+    closeTagPrefix: '⁂'
   }
 });
 ```
 
-# Configurations
 
-While @ and ⁂ are recommended, you can create different styles of markup based on your needs:
+## Syntax Components
+
+Given this example tag:
+```
+@START(tagname)content@END(tagname)
+```
+
+Here's how it maps to configuration properties:
+
+```
+@     START(   tagname   )     content   @    END(   tagname   )
+|     |        |         |     |        |     |      |         |
+|     |        |         |     |        |     |      |         |
+|     |        |         |     |        |     |      |         |
+[A]   [B]      [C]       [D]   [E]      [F]   [G]    [H]      [I]
+```
+
+Where:
+- [A] = `openTagPrefix`    - Marks the start of an opening tag
+- [B] = `tagOpener`        - Wraps the opening tag name
+- [C] = Tag name          - (Not configurable - comes from schema)
+- [D] = `tagSuffix`       - Closes both opening and closing tags
+- [E] = Content           - (Not configurable - actual content)
+- [F] = `closeTagPrefix`  - Marks the start of a closing tag
+- [G] = `tagCloser`       - Wraps the closing tag name
+- [H] = Tag name          - (Must match opening tag name)
+- [I] = `tagSuffix`       - Same as [D]
+
+## Default Configuration
+```javascript
+{
+  openTagPrefix: '@',     // [A]
+  tagOpener: 'START(',    // [B]
+  tagSuffix: ')',        // [D,I]
+  closeTagPrefix: '@',    // [F]
+  tagCloser: 'END('      // [G]
+}
+```
+
+## Disambiguation Rules
+
+For the parser to work unambiguously, either:
+1. `openTagPrefix` must differ from `closeTagPrefix`, OR
+2. `tagOpener` must differ from `tagCloser`
+
+Examples:
+```
+// Different prefixes:
+#START(tag)content@END(tag)
+|                |
+openTagPrefix    closeTagPrefix are different
+
+// Same prefixes but different openers:
+@START(tag)content@END(tag)
+ |               |
+ tagOpener       tagCloser are different
+```
+
+## Common Mistakes
+
+❌ Ambiguous:
+```
+@TAG(name)content@TAG(name)    // Can't tell open from close
+XXXtestXXXcontentXXXtestXXX    // No way to distinguish tags
+```
+
+✅ Unambiguous:
+```
+@START(name)content@END(name)   // Different openers
+#TAG(name)content@TAG(name)     // Different prefixes
+```
+
+# Possible Configurations
+
+While the prefixed 'START' and 'END' boundaries are well-tested and recommended, you can create different styles of markup based on your needs:
 
 Comment-style syntax:
 ```javascript
 configure({
   idioSymbols: {
-    tagPrefix: '<!--',
-    closePrefix: '<!--/',
-    openBrace: '(',
-    closeBrace: '(',
-    braceSuffix: ')-->'
+    openTagPrefix: '<!--',
+    closeTagPrefix: '<!--/',
+    tagOpener: '(',
+    tagCloser: '(',
+    tagSuffix: ')-->'
   }
 });
 
-// Results in:
+// This will parse:
 // <!--(element)-->content<!--/(element)-->
 ```
 
 The choice of syntax depends on your specific needs. Consider:
 
-- What characters might appear in your generated content
-- How reliably your chosen LLM handles different delimiters
-- Whether you need human-readable output for debugging
+- What characters might appear in your generated content, and thus required disambiguation
+- How reliably your chosen LLM handles different delimiters; you'll need to test this
+- Whether you need human-readable output for debugging or have other constraints
 
-If the recommended delimiters aren't working well, experiment with different symbols or patterns that are semantically related to concepts of delimiting or boundaries/hierarchies. The key is finding markers that your LLM can reliably generate while avoiding conflicts with your content.
+If the recommended delimiters aren't working well, experiment with different symbols or patterns that are semantically related to concepts of delimiting or boundaries/hierarchies. The key is finding boundary syntax that your LLM can reliably generate while avoiding conflicts with your the content you wish to generate _within_ those boundaries.

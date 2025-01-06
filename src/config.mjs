@@ -10,11 +10,12 @@ const DEFAULT_CONFIG = {
   clientProvider: null,
   globalParser: 'xml',
   idioSymbols: {
-    tagPrefix: '@',
-    closePrefix: '@', 
-    openBrace: 'START(',
-    closeBrace: 'END(',
-    braceSuffix: ')'
+    // openTagPrefix, closeTagPrefix, openTag, closeTag, tagSuffix
+    openTagPrefix: ['@'],
+    closeTagPrefix: ['@'],
+    tagOpener: ['START('],
+    tagCloser: ['END('],
+    tagSuffix: [')']
   },
   defaults: {
     temperature: 0.72,
@@ -143,27 +144,88 @@ export function configure(options = {}) {
 
   // Handle idioSymbols configuration
   if (options.idioSymbols) {
-    // Validate properties that must be non-empty strings
-    const requiredNonEmptyProps = ['tagPrefix', 'closePrefix', 'braceSuffix'];
-    const optionalProps = ['openBrace', 'closeBrace'];
+    // Convert single values to arrays for validation
+    const normalizeToArray = value => Array.isArray(value) ? value : [value];
     
-    // Validate each provided property
-    Object.entries(options.idioSymbols).forEach(([key, value]) => {
-      // All properties must be strings
-      if (typeof value !== 'string') {
-        throw new Error(`${key} must be a non-empty string`);
-      }
-      // Some properties must be non-empty
-      if (requiredNonEmptyProps.includes(key) && value.length === 0) {
-        throw new Error(`${key} cannot be empty`);
-      }
-    });
+    const symbols = {
+      openTagPrefix: normalizeToArray(
+        options.idioSymbols.openTagPrefix ??
+        DEFAULT_CONFIG.idioSymbols.openTagPrefix
+      ),
+      closeTagPrefix: normalizeToArray(
+        options.idioSymbols.closeTagPrefix ??
+        DEFAULT_CONFIG.idioSymbols.closeTagPrefix
+      ),
+      tagOpener: normalizeToArray(
+        options.idioSymbols.tagOpener ??
+        DEFAULT_CONFIG.idioSymbols.tagOpener
+      ),
+      tagCloser: normalizeToArray(
+        options.idioSymbols.tagCloser ??
+        DEFAULT_CONFIG.idioSymbols.tagCloser
+      ),
+      tagSuffix: normalizeToArray(
+        options.idioSymbols.tagSuffix ??
+        DEFAULT_CONFIG.idioSymbols.tagSuffix
+      )
+    };
 
-    // Ensure we preserve defaults for non-provided values
+    // 1. Basic non-empty string validation
+    for (const tagSuffix of symbols.tagSuffix) {
+      if (typeof tagSuffix !== 'string' || tagSuffix.length === 0) {
+        throw new Error('tagSuffix must be a non-empty string');
+      }
+    }
+
+    for (const openTagPrefix of symbols.openTagPrefix) {
+      if (typeof openTagPrefix !== 'string' || openTagPrefix.length === 0) {
+        throw new Error('openTagPrefix must be a non-empty string');
+      }
+    }
+
+    for (const closeTagPrefix of symbols.closeTagPrefix) {
+      if (typeof closeTagPrefix !== 'string' || closeTagPrefix.length === 0) {
+        throw new Error('closeTagPrefix must be a non-empty string');
+      }
+    }
+
+    // 2. Prefix Containment Rule
+    if (symbols.openTagPrefix.every(open => 
+      symbols.closeTagPrefix.includes(open)) &&
+      symbols.tagOpener.every(opener => 
+      symbols.tagCloser.includes(opener))) {
+    throw new Error('Configuration must provide way to distinguish opening from closing tags');
+  }
+
+    // 3. Recursive Definition Rule
+    if (symbols.openTagPrefix.some(prefix => 
+        symbols.tagSuffix.some(suffix => 
+          prefix.includes(suffix) || suffix.includes(prefix))) ||
+        symbols.closeTagPrefix.some(prefix => 
+        symbols.tagSuffix.some(suffix => 
+          prefix.includes(suffix) || suffix.includes(prefix)))) {
+      throw new Error('Prefixes and suffixes cannot contain each other');
+    }
+
+    // 4. Complete Ambiguity Rule
+    if (symbols.openTagPrefix.every(open => 
+        symbols.closeTagPrefix.includes(open)) &&
+        symbols.tagOpener.every(opener => 
+        symbols.tagCloser.includes(opener)) &&
+        symbols.tagOpener.length === 0) {
+      throw new Error('Configuration creates completely ambiguous parsing');
+    }
+
+    // 5. Suffix Dependency Rule
+    if (symbols.tagSuffix.some(suffix => !suffix)) {
+      throw new Error('Tag suffix is required for unambiguous parsing');
+    }
+
+    // Apply validated configuration
     CONFIG.idioSymbols = {
-      ...DEFAULT_CONFIG.idioSymbols, // Start with defaults
-      ...CONFIG.idioSymbols,         // Apply any existing config
-      ...options.idioSymbols         // Apply new options
+      ...DEFAULT_CONFIG.idioSymbols,
+      ...CONFIG.idioSymbols,
+      ...symbols
     };
   }
 }

@@ -89,7 +89,7 @@ var providers = {
     },
     headerGen: function headerGen() {
       return {
-        'x-api-key': this.key,
+        'x-api-key': this.key || process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json'
       };
@@ -162,7 +162,7 @@ var providers = {
     },
     headerGen: function headerGen() {
       return {
-        Authorization: "Bearer ".concat(this.key),
+        Authorization: "Bearer ".concat(this.key || process.env.OPENROUTER_API_KEY),
         'Content-Type': 'application/json'
       };
     },

@@ -33,6 +33,25 @@ describe('IncomingIdioParserSelectorEngine', () => {
     const result = engine.select('code');
     expect(result[0].$$text).toBe('def hello():\n    return "world"');
   });
+
+  test('should handle many nested lists', () => {
+    engine.add(`@START(list)
+      @START(sublist)
+        @START(item)item 1@END(item)
+        @START(item)item 2@END(item)
+      @END(sublist)
+      @START(sublist)
+        @START(item)item 3@END(item)
+        @START(item)item 4@END(item)
+      @END(sublist)
+    @END(list)`);
+
+    const result = engine.select('list');
+    expect(result[0].sublist[0].item[0].$$text).toBe('item 1');
+    expect(result[0].sublist[0].item[1].$$text).toBe('item 2');
+    expect(result[0].sublist[1].item[0].$$text).toBe('item 3');
+    expect(result[0].sublist[1].item[1].$$text).toBe('item 4');
+  });
  
   test('should handle streaming input', () => {
     engine.add('@START(test)');
@@ -134,69 +153,192 @@ describe('IncomingIdioParserSelectorEngine', () => {
     const result = engine.select('unicode');
     expect(result[0].$$text).toBe('こんにちは世界🌏');
   });
+
+  return; // not doing these currently:
  
-  // test('should handle malformed attribute nodes resiliently', () => {
-  //   engine.add(`@START(person)
-  //     @START(@name)james
-  //     @START(@age)30
-  //     @START(@title)mr
-  //     some other content
-  //     @END(person)`);
+  test('should handle malformed attribute nodes resiliently', () => {
+    engine.add(`@START(person)
+      @START(@name)james
+      @START(@age)30
+      @START(@title)mr
+      some other content
+      @END(person)`);
 
-  //   const result = engine.select('person');
-  //   expect(result).toHaveLength(1);
-  //   expect(result[0].$$attr).toEqual({
-  //     name: 'james\n      ',
-  //     age: '30\n      ',
-  //     title: 'mr\n      some other content\n      '
-  //   });
-  // });
+    const result = engine.select('person');
+    expect(result).toHaveLength(1);
+    expect(result[0].$$attr).toEqual({
+      name: 'james\n      ',
+      age: '30\n      ',
+      title: 'mr\n      some other content\n      '
+    });
+  });
 
-  // test('should handle nested content in attributes by ignoring it', () => {
-  //   engine.add(`@START(user)
-  //     @START(@role)admin
-  //       @START(nested)this should be ignored@END(nested)
-  //     @END(@role)
-  //     @END(user)`);
+  test('should handle nested content in attributes by ignoring it', () => {
+    engine.add(`@START(user)
+      @START(@role)admin
+        @START(nested)this should be ignored@END(nested)
+      @END(@role)
+      @END(user)`);
 
-  //   const result = engine.select('user');
-  //   expect(result).toHaveLength(1);
-  //   expect(result[0].$$attr).toEqual({
-  //     role: 'admin\n        '
-  //   });
-  // });
+    const result = engine.select('user');
+    expect(result).toHaveLength(1);
+    expect(result[0].$$attr).toEqual({
+      role: 'admin\n        '
+    });
+  });
 
-  // test('should handle interleaved attributes', () => {
-  //   engine.add(`@START(item)
-  //     @START(@type)book
-  //     @START(@id)123
-  //     @START(@status)active
-  //     @END(@status)
-  //     content here
-  //     @END(item)`);
+  test('should handle interleaved attributes', () => {
+    engine.add(`@START(item)
+      @START(@type)book
+      @START(@id)123
+      @START(@status)active
+      @END(@status)
+      content here
+      @END(item)`);
 
-  //   const result = engine.select('item');
-  //   expect(result).toHaveLength(1);
-  //   expect(result[0].$$attr).toEqual({
-  //     type: 'book\n      ',
-  //     id: '123\n      ',
-  //     status: 'active\n      '
-  //   });
-  //   expect(result[0].$$text.trim()).toBe('content here');
-  // });
+    const result = engine.select('item');
+    expect(result).toHaveLength(1);
+    expect(result[0].$$attr).toEqual({
+      type: 'book\n      ',
+      id: '123\n      ',
+      status: 'active\n      '
+    });
+    expect(result[0].$$text.trim()).toBe('content here');
+  });
 
-  // test('should handle attribute nodes without proper closure', () => {
-  //   engine.add(`@START(product)
-  //     @START(@price)99.99
-  //     @START(description)A great product@END(description)
-  //     @END(product)`);
+  test('should handle attribute nodes without proper closure', () => {
+    engine.add(`@START(product)
+      @START(@price)99.99
+      @START(description)A great product@END(description)
+      @END(product)`);
 
-  //   const result = engine.select('product');
-  //   expect(result).toHaveLength(1);
-  //   expect(result[0].$$attr).toEqual({
-  //     price: '99.99\n      '
-  //   });
-  //   expect(result[0].description[0].$$text).toBe('A great product');
-  // });
+    const result = engine.select('product');
+    expect(result).toHaveLength(1);
+    expect(result[0].$$attr).toEqual({
+      price: '99.99\n      '
+    });
+    expect(result[0].description[0].$$text).toBe('A great product');
+  });
 
 });
+
+describe('Forum-style Syntax', () => {
+  test('should support forum-style syntax with === markers', () => {
+    const engine = new IncomingIdioParserSelectorEngine({
+      openTagPrefix: ['='],
+      closeTagPrefix: ['='],
+      tagOpener: ['=='],      // Just empty string for opening tags
+      tagCloser: ['==/'],     // Just '/' for closing tags
+      tagSuffix: ['===']
+    });
+
+    engine.add(`===parent===
+      ===child===
+        Hello world!
+      ===/child===
+    ===/parent===`);
+
+    const result = engine.select('parent');
+    expect(result).toHaveLength(1);
+    expect(result[0].child[0].$$text.trim()).toBe('Hello world!');
+  });
+
+  test('should handle forum-style syntax with streaming input', () => {
+    const engine = new IncomingIdioParserSelectorEngine({
+      openTagPrefix: ['='],
+      closeTagPrefix: ['='],
+      tagOpener: ['=='],      // Just empty string for opening tags
+      tagCloser: ['==/'],     // Just '/' for closing tags
+      tagSuffix: ['===']
+    });
+
+    // Split across boundaries
+    engine.add('===pa');
+    engine.add('rent===');
+    engine.add('  ===ch');
+    engine.add('ild===');
+    engine.add('    Hello!');
+    engine.add('  ===/chi');
+    engine.add('ld===');
+    engine.add('===/parent===');
+
+    const result = engine.select('parent');
+    expect(result).toHaveLength(1);
+    expect(result[0].child[0].$$text.trim()).toBe('Hello!');
+  });
+
+  test('should handle forum-style syntax with different markers', () => {
+    const engine = new IncomingIdioParserSelectorEngine({
+      openTagPrefix: ['['],
+      closeTagPrefix: ['['],
+      tagOpener: ['[['],
+      tagCloser: ['[[/'],
+      tagSuffix: [']]]']
+    });
+
+    engine.add(`[[[section]]]
+      [[[title]]]Hello[[[/title]]]
+      [[[body]]]Content[[[/body]]]
+    [[[/section]]]`);
+
+    const result = engine.select('section');
+    expect(result).toHaveLength(1);
+    expect(result[0].title[0].$$text).toBe('Hello');
+    expect(result[0].body[0].$$text).toBe('Content');
+  });
+
+  test('should handle variable length syntax parts', () => {
+    const engine = new IncomingIdioParserSelectorEngine({
+      openTagPrefix: ['opening node called '],
+      closeTagPrefix: ['closing '],
+      tagOpener: [''],
+      tagCloser: [''],
+      tagSuffix: ['.']
+    });
+
+    engine.add(`
+      opening node called foo.
+        hello world 999!
+        opening node called child.
+          child content
+        closing child.
+      closing foo.
+    `);
+    const result = engine.select('foo');
+    expect(result).toHaveLength(1);
+    expect(result[0].$$text.trim()).toContain('hello world 999!');
+    expect(result[0].child[0].$$text.trim()).toBe('child content');
+  });
+
+  test('alternative syntaxes of different lengths (chaos)', () => { 
+    const engine = new IncomingIdioParserSelectorEngine({
+      openTagPrefix: ['$$', '%', '££'],
+      closeTagPrefix: ['<<', '________'],
+      tagOpener: ['Open:', 'Up:', 'Wow:'],
+      tagCloser: ['Close:'],
+      tagSuffix: ['.']
+    });
+
+    engine.add(`$$Open:person.
+      the person
+      %Up:name.
+      bob
+      <<Close:name.
+      ££Wow:fact.
+      they love`);
+
+    const currentResult = engine.select('person fact', true); // open tags
+    expect(currentResult).toHaveLength(1);
+    expect(currentResult[0].$$text.trim()).toBe('they love');
+
+    engine.add(` honey<<Close:fact.
+      44444
+      _________Close:person.
+      5`);
+
+    const nextResult = engine.select('person fact', false);
+    expect(nextResult).toHaveLength(1);
+    expect(nextResult[0].$$text.trim()).toBe('they love honey');
+  });
+});
+

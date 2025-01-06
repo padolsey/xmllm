@@ -9,11 +9,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
   test('should use global config when no instance config provided', () => {
     configure({
       idioSymbols: {
-        tagPrefix: '<<<',
-        closePrefix: '<<<',
-        openBrace: 'START(',
-        closeBrace: 'END(',
-        braceSuffix: ')>>>'
+        openTagPrefix: '<<<',
+        closeTagPrefix: '<<<',
+        tagOpener: 'START(',
+        tagCloser: 'END(',
+        tagSuffix: ')>>>'
       }
     });
 
@@ -31,20 +31,20 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
   test('instance config should override global config', () => {
     configure({
       idioSymbols: {
-        tagPrefix: '<<<',
-        closePrefix: '<<<',
-        openBrace: 'START(',
-        closeBrace: 'END(',
-        braceSuffix: '>>>'
+        openTagPrefix: '<<<',
+        closeTagPrefix: '<<<',
+        tagOpener: 'START(',
+        tagCloser: 'END(',
+        tagSuffix: '>>>'
       }
     });
 
     const engine = new IncomingIdioParserSelectorEngine({
-      tagPrefix: '[[',
-      closePrefix: '[[',
-      openBrace: 'BEGIN(',
-      closeBrace: 'FINISH(',
-      braceSuffix: ')]]'
+      openTagPrefix: '[[',
+      closeTagPrefix: '[[',
+      tagOpener: 'BEGIN(',
+      tagCloser: 'FINISH(',
+      tagSuffix: ')]]'
     });
 
     // Add debug logging
@@ -79,11 +79,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
   test('should generate scaffold using configured markers', () => {
     configure({
       idioSymbols: {
-        tagPrefix: '<<<',
-        closePrefix: '<<<',
-        openBrace: 'START(',
-        closeBrace: 'END(',
-        braceSuffix: ')>>>'
+        openTagPrefix: '<<<',
+        closeTagPrefix: '<<<',
+        tagOpener: 'START(',
+        tagCloser: 'END(',
+        tagSuffix: ')>>>'
       }
     });
 
@@ -104,11 +104,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
   describe('Custom marker parsing', () => {
     test('should correctly parse start tags with custom markers', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '[[',
-        closePrefix: '[[',
-        openBrace: 'BEGIN(',
-        closeBrace: 'FINISH(',
-        braceSuffix: ')]]'
+        openTagPrefix: '[[',
+        closeTagPrefix: '[[',
+        tagOpener: 'BEGIN(',
+        tagCloser: 'FINISH(',
+        tagSuffix: ')]]'
       });
 
       // Add logging for the actual config
@@ -128,11 +128,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should correctly parse end tags with custom markers', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '[[',
-        closePrefix: '[[',
-        openBrace: 'BEGIN(',
-        closeBrace: 'FINISH(',
-        braceSuffix: ')]]'
+        openTagPrefix: '[[',
+        closeTagPrefix: '[[',
+        tagOpener: 'BEGIN(',
+        tagCloser: 'FINISH(',
+        tagSuffix: ')]]'
       });
 
       engine.add('[[BEGIN(test)]]content[[FINISH(test)]]');
@@ -153,20 +153,20 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should correctly handle tag name extraction', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '[[',
-        closePrefix: '[[',
-        openBrace: 'BEGIN(',
-        closeBrace: 'FINISH(',
-        braceSuffix: ')]]'
+        openTagPrefix: '[[',
+        closeTagPrefix: '[[',
+        tagOpener: 'BEGIN(',
+        tagCloser: 'FINISH(',
+        tagSuffix: ')]]'
       });
 
       // Log the exact string positions we're using to extract the name
       const input = '[[BEGIN(test)]]';
       engine.add(input);
 
-      const startPattern = `${engine.config.tagPrefix}${engine.config.openBrace}`;
+      const startPattern = `${engine.config.openTagPrefix}${engine.config.tagOpener}`;
       const tagStart = input.indexOf(startPattern) + startPattern.length;
-      const endOfStartTag = input.indexOf(engine.config.braceSuffix, tagStart);
+      const endOfStartTag = input.indexOf(engine.config.tagSuffix, tagStart);
       const wrapperClosePos = input.lastIndexOf('(', endOfStartTag) + 1;
 
       console.log('Tag name extraction details:', {
@@ -183,11 +183,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should correctly select elements with custom markers', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '[[',
-        closePrefix: '[[',
-        openBrace: 'BEGIN(',
-        closeBrace: 'FINISH(',
-        braceSuffix: ')]]'
+        openTagPrefix: '[[',
+        closeTagPrefix: '[[',
+        tagOpener: 'BEGIN(',
+        tagCloser: 'FINISH(',
+        tagSuffix: ')]]'
       });
 
       engine.add('[[BEGIN(test)]]content[[FINISH(test)]]');
@@ -214,11 +214,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
   describe('Custom Idio Syntax Variations', () => {
     test('should handle XML-like syntax', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '<',
-        closePrefix: '</',
-        openBrace: '',
-        closeBrace: '',
-        braceSuffix: '>'
+        openTagPrefix: '<',
+        closeTagPrefix: '</',
+        tagOpener: '',
+        tagCloser: '',
+        tagSuffix: '>'
       });
 
       engine.add('<user>John</user>');
@@ -229,11 +229,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle JSON-like syntax', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '{',
-        closePrefix: '{',
-        openBrace: 'begin:',
-        closeBrace: 'end:',
-        braceSuffix: '}'
+        openTagPrefix: '{',
+        closeTagPrefix: '{',
+        tagOpener: 'begin:',
+        tagCloser: 'end:',
+        tagSuffix: '}'
       });
 
       engine.add('{begin:person}Alice{end:person}');
@@ -244,11 +244,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle complex nested structures with emoji markers', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '🔵',
-        closePrefix: '🔴',
-        openBrace: '(',
-        closeBrace: '(',
-        braceSuffix: ')'
+        openTagPrefix: '🔵',
+        closeTagPrefix: '🔴',
+        tagOpener: '(',
+        tagCloser: '(',
+        tagSuffix: ')'
       });
 
       engine.add(`
@@ -269,11 +269,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle markdown-like syntax', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '#',
-        closePrefix: '#',
-        openBrace: '[',
-        closeBrace: '[/',
-        braceSuffix: ']'
+        openTagPrefix: '#',
+        closeTagPrefix: '#',
+        tagOpener: '[',
+        tagCloser: '[/',
+        tagSuffix: ']'
       });
 
       engine.add(`
@@ -294,11 +294,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle whitespace-heavy syntax', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '   ',
-        closePrefix: '   ',
-        openBrace: '>>>',
-        closeBrace: '<<<',
-        braceSuffix: '   '
+        openTagPrefix: '   ',
+        closeTagPrefix: '   ',
+        tagOpener: '>>>',
+        tagCloser: '<<<',
+        tagSuffix: '   '
       });
 
       engine.add('   >>>test   content   <<<test   ');
@@ -309,11 +309,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle multi-character markers with special characters', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '-->',
-        closePrefix: '<--',
-        openBrace: '{{',
-        closeBrace: '{{',
-        braceSuffix: '}}!!'
+        openTagPrefix: '-->',
+        closeTagPrefix: '<--',
+        tagOpener: '{{',
+        tagCloser: '{{',
+        tagSuffix: '}}!!'
       });
 
       // Beggining ofnode would be -->{{thing}}!!
@@ -336,11 +336,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle streaming with complex markers', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '<%=',
-        closePrefix: '<%/',
-        openBrace: '_',
-        closeBrace: '_',
-        braceSuffix: '%>'
+        openTagPrefix: '<%=',
+        closeTagPrefix: '<%/',
+        tagOpener: '_',
+        tagCloser: '_',
+        tagSuffix: '%>'
       });
 
       // Add content in chunks
@@ -360,11 +360,11 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
     test('should handle mixed attribute and element markers', () => {
       const engine = new IncomingIdioParserSelectorEngine({
-        tagPrefix: '::',
-        closePrefix: '::',
-        openBrace: 'NODE_BOUNDARY(',
-        closeBrace: 'NODE_END_BOUNDARY(',
-        braceSuffix: ')$$'
+        openTagPrefix: '::',
+        closeTagPrefix: '::',
+        tagOpener: 'NODE_BOUNDARY(',
+        tagCloser: 'NODE_END_BOUNDARY(',
+        tagSuffix: ')$$'
       });
 
       engine.add(`

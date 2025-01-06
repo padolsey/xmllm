@@ -20,49 +20,40 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     super();
     const globalConfig = getConfig();
     
-    // Precedence: instance config > global config > class defaults
-    this.config = {
-      tagPrefix: config.tagPrefix ?? 
-                   globalConfig.idioSymbols?.tagPrefix ?? 
-                   IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER,
-      closePrefix: config.closePrefix ?? 
-                 globalConfig.idioSymbols?.closePrefix ?? 
-                 IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER,
-      openBrace: config.openBrace ?? 
-                    globalConfig.idioSymbols?.openBrace ?? 
-                    IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER,
-      closeBrace: config.closeBrace ?? 
-                  globalConfig.idioSymbols?.closeBrace ?? 
-                  IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER,
-      braceSuffix: config.braceSuffix ?? 
-                    globalConfig.idioSymbols?.braceSuffix ?? 
-                    IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER
+    // Convert to arrays and validate lengths
+    const normalizeToArray = value => Array.isArray(value) ? value : [value];
+    
+    const symbols = {
+      openTagPrefix: normalizeToArray(config.openTagPrefix ?? globalConfig.idioSymbols?.openTagPrefix ?? IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER),
+      closeTagPrefix: normalizeToArray(config.closeTagPrefix ?? globalConfig.idioSymbols?.closeTagPrefix ?? IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER),
+      tagOpener: normalizeToArray(config.tagOpener ?? globalConfig.idioSymbols?.tagOpener ?? IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER),
+      tagCloser: normalizeToArray(config.tagCloser ?? globalConfig.idioSymbols?.tagCloser ?? IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER),
+      tagSuffix: normalizeToArray(config.tagSuffix ?? globalConfig.idioSymbols?.tagSuffix ?? IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER)
     };
 
+    this.config = symbols;
   }
 
   static GEN_OPEN_TAG = (name, attrs, hints) => {
     name = name.replace(/^\$/, '@');
-    // Get the global config for scaffold generation
     const globalConfig = getConfig();
     const symbols = globalConfig.idioSymbols || {
-      tagPrefix: this.DEFAULT_START_MARKER,
-      openBrace: this.DEFAULT_START_WRAPPER,
-      braceSuffix: this.DEFAULT_CLOSE_WRAPPER
+      openTagPrefix: [this.DEFAULT_START_MARKER],
+      tagOpener: [this.DEFAULT_START_WRAPPER],
+      tagSuffix: [this.DEFAULT_CLOSE_WRAPPER]
     };
-    return `${symbols.tagPrefix}${symbols.openBrace}${name}${symbols.braceSuffix}`;
+    return `${symbols.openTagPrefix[0]}${symbols.tagOpener[0]}${name}${symbols.tagSuffix[0]}`;
   };
 
   static GEN_CLOSE_TAG = (name) => {
     name = name.replace(/^\$/, '@');
-    // Get the global config for scaffold generation
     const globalConfig = getConfig();
     const symbols = globalConfig.idioSymbols || {
-      closePrefix: this.DEFAULT_END_MARKER,
-      closeBrace: this.DEFAULT_END_WRAPPER,
-      braceSuffix: this.DEFAULT_CLOSE_WRAPPER
+      closeTagPrefix: [this.DEFAULT_END_MARKER],
+      tagCloser: [this.DEFAULT_END_WRAPPER],
+      tagSuffix: [this.DEFAULT_CLOSE_WRAPPER]
     };
-    return `${symbols.closePrefix}${symbols.closeBrace}${name}${symbols.braceSuffix}`;
+    return `${symbols.closeTagPrefix[0]}${symbols.tagCloser[0]}${name}${symbols.tagSuffix[0]}`;
   };
 
   static GEN_TYPE_HINT = (type, enumValues = []) => {
@@ -73,36 +64,60 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     this.buffer += chunk;
     
     while (this.position < this.buffer.length) {
-      const startPattern = `${this.config.tagPrefix}${this.config.openBrace}`;
-      const endPattern = `${this.config.closePrefix}${this.config.closeBrace}`;
+      const startPatterns = this.config.openTagPrefix.flatMap(prefix => 
+        this.config.tagOpener.map(brace => prefix + brace)
+      );
+      const endPatterns = this.config.closeTagPrefix.flatMap(prefix => 
+        this.config.tagCloser.map(brace => prefix + brace)
+      );
 
-      // Check for end tag first since it's more specific
-      if (this.buffer.startsWith(endPattern, this.position)) {
-        const tagStart = this.position + endPattern.length;
-        let endOfEndTag = this.buffer.indexOf(this.config.braceSuffix, tagStart);
+      // Check for end tag first
+      const endMatch = this.findFirstMatch(this.buffer, this.position, endPatterns);
+      if (endMatch?.partial) {
+        break;
+      }
+      if (endMatch) {
+        const tagStart = this.position + endMatch.length;
+        const suffixMatch = this.findFirstSuffix(this.buffer, tagStart);
 
-        if (endOfEndTag === -1) {
-          // Incomplete end tag; wait for more input
+        if (!suffixMatch) {
           break;
         }
 
-        const tagName = this.buffer.slice(tagStart, endOfEndTag);
-
-        // Close the element (with fallback)
+        const tagName = this.buffer.slice(tagStart, suffixMatch.pos);
         this.closeElement(tagName);
-        this.position = endOfEndTag + this.config.braceSuffix.length;
-      } else if (this.buffer.startsWith(startPattern, this.position)) {
-        const tagStart = this.position + startPattern.length;
-        let endOfStartTag = this.buffer.indexOf(this.config.braceSuffix, tagStart);
+        this.position = suffixMatch.pos + suffixMatch.suffix.length;
+        continue;
+      }
 
-        if (endOfStartTag === -1) {
-          // Incomplete start tag; wait for more input
+      // Check for start tag
+      const startMatch = this.findFirstMatch(this.buffer, this.position, startPatterns);
+      if (startMatch?.partial) {
+        break;
+      }
+      if (startMatch) {
+        const tagStart = this.position + startMatch.length;
+        let suffixMatch;
+        
+        if (startMatch.emptyOpener) {
+          // For empty tagOpener, we already found the suffix
+          const tagName = this.buffer.slice(
+            startMatch.nameStart,
+            startMatch.suffixPos - this.config.tagSuffix[0].length
+          );
+          suffixMatch = { 
+            pos: startMatch.suffixPos - this.config.tagSuffix[0].length,
+            suffix: this.config.tagSuffix[0]
+          };
+        } else {
+          suffixMatch = this.findFirstSuffix(this.buffer, tagStart);
+        }
+
+        if (!suffixMatch) {
           break;
         }
 
-        const tagName = this.buffer.slice(tagStart, endOfStartTag);
-
-        // Create new element
+        const tagName = this.buffer.slice(tagStart, suffixMatch.pos);
         const element = {
           type: 'tag',
           key: this.elementIndex++,
@@ -119,50 +134,31 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
         }
 
         this.openElements.push(element);
-        this.position = endOfStartTag + this.config.braceSuffix.length;
-      } else {
-        // Update text handling to use config markers
-        if (this.buffer[this.position] === this.config.tagPrefix[0] || 
-            this.buffer[this.position] === this.config.closePrefix[0]) {
-          // Potential partial marker
-          const remaining = this.buffer.substring(this.position);
-          if (remaining.startsWith(startPattern) || remaining.startsWith(endPattern)) {
-            // Should have been handled above
-            // This case shouldn't occur, but to be safe
-            continue;
-          } else if (remaining.length < Math.max(
-            this.config.tagPrefix.length + this.config.openBrace.length,
-            this.config.closePrefix.length + this.config.closeBrace.length
-          )) {
-            // Possible partial marker, wait for more data
-            break;
-          } else {
-            // Invalid marker, treat as text
-            this.addTextToCurrentElement(this.buffer[this.position]);
-            this.position++;
-          }
-        } else {
-          // Collect text content up to the next marker
-          const nexttagPrefixPos = this.buffer.indexOf(this.config.tagPrefix, this.position + 1);
-          const nextclosePrefixPos = this.buffer.indexOf(this.config.closePrefix, this.position + 1);
-          const nextMarkerPos = nexttagPrefixPos === -1 ? nextclosePrefixPos :
-                               nextclosePrefixPos === -1 ? nexttagPrefixPos :
-                               Math.min(nexttagPrefixPos, nextclosePrefixPos);
-          
-          let text;
-          if (nextMarkerPos === -1) {
-            text = this.buffer.substring(this.position);
-            this.position = this.buffer.length;
-          } else {
-            text = this.buffer.substring(this.position, nextMarkerPos);
-            this.position = nextMarkerPos;
-          }
-          this.addTextToCurrentElement(text);
+        this.position = suffixMatch.pos + suffixMatch.suffix.length;
+        continue;
+      }
+
+      // Look ahead for potential markers
+      const nextMarkerPos = this.findNextMarkerPosition(this.buffer, this.position + 1, [...startPatterns, ...endPatterns]);
+      
+      if (nextMarkerPos === -1) {
+        // No markers found - check if last character could be start of marker
+        const lastChar = this.buffer[this.buffer.length - 1];
+        const couldBeMarker = [...this.config.openTagPrefix, ...this.config.closeTagPrefix].includes(lastChar);
+        
+        if (this.position < this.buffer.length) {
+          const endPos = couldBeMarker ? this.buffer.length - 1 : this.buffer.length;
+          this.addTextToCurrentElement(this.buffer.substring(this.position, endPos));
+          this.position = endPos;
         }
+        break;
+      } else {
+        this.addTextToCurrentElement(this.buffer.substring(this.position, nextMarkerPos));
+        this.position = nextMarkerPos;
       }
     }
 
-    // Clean up the buffer
+    // Clean up buffer
     if (this.position > 0) {
       this.buffer = this.buffer.substring(this.position);
       this.position = 0;
@@ -345,6 +341,83 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     }
 
     return formatted;
+  }
+
+  // Add helper methods for finding markers
+  findFirstMatch(buffer, position, patterns) {    
+
+    // First check for complete patterns
+    for (const pattern of patterns) {
+      if (buffer.startsWith(pattern, position)) {
+        // For empty tagOpener/tagCloser, we need to include the suffix in the pattern
+        if (pattern === this.config.openTagPrefix[0] || pattern === this.config.closeTagPrefix[0]) {
+          
+          const afterPrefix = buffer.substring(position + pattern.length);
+          const isClosing = this.config.tagCloser.some(closer => afterPrefix.startsWith(closer));
+
+          const nameStart = position + pattern.length + (isClosing ? 1 : 0);
+          const suffixPos = buffer.indexOf(this.config.tagSuffix[0], nameStart);
+          
+          if (suffixPos !== -1) {
+            return { 
+              pattern,
+              length: pattern.length,
+              emptyOpener: true,
+              isClosing,
+              nameStart,
+              suffixPos: suffixPos + this.config.tagSuffix[0].length
+            };
+          }
+        }
+        return { pattern, length: pattern.length };
+      }
+    }
+
+    // If at start of buffer, check for partial matches
+    if (position === 0) {
+      for (const pattern of patterns) {
+        // Check if buffer could be start of pattern
+        if (pattern.startsWith(buffer)) {
+          return { partial: true };
+        }
+        // Check if buffer content could be start of pattern
+        const bufferContent = buffer.substring(position);
+        if (pattern.startsWith(bufferContent)) {
+          return { partial: true };
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  findFirstSuffix(buffer, position) {
+    let earliest = { pos: -1, suffix: null };
+    for (const suffix of this.config.tagSuffix) {
+      const pos = buffer.indexOf(suffix, position);
+      if (pos !== -1 && (earliest.pos === -1 || pos < earliest.pos)) {
+        earliest = { pos, suffix };
+      }
+    }
+    return earliest.suffix ? earliest : null;
+  }
+
+  findNextMarkerPosition(buffer, startPos, patterns) {
+    // Find the earliest occurrence of any marker pattern
+    const positions = patterns.map(pattern => {
+      const prefixChar = pattern[0]; // Usually '@'
+      let pos = buffer.indexOf(prefixChar, startPos);
+      while (pos !== -1) {
+        // Verify it's actually a marker
+        if (patterns.some(p => buffer.startsWith(p, pos))) {
+          return pos;
+        }
+        pos = buffer.indexOf(prefixChar, pos + 1);
+      }
+      return -1;
+    }).filter(pos => pos !== -1);
+
+    return positions.length ? Math.min(...positions) : -1;
   }
 
 }

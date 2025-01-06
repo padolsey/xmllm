@@ -78,11 +78,11 @@ export interface ClientConfigureOptions {
   defaults?: ClientStreamingSchemaConfig;
   globalParser?: string;
   idioSymbols?: {
-    tagPrefix?: string;
-    closePrefix?: string;
-    openBrace?: string;
-    closeBrace?: string;
-    braceSuffix?: string;
+    openTagPrefix?: string;
+    closeTagPrefix?: string;
+    tagOpener?: string;
+    tagCloser?: string;
+    tagSuffix?: string;
   };
   clientProvider?: ClientProvider | string;
 }

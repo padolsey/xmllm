@@ -27,12 +27,12 @@ var defaultStrategy = {
   genSystemPrompt: function genSystemPrompt() {
     var subSystemPrompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var _getConfig$idioSymbol = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol.tagPrefix,
-      openBrace = _getConfig$idioSymbol.openBrace,
-      closeBrace = _getConfig$idioSymbol.closeBrace,
-      closePrefix = _getConfig$idioSymbol.closePrefix,
-      braceSuffix = _getConfig$idioSymbol.braceSuffix;
-    return "\nMETA & OUTPUT STRUCTURE RULES:\n===\n\nYou are an AI that outputs text using a simple markup language with only two rules:\n1. ".concat(tagPrefix).concat(openBrace, "nodename").concat(braceSuffix, " opens a node.\n2. ").concat(closePrefix).concat(closeBrace, "nodename").concat(braceSuffix, " closes a node.\nNodes can contain content or other nodes.\n\nExamples:\n").concat(tagPrefix).concat(openBrace, "greeting").concat(braceSuffix, "hello world").concat(closePrefix).concat(closeBrace, "greeting").concat(braceSuffix, "\n\n").concat(tagPrefix).concat(openBrace, "book").concat(braceSuffix, "\n  ").concat(tagPrefix).concat(openBrace, "chapter").concat(braceSuffix, "Once upon a time").concat(closePrefix).concat(closeBrace, "chapter").concat(braceSuffix, "\n  ").concat(tagPrefix).concat(openBrace, "chapter").concat(braceSuffix, "The end").concat(closePrefix).concat(closeBrace, "chapter").concat(braceSuffix, "\n").concat(closePrefix).concat(closeBrace, "book").concat(braceSuffix, "\n\nYou accept instructions and perform them, always following this syntax.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
+      openTagPrefix = _getConfig$idioSymbol.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol.tagOpener,
+      tagCloser = _getConfig$idioSymbol.tagCloser,
+      closeTagPrefix = _getConfig$idioSymbol.closeTagPrefix,
+      tagSuffix = _getConfig$idioSymbol.tagSuffix;
+    return "\nMETA & OUTPUT STRUCTURE RULES:\n===\n\nYou are an AI that outputs text using a simple markup language with only two rules:\n1. ".concat(openTagPrefix).concat(tagOpener, "nodename").concat(tagSuffix, " opens a node.\n2. ").concat(closeTagPrefix).concat(tagCloser, "nodename").concat(tagSuffix, " closes a node.\nNodes can contain content or other nodes.\n\nExamples:\n").concat(openTagPrefix).concat(tagOpener, "greeting").concat(tagSuffix, "hello world").concat(closeTagPrefix).concat(tagCloser, "greeting").concat(tagSuffix, "\n\n").concat(openTagPrefix).concat(tagOpener, "book").concat(tagSuffix, "\n  ").concat(openTagPrefix).concat(tagOpener, "chapter").concat(tagSuffix, "Once upon a time").concat(closeTagPrefix).concat(tagCloser, "chapter").concat(tagSuffix, "\n  ").concat(openTagPrefix).concat(tagOpener, "chapter").concat(tagSuffix, "The end").concat(closeTagPrefix).concat(tagCloser, "chapter").concat(tagSuffix, "\n").concat(closeTagPrefix).concat(tagCloser, "book").concat(tagSuffix, "\n\nYou accept instructions and perform them, always following this syntax.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
   },
   genUserPrompt: function genUserPrompt(scaffold, originalPrompt) {
     if (!scaffold) {
@@ -53,12 +53,12 @@ var minimalStrategy = {
   genSystemPrompt: function genSystemPrompt() {
     var subSystemPrompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var _getConfig$idioSymbol2 = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol2.tagPrefix,
-      openBrace = _getConfig$idioSymbol2.openBrace,
-      closeBrace = _getConfig$idioSymbol2.closeBrace,
-      closePrefix = _getConfig$idioSymbol2.closePrefix,
-      braceSuffix = _getConfig$idioSymbol2.braceSuffix;
-    return "\nOUTPUT RULES:\nYou are an AI that outputs text using a simple markup language with two rules:\n1. ".concat(tagPrefix).concat(openBrace, "nodename").concat(braceSuffix, " opens a node.\n2. ").concat(closePrefix).concat(closeBrace, "nodename").concat(braceSuffix, " closes a node.\nNodes can contain content or other nodes.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
+      openTagPrefix = _getConfig$idioSymbol2.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol2.tagOpener,
+      tagCloser = _getConfig$idioSymbol2.tagCloser,
+      closeTagPrefix = _getConfig$idioSymbol2.closeTagPrefix,
+      tagSuffix = _getConfig$idioSymbol2.tagSuffix;
+    return "\nOUTPUT RULES:\nYou are an AI that outputs text using a simple markup language with two rules:\n1. ".concat(openTagPrefix).concat(tagOpener, "nodename").concat(tagSuffix, " opens a node.\n2. ").concat(closeTagPrefix).concat(tagCloser, "nodename").concat(tagSuffix, " closes a node.\nNodes can contain content or other nodes.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
   },
   genUserPrompt: function genUserPrompt(scaffold, originalPrompt) {
     return "\n".concat(originalPrompt, "\n\nHere is the schema to follow:\n").concat(scaffold, "\n  ").trim();
@@ -76,19 +76,19 @@ var seedStrategy = {
   genSystemPrompt: function genSystemPrompt() {
     var subSystemPrompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var _getConfig$idioSymbol3 = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol3.tagPrefix,
-      openBrace = _getConfig$idioSymbol3.openBrace,
-      closeBrace = _getConfig$idioSymbol3.closeBrace,
-      closePrefix = _getConfig$idioSymbol3.closePrefix,
-      braceSuffix = _getConfig$idioSymbol3.braceSuffix;
-    return "\nOUTPUT RULES:\nYou are an AI that outputs text using a simple markup language with two rules:\n1. ".concat(tagPrefix).concat(openBrace, "nodename").concat(braceSuffix, " opens a node.\n2. ").concat(closePrefix).concat(closeBrace, "nodename").concat(braceSuffix, " closes a node.\nNodes can contain content or other nodes.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
+      openTagPrefix = _getConfig$idioSymbol3.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol3.tagOpener,
+      tagCloser = _getConfig$idioSymbol3.tagCloser,
+      closeTagPrefix = _getConfig$idioSymbol3.closeTagPrefix,
+      tagSuffix = _getConfig$idioSymbol3.tagSuffix;
+    return "\nOUTPUT RULES:\nYou are an AI that outputs text using a simple markup language with two rules:\n1. ".concat(openTagPrefix).concat(tagOpener, "nodename").concat(tagSuffix, " opens a node.\n2. ").concat(closeTagPrefix).concat(tagCloser, "nodename").concat(tagSuffix, " closes a node.\nNodes can contain content or other nodes.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
   },
   genUserPrompt: function genUserPrompt(scaffold, originalPrompt) {
     var _getConfig$idioSymbol4 = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol4.tagPrefix,
-      openBrace = _getConfig$idioSymbol4.openBrace,
-      closeBrace = _getConfig$idioSymbol4.closeBrace,
-      braceSuffix = _getConfig$idioSymbol4.braceSuffix;
+      openTagPrefix = _getConfig$idioSymbol4.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol4.tagOpener,
+      tagCloser = _getConfig$idioSymbol4.tagCloser,
+      tagSuffix = _getConfig$idioSymbol4.tagSuffix;
     return [{
       role: 'user',
       content: "".concat(originalPrompt, "\n\nHere is the schema to follow:\n").concat(scaffold, "\n  ").trim()
@@ -110,12 +110,12 @@ var structuredStrategy = {
   genSystemPrompt: function genSystemPrompt() {
     var subSystemPrompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var _getConfig$idioSymbol5 = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol5.tagPrefix,
-      openBrace = _getConfig$idioSymbol5.openBrace,
-      closeBrace = _getConfig$idioSymbol5.closeBrace,
-      closePrefix = _getConfig$idioSymbol5.closePrefix,
-      braceSuffix = _getConfig$idioSymbol5.braceSuffix;
-    return "\nRESPONSE RULES:\n1. Output text using the simple markup language:\n   - ".concat(tagPrefix).concat(openBrace, "nodename").concat(braceSuffix, " opens a node.\n   - ").concat(closePrefix).concat(closeBrace, "nodename").concat(braceSuffix, " closes a node.\n2. Nodes can contain content or other nodes.\n3. For example:\n   ").concat(tagPrefix).concat(openBrace, "name").concat(braceSuffix, "Sarah").concat(closePrefix).concat(closeBrace, "name").concat(braceSuffix, "\n   ").concat(tagPrefix).concat(openBrace, "age").concat(braceSuffix, "25").concat(closePrefix).concat(closeBrace, "age").concat(braceSuffix, "\n4. Follow the provided structure exactly.\n5. Begin with the structure provided.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
+      openTagPrefix = _getConfig$idioSymbol5.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol5.tagOpener,
+      tagCloser = _getConfig$idioSymbol5.tagCloser,
+      closeTagPrefix = _getConfig$idioSymbol5.closeTagPrefix,
+      tagSuffix = _getConfig$idioSymbol5.tagSuffix;
+    return "\nRESPONSE RULES:\n1. Output text using the simple markup language:\n   - ".concat(openTagPrefix).concat(tagOpener, "nodename").concat(tagSuffix, " opens a node.\n   - ").concat(closeTagPrefix).concat(tagCloser, "nodename").concat(tagSuffix, " closes a node.\n2. Nodes can contain content or other nodes.\n3. For example:\n   ").concat(openTagPrefix).concat(tagOpener, "name").concat(tagSuffix, "Sarah").concat(closeTagPrefix).concat(tagCloser, "name").concat(tagSuffix, "\n   ").concat(openTagPrefix).concat(tagOpener, "age").concat(tagSuffix, "25").concat(closeTagPrefix).concat(tagCloser, "age").concat(tagSuffix, "\n4. Follow the provided structure exactly.\n5. Begin with the structure provided.\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
   },
   genUserPrompt: function genUserPrompt(scaffold, originalPrompt) {
     return [{
@@ -136,12 +136,12 @@ var assertiveStrategy = {
   genSystemPrompt: function genSystemPrompt() {
     var subSystemPrompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var _getConfig$idioSymbol6 = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol6.tagPrefix,
-      openBrace = _getConfig$idioSymbol6.openBrace,
-      closeBrace = _getConfig$idioSymbol6.closeBrace,
-      closePrefix = _getConfig$idioSymbol6.closePrefix,
-      braceSuffix = _getConfig$idioSymbol6.braceSuffix;
-    return "\nCRITICAL RULES:\nMUST: Output text using the simple markup language with these rules:\n- ".concat(tagPrefix).concat(openBrace, "nodename").concat(braceSuffix, " opens a node.\n- ").concat(closePrefix).concat(closeBrace, "nodename").concat(braceSuffix, " closes a node.\nMUST: Follow the provided structure exactly.\nMUST: Nodes can contain content or other nodes.\nMUST: Begin with the structure provided.\n\nExamples:\n").concat(tagPrefix).concat(openBrace, "item").concat(braceSuffix, "Content").concat(closePrefix).concat(closeBrace, "item").concat(braceSuffix, "\n").concat(tagPrefix).concat(openBrace, "container").concat(braceSuffix, "\n   ").concat(tagPrefix).concat(openBrace, "child").concat(braceSuffix, "Content").concat(closePrefix).concat(closeBrace, "child").concat(braceSuffix, "\n").concat(closePrefix).concat(closeBrace, "container").concat(braceSuffix, "\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
+      openTagPrefix = _getConfig$idioSymbol6.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol6.tagOpener,
+      tagCloser = _getConfig$idioSymbol6.tagCloser,
+      closeTagPrefix = _getConfig$idioSymbol6.closeTagPrefix,
+      tagSuffix = _getConfig$idioSymbol6.tagSuffix;
+    return "\nCRITICAL RULES:\nMUST: Output text using the simple markup language with these rules:\n- ".concat(openTagPrefix).concat(tagOpener, "nodename").concat(tagSuffix, " opens a node.\n- ").concat(closeTagPrefix).concat(tagCloser, "nodename").concat(tagSuffix, " closes a node.\nMUST: Follow the provided structure exactly.\nMUST: Nodes can contain content or other nodes.\nMUST: Begin with the structure provided.\n\nExamples:\n").concat(openTagPrefix).concat(tagOpener, "item").concat(tagSuffix, "Content").concat(closeTagPrefix).concat(tagCloser, "item").concat(tagSuffix, "\n").concat(openTagPrefix).concat(tagOpener, "container").concat(tagSuffix, "\n   ").concat(openTagPrefix).concat(tagOpener, "child").concat(tagSuffix, "Content").concat(closeTagPrefix).concat(tagCloser, "child").concat(tagSuffix, "\n").concat(closeTagPrefix).concat(tagCloser, "container").concat(tagSuffix, "\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
   },
   genUserPrompt: function genUserPrompt(scaffold, originalPrompt) {
     return [{
@@ -168,12 +168,12 @@ var exampleDrivenStrategy = {
   genSystemPrompt: function genSystemPrompt() {
     var subSystemPrompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var _getConfig$idioSymbol7 = (0, _config.getConfig)().idioSymbols,
-      tagPrefix = _getConfig$idioSymbol7.tagPrefix,
-      openBrace = _getConfig$idioSymbol7.openBrace,
-      closeBrace = _getConfig$idioSymbol7.closeBrace,
-      closePrefix = _getConfig$idioSymbol7.closePrefix,
-      braceSuffix = _getConfig$idioSymbol7.braceSuffix;
-    return "\nSYNTAX GUIDELINES WITH EXAMPLE:\n- Use the simple markup language:\n  - ".concat(tagPrefix).concat(openBrace, "nodename").concat(braceSuffix, " opens a node.\n  - ").concat(closePrefix).concat(closeBrace, "nodename").concat(braceSuffix, " closes a node.\n- Nodes can contain content or other nodes.\n- Follow the structure exactly.\n\nExample of compliance:\n").concat(tagPrefix).concat(openBrace, "root").concat(braceSuffix, "\n   ").concat(tagPrefix).concat(openBrace, "example").concat(braceSuffix, "Hello world").concat(closePrefix).concat(closeBrace, "example").concat(braceSuffix, "\n").concat(closePrefix).concat(closeBrace, "root").concat(braceSuffix, "\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
+      openTagPrefix = _getConfig$idioSymbol7.openTagPrefix,
+      tagOpener = _getConfig$idioSymbol7.tagOpener,
+      tagCloser = _getConfig$idioSymbol7.tagCloser,
+      closeTagPrefix = _getConfig$idioSymbol7.closeTagPrefix,
+      tagSuffix = _getConfig$idioSymbol7.tagSuffix;
+    return "\nSYNTAX GUIDELINES WITH EXAMPLE:\n- Use the simple markup language:\n  - ".concat(openTagPrefix).concat(tagOpener, "nodename").concat(tagSuffix, " opens a node.\n  - ").concat(closeTagPrefix).concat(tagCloser, "nodename").concat(tagSuffix, " closes a node.\n- Nodes can contain content or other nodes.\n- Follow the structure exactly.\n\nExample of compliance:\n").concat(openTagPrefix).concat(tagOpener, "root").concat(tagSuffix, "\n   ").concat(openTagPrefix).concat(tagOpener, "example").concat(tagSuffix, "Hello world").concat(closeTagPrefix).concat(tagCloser, "example").concat(tagSuffix, "\n").concat(closeTagPrefix).concat(tagCloser, "root").concat(tagSuffix, "\n\n").concat(subSystemPrompt || 'You are an AI assistant and respond to the request.').trim();
   },
   genUserPrompt: function genUserPrompt(scaffold, originalPrompt) {
     return [{

@@ -335,19 +335,19 @@ expectType<void>(configure({
     mode: 'root_closed' as const
   },
   idioSymbols: {
-    tagPrefix: '@',
-    closePrefix: '@',
-    openBrace: 'START(',
-    closeBrace: 'END(',
-    braceSuffix: ')'
+    openTagPrefix: '@',
+    closeTagPrefix: '@',
+    tagOpener: 'START(',
+    tagCloser: 'END(',
+    tagSuffix: ')'
   }
 }));
 
 // Test partial idioSymbols config
 expectType<void>(configure({
   idioSymbols: {
-    tagPrefix: '@',
-    closePrefix: '@'
+    openTagPrefix: '@',
+    closeTagPrefix: '@'
     // Other properties should remain default
   }
 }));
@@ -355,18 +355,18 @@ expectType<void>(configure({
 // Test XML-like syntax config
 expectType<void>(configure({
   idioSymbols: {
-    tagPrefix: '<',
-    closePrefix: '</',
-    openBrace: '',
-    closeBrace: '',
-    braceSuffix: '>'
+    openTagPrefix: '<',
+    closeTagPrefix: '</',
+    tagOpener: '',
+    tagCloser: '',
+    tagSuffix: '>'
   }
 }));
 
 // Test invalid idioSymbols config
 expectError<ConfigureOptions>({
   idioSymbols: {
-    tagPrefix: 123  // Should be string
+    openTagPrefix: 123  // Should be string
   }
 });
 

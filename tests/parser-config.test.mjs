@@ -95,11 +95,11 @@ describe('Parser Configuration', () => {
       configure({
         globalParser: 'idio',
         idioSymbols: {
-          tagPrefix: '@',
-          closePrefix: '@',
-          openBrace: 'START(',
-          closeBrace: 'END(',
-          braceSuffix: ')'
+          openTagPrefix: '@',
+          closeTagPrefix: '@',
+          tagOpener: 'START(',
+          tagCloser: 'END(',
+          tagSuffix: ')'
         }
       });
 
@@ -121,36 +121,105 @@ describe('Parser Configuration', () => {
       expect(() => {
         configure({
           idioSymbols: {
-            tagPrefix: '',
-            closePrefix: '@',
-            openBrace: 'START(',
-            closeBrace: 'END(',
-            braceSuffix: ')'
+            openTagPrefix: '',
+            closeTagPrefix: '@',
+            tagOpener: 'START(',
+            tagCloser: 'END(',
+            tagSuffix: ')'
           }
         });
-      }).toThrow(/tagPrefix cannot be empty/);
+      }).toThrow(/openTagPrefix must be a non-empty string/);
 
       expect(() => {
         configure({
           idioSymbols: {
-            tagPrefix: '@',
-            closePrefix: null,
-            openBrace: 'START(',
-            closeBrace: 'END(',
-            braceSuffix: ')'
+            openTagPrefix: '@',
+            closeTagPrefix: '',
+            tagOpener: 'START(',
+            tagCloser: 'END(',
+            tagSuffix: ')'
           }
         });
-      }).toThrow(/closePrefix must be a non-empty string/);
+      }).toThrow(/closeTagPrefix must be a non-empty string/);
     });
 
-    it('should allow empty openBrace and closeBrace', async () => {
+    it('should allow longer boundary forms (chaos but intentional snapshot)', async () => {
+      configure({
+        globalParser: 'idio',
+        idioSymbols: {
+          openTagPrefix: ['@', '!', '-'],
+          closeTagPrefix: ['@', '!', '-'],
+          tagOpener: [
+            'START[',
+            'BEGIN[',
+            'START<',
+            'BEGIN<',
+            'START(',
+            'BEGIN(',
+            '%%(',
+            '%%[',
+            '%%<'
+          ],
+          tagCloser: [
+            'END[',
+            'END<',
+            'END(',
+            'CLOSE[',
+            'CLOSE<',
+            'CLOSE(',
+            'x%[',
+            'x%(',
+            'x%<',
+          ],
+          tagSuffix: [
+            '>', ')', ']'
+          ]
+        }
+      });
+
+      const TestStream = jest.fn().mockImplementation(() => ({
+        getReader: () => createMockReader([
+          `
+
+              @START(world)green@END(world)
+
+              -BEGIN(person) here !CLOSE(person)
+
+              -%%(car)...ford...!x%(car)
+
+              @START(greeting)hi there@END(greeting)
+          `
+        ])
+      }));
+
+      const result = await stream('Test prompt', {
+        schema: {
+          root: String,
+          world: String ,
+          person: String,
+          car: String,
+          greeting: String
+        },
+        llmStream: TestStream
+      }).last();
+      
+      expect(result).toEqual({
+        world: 'green',
+        person: ' here ',
+        car: '...ford...',
+        greeting: 'hi there'
+      });
+
+    });
+
+    it('should allow empty tagOpener and tagCloser', async () => {
       configure({
         idioSymbols: {
-          tagPrefix: '<',
-          closePrefix: '</',
-          openBrace: '',
-          closeBrace: '',
-          braceSuffix: '>'
+          openTagPrefix: '<',
+          closeTagPrefix: '</',
+          tagOpener: '',
+          tagCloser: '',
+          tagSuffix: '>'
         }
       });
 
@@ -172,25 +241,29 @@ describe('Parser Configuration', () => {
       expect(() => {
         configure({
           idioSymbols: {
-            tagPrefix: '@',
-            openBrace: '',
-            closeBrace: '',
-            closePrefix: '@',
-            braceSuffix: 546456
+            openTagPrefix: '@',
+            tagOpener: '',
+            tagCloser: '',
+            closeTagPrefix: '@',
+            tagSuffix: 546456
           }
         });
-      }).toThrow(/braceSuffix must be a non-empty string/);
+      }).toThrow(/tagSuffix must be a non-empty string/);
     });
 
     it('should allow partial updates to idio symbols', async () => {
 
+      console.log('current config 1', getConfig());
+
       configure({
         globalParser: 'idio',
         idioSymbols: {
-          tagPrefix: '@',
-          closePrefix: '@'
+          openTagPrefix: ['@'], // just checking array-form works
+          closeTagPrefix: '@'  // single string (will be normalized into array)
         }
       });
+
+      console.log('current config 2', getConfig());
 
       const TestStream = jest.fn().mockImplementation(() => ({
         getReader: () => createMockReader([
@@ -205,6 +278,45 @@ describe('Parser Configuration', () => {
       }).last();
       
       expect(result).toEqual({ test222: 'hello' });
+    });
+
+    test('should throw error when configuration lacks tag disambiguation', () => {
+      expect(() => {
+        configure({
+          idioSymbols: {
+            openTagPrefix: '@',
+            closeTagPrefix: '@',
+            tagOpener: 'START(',  // Same as default
+            tagCloser: 'START(',  // Making this same as tagOpener
+            tagSuffix: ')'
+          }
+        });
+      }).toThrow('Configuration must provide way to distinguish opening from closing tags');
+
+      // Should work when either prefixes or openers are different
+      expect(() => {
+        configure({
+          idioSymbols: {
+            openTagPrefix: '@',
+            closeTagPrefix: '@',
+            tagOpener: 'START(',
+            tagCloser: 'END(',    // Different from tagOpener
+            tagSuffix: ')'
+          }
+        });
+      }).not.toThrow();
+
+      expect(() => {
+        configure({
+          idioSymbols: {
+            openTagPrefix: '@',  
+            closeTagPrefix: '#', // Different from openTagPrefix
+            tagOpener: 'START(',
+            tagCloser: 'START(',  // Same as tagOpener
+            tagSuffix: ')'
+          }
+        });
+      }).not.toThrow();
     });
   });
 }); 

@@ -301,11 +301,11 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '<',
-        closePrefix: '</',
-        openBrace: '',
-        closeBrace: '',
-        braceSuffix: '>'
+        openTagPrefix: '<',
+        closeTagPrefix: '</',
+        tagOpener: '',
+        tagCloser: '',
+        tagSuffix: '>'
       }
     });
 
@@ -321,11 +321,11 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '[[',
-        closePrefix: '[[',
-        openBrace: 'BEGIN(',
-        closeBrace: 'END(',
-        braceSuffix: ')]]'
+        openTagPrefix: '[[',
+        closeTagPrefix: '[[',
+        tagOpener: 'BEGIN(',
+        tagCloser: 'END(',
+        tagSuffix: ')]]'
       }
     });
 
@@ -339,11 +339,11 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '-->',
-        closePrefix: '<--',
-        openBrace: '{{',
-        closeBrace: '{{',
-        braceSuffix: '}}!!'
+        openTagPrefix: '-->',
+        closeTagPrefix: '<--',
+        tagOpener: '{{',
+        tagCloser: '{{',
+        tagSuffix: '}}!!'
       }
     });
 
@@ -358,11 +358,11 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '#',
-        closePrefix: '#',
-        openBrace: '[',
-        closeBrace: '[/',
-        braceSuffix: ']'
+        openTagPrefix: '#',
+        closeTagPrefix: '#',
+        tagOpener: '[',
+        tagCloser: '[/',
+        tagSuffix: ']'
       }
     });
 
@@ -378,11 +378,11 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '🔵',
-        closePrefix: '🔴',
-        openBrace: '(',
-        closeBrace: '(',
-        braceSuffix: ')'
+        openTagPrefix: '🔵',
+        closeTagPrefix: '🔴',
+        tagOpener: '(',
+        tagCloser: '(',
+        tagSuffix: ')'
       }
     });
 
@@ -399,30 +399,30 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '   ',
-        closePrefix: '   ',
-        openBrace: '>>>',
-        closeBrace: '<<<',
-        braceSuffix: '   '
+        openTagPrefix: '   ',
+        closeTagPrefix: '   ',
+        tagOpener: '>>>',
+        tagCloser: '<<<',
+        tagSuffix: '^^^'
       }
     });
 
     const strategy = getStrategy('minimal');
     const systemPrompt = strategy.genSystemPrompt();
 
-    expect(systemPrompt).toContain('   >>>nodename    opens a node');
-    expect(systemPrompt).toContain('   <<<nodename    closes a node');
+    expect(systemPrompt).toContain('   >>>nodename^^^ opens a node');
+    expect(systemPrompt).toContain('   <<<nodename^^^ closes a node');
   });
 
   test('strategies should handle mixed symbols correctly', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '<!--',
-        closePrefix: '<!--/',
-        openBrace: '[',
-        closeBrace: '[',
-        braceSuffix: ']-->'
+        openTagPrefix: '<!--',
+        closeTagPrefix: '<!--/',
+        tagOpener: '[',
+        tagCloser: '[',
+        tagSuffix: ']-->'
       }
     });
 
@@ -437,16 +437,18 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '$',
-        closePrefix: '$',
-        openBrace: '',
-        closeBrace: '/',
-        braceSuffix: '>>>'
+        openTagPrefix: '$',
+        closeTagPrefix: '$',
+        tagOpener: '',
+        tagCloser: '/',
+        tagSuffix: '>>>'
       }
     });
 
     const strategy = getStrategy('structured');
     const systemPrompt = strategy.genSystemPrompt();
+
+    console.log('systemPrompt', systemPrompt);
 
     expect(systemPrompt).toContain('$name');
     expect(systemPrompt).toContain('$/name');
@@ -456,11 +458,11 @@ describe('Prompt Strategies with Custom Symbols', () => {
     configure({
       globalParser: 'idio',
       idioSymbols: {
-        tagPrefix: '::',
-        closePrefix: '::',
-        openBrace: '(',
-        closeBrace: '(',
-        braceSuffix: ')'
+        openTagPrefix: '::',
+        closeTagPrefix: '&&',
+        tagOpener: '(',
+        tagCloser: '(',
+        tagSuffix: ')'
       }
     });
 
@@ -471,7 +473,7 @@ describe('Prompt Strategies with Custom Symbols', () => {
       const systemPrompt = strategy.genSystemPrompt();
       
       expect(systemPrompt).toContain('::(nodename)');
-      expect(systemPrompt).toContain('::(nodename)');
+      expect(systemPrompt).toContain('&&(nodename)');
     });
   });
 }); 
