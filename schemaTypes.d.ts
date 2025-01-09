@@ -6,7 +6,6 @@ export interface SchemaType {
   isCData: boolean;
   withDefault(value: any): this;
   withTransform(transform: (value: any) => any): this;
-  withValidate(validate: (value: any) => boolean): this;
   withHint(hint: string): this;
   parse(value: string | undefined): any;
 }
