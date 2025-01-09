@@ -4,7 +4,7 @@ import Stream from '../Stream.mjs';
 class DefaultProxy extends ProxyBase {
   async handleStreaming(data, res) {
     // Add debug logging
-    console.log('Handling streaming request:', data);
+    // console.log('Handling streaming request:', data);
 
     const {
       messages,

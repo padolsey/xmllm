@@ -227,8 +227,6 @@ export class ItemsType extends Type {
     }
 
     this.itemType = itemType;
-
-    console.log('Set itemType', itemType);
   }
   
   _parse(value, element, applyMapping) {
@@ -236,8 +234,6 @@ export class ItemsType extends Type {
       // If no element exists and we have a default, return it
       return this.default !== undefined ? this.default : [];
     }
-
-    console.log('element', element);
     
     const items = (element.$$children || []).filter(
       c => c.$$tagname.toLowerCase() === 'item'
