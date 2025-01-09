@@ -305,7 +305,7 @@ describe('Type System', () => {
             <theme>{String}</theme>
             <notifications>{Boolean}</notifications>
           </settings>
-          <content><![CDATA[...]]></content>
+          <content><![CDATA[{Raw}]]></content>
           <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
         </person>
         <person>
@@ -316,7 +316,7 @@ describe('Type System', () => {
             <theme>{String}</theme>
             <notifications>{Boolean}</notifications>
           </settings>
-          <content><![CDATA[...]]></content>
+          <content><![CDATA[{Raw}]]></content>
           <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
         </person>
         /*etc.*/
@@ -373,7 +373,7 @@ describe('Type System', () => {
     `));
   });
 
-  test('enum type handles invalid values gracefully', () => {
+  test('enum type handles invalid values by returning undefined', () => {
     engine.add(`
       <data>
         <status>INVALID</status>
@@ -393,8 +393,179 @@ describe('Type System', () => {
 
     expect(result).toEqual({
       data: {
-        status: 'PENDING',  // Falls back to default
-        // status2 is not included since it's invalid and has no default
+        status: 'PENDING',  // Uses default since value was invalid
+        // status2 not included since value was invalid and no default
+      }
+    });
+  });
+
+  test('handles empty elements by using type-specific default values', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <data>
+        <name></name>
+        <hobby>    </hobby>
+        <age>    </age>
+        <active> </active>
+      </data>
+    `);
+
+    const schema = {
+      data: {
+        name: types.string("Person's name")
+          .withDefault("Anonymous"),
+        hobby: types.string("Person's hobby")
+          .withDefault("Tennis"),
+        age: types.number("Person's age")
+          .withDefault(25),
+        active: types.boolean("Is active")
+          .withDefault(true)
+      }
+    };
+
+    expect(engine.mapSelect(schema)).toEqual({
+      data: {
+        name: 'Anonymous',  // "Anonymous", per default
+        hobby: 'Tennis',    // "Tennis", per default
+        age: 25,            // 25, per default
+        active: true        // True, per default
+      }
+    });
+  });
+
+  test('handles missing elements by using defaults', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <data>
+        <!-- No elements inside -->
+      </data>
+    `);
+
+    const schema = {
+      data: {
+        name: types.string("Person's name")
+          .withDefault("Anonymous"),
+        age: types.number("Person's age")
+          .withDefault(25),
+        active: types.boolean("Is active")
+          .withDefault(true)
+      }
+    };
+
+    expect(engine.mapSelect(schema)).toEqual({
+      data: {
+        name: 'Anonymous', // Default when element missing
+        age: 25,          // Default when element missing  
+        active: true      // Default when element missing
+      }
+    });
+  });
+
+  test('empty elements should use defaults', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <data>
+        <string></string>
+        <number></number>
+        <bool></bool>
+        <enum></enum>
+      </data>
+    `);
+
+    const result = engine.mapSelect({
+      data: {
+        string: types.string()
+          .withDefault("DEFAULT_STRING"),
+        number: types.number()
+          .withDefault(999),
+        bool: types.boolean()
+          .withDefault(true),
+        enum: types.enum("Status", ['A', 'B'])
+          .withDefault('A')
+      }
+    });
+
+    expect(result).toEqual({
+      data: {
+        string: 'DEFAULT_STRING',     // Empty string for empty string element
+        number: 999,      // Zero for empty number element
+        bool: true,    // False for empty boolean element
+        enum: 'A' // Undefined for empty enum (invalid value)
+      }
+    });
+  });
+
+  test('missing elements should use defaults', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <data>
+        <!-- No elements inside -->
+      </data>
+    `);
+
+    const result = engine.mapSelect({
+      data: {
+        string: types.string()
+          .withDefault("DEFAULT_STRING"),
+        number: types.number()
+          .withDefault(999),
+        bool: types.boolean()
+          .withDefault(true),
+        enum: types.enum("Status", ['A', 'B'])
+          .withDefault('A')
+      }
+    });
+
+    expect(result).toEqual({
+      data: {
+        string: 'DEFAULT_STRING',  // Default when element missing
+        number: 999,               // Default when element missing
+        bool: true,               // Default when element missing
+        enum: 'A'                 // Default when element missing
+      }
+    });
+  });
+
+  test('NumberType should intelligently extract the first appearing numbers from strings', () => {
+    const engine = new IncomingXMLParserSelectorEngine();
+    
+    engine.add(`
+      <data>
+        <price>costs $42.50 dollars</price>
+        <rating>4.5/5 stars</rating>
+        <temperature>-3.2 degrees</temperature>
+        <decimal>.75 percent</decimal>
+        <noNumber>no number here</noNumber>
+        <empty></empty>
+        <zero>  0</zero>
+      </data>
+    `);
+
+    const result = engine.mapSelect({
+      data: {
+        price: types.number(),
+        rating: types.number(),
+        temperature: types.number(),
+        decimal: types.number(),
+        noNumber: types.number().withDefault(0),
+        empty: types.number().withDefault(0),
+        zero: types.number()
+      }
+    });
+
+    expect(result).toEqual({
+      data: {
+        price: 42.50,
+        rating: 4.5,
+        temperature: -3.2,
+        decimal: 0.75,
+        noNumber: 0,    // Uses default since no number found
+        empty: 0,        // Uses default for empty element
+        zero: 0
       }
     });
   });

@@ -3,7 +3,6 @@ export class Type {
     this.hint = hint;
     this.default = undefined;
     this.transform = undefined;
-    this.validate = undefined;
     this.isCData = false;
   }
 
@@ -17,29 +16,23 @@ export class Type {
     return this;
   }
 
-  withValidate(validate) {
-    this.validate = validate;
-    return this;
-  }
-
   withHint(hint) {
     this.hint = hint;
     return this;
   }
 
-  parse(value) {
-    // First parse the raw value
-    let parsed = this._parse(value);
+  parse(value, element, applyMapping) {
+    // 1. If element doesn't exist at all, use default or undefined
+    if (!element) {
+      return this.default !== undefined ? this.default : undefined;
+    }
+
+    // 2. Parse the raw value
+    let parsed = this._parse(value, element, applyMapping);
     
-    // Apply transform if present
+    // 3. Apply transform if present
     if (this.transform) {
       parsed = this.transform(parsed);
-    }
-    
-    // Apply validation if present
-    if (this.validate && !this.validate(parsed)) {
-      // Instead of throwing, return default or undefined
-      return this.default !== undefined ? this.default : undefined;
     }
     
     return parsed;
@@ -48,26 +41,106 @@ export class Type {
   _parse(value) {
     return value;
   }
+
+  // Optional method that types can implement to handle node mapping
+  mapNodes(element) {
+    return null; // Default implementation returns null to indicate no node mapping
+  }
+
+  /**
+   * Generate scaffold content for this type
+   * @param {Function} genTypeHint Function to generate type hint (from parser)
+   * @returns {string} Scaffold content
+   */
+  generateScaffold(genTypeHint) {
+    // If there's a hint, use it directly
+    if (this.hint) {
+      return genTypeHint(`${this.constructor.name.replace('Type', '')}: ${this.hint}`);
+    }
+    // Otherwise just show the type
+    return genTypeHint(this.constructor.name.replace('Type', ''));
+  }
+
+  // New method for type-specific empty values
+  getEmptyValue() {
+    return '';  // Default empty value
+  }
 }
 
 export class StringType extends Type {
   _parse(value) {
     return value?.trim() || '';
   }
+
+  generateScaffold(genTypeHint) {
+    if (this.hint) {
+      return genTypeHint(`String: ${this.hint}`);
+    }
+    return genTypeHint('String');
+  }
 }
 
 export class NumberType extends Type {
   _parse(value) {
-    return parseFloat(value?.trim() || '');
+    if (!value) return NaN;
+    
+    const str = value.trim();
+    
+    // Find first occurrence of a number pattern:
+    // -? : Optional negative sign
+    // \d* : Zero or more digits
+    // \.? : Optional decimal point
+    // \d+ : One or more digits
+    const match = str.match(/-?\d*\.?\d+/);
+    
+    if (!match) return NaN;
+    
+    // Get the substring from the start of the number onwards
+    const fromNumber = str.slice(match.index);
+    return parseFloat(fromNumber);
+  }
+
+  generateScaffold(genTypeHint) {
+    if (this.hint) {
+      return genTypeHint(`Number: ${this.hint}`);
+    }
+    return genTypeHint('Number');
+  }
+
+  getEmptyValue() {
+    return 0;
   }
 }
 
 export class BooleanType extends Type {
-  _parse(value) {
+  constructor(hint) {
+    super(hint);
+    this.default = false;
+  }
+
+  determineTruthiness(value) {
     const text = value?.trim()?.toLowerCase() || '';
     const isWordedAsFalse = ['false', 'no', 'null'].includes(text);
-    const isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
+    const isEssentiallyFalsey = isWordedAsFalse || parseFloat(text) === 0;
+    if (text === '') {
+      return this.default;
+    }
     return !isEssentiallyFalsey;
+  }
+
+  _parse(value) {
+    return this.determineTruthiness(value);
+  }
+
+  generateScaffold(genTypeHint) {
+    if (this.hint) {
+      return genTypeHint(`Boolean: ${this.hint}`);
+    }
+    return genTypeHint('Boolean');
+  }
+
+  getEmptyValue() {
+    return false;
   }
 }
 
@@ -79,6 +152,13 @@ export class RawType extends Type {
 
   _parse(value) {
     return value || '';
+  }
+
+  generateScaffold(genTypeHint) {
+    if (this.hint) {
+      return genTypeHint(`Raw: ${this.hint}`);
+    }
+    return genTypeHint('Raw');
   }
 }
 
@@ -97,11 +177,178 @@ export class EnumType extends Type {
       throw new Error('EnumType requires allowedValues (array of strings)');
     }
     this.allowedValues = allowedValues;
-    this.validate = value => this.allowedValues.includes(value);
+    // Transform to default if not in allowed values
+    this.transform = value => this.allowedValues.includes(value) ? value : this.default;
   }
 
   _parse(value) {
     return value?.trim() || '';
+  }
+
+  generateScaffold(genTypeHint) {
+    const enumValues = this.allowedValues.join('|');
+    if (this.hint) {
+      return genTypeHint(`Enum: ${this.hint} (allowed values: ${enumValues})`);
+    }
+    return genTypeHint(`Enum: (allowed values: ${enumValues})`);
+  }
+}
+
+export class ItemsType extends Type {
+  constructor(itemType, hint) {
+    super(hint);
+    
+    if (itemType === undefined || itemType === null) {
+      throw new Error('ItemsType requires an itemType');
+    }
+
+    // Check for invalid recursive items
+    if (itemType instanceof ItemsType) {
+      throw new Error('ItemsType cannot directly contain another ItemsType - use an object structure instead');
+    }
+
+    // Convert string literals and built-in constructors to Type instances
+    if (typeof itemType === 'string') {
+      itemType = new StringType(itemType);
+    } else if (itemType === String) {
+      itemType = new StringType();
+    } else if (itemType === Number) {
+      itemType = new NumberType();
+    } else if (itemType === Boolean) {
+      itemType = new BooleanType();
+    }
+
+    // Validate final itemType
+    if (!(
+      (typeof itemType === 'object' && !Array.isArray(itemType)) ||
+      itemType instanceof Type
+    )) {
+      throw new Error('ItemsType itemType must be an object, Type instance, String/Number/Boolean constructor, or string literal');
+    }
+
+    this.itemType = itemType;
+
+    console.log('Set itemType', itemType);
+  }
+  
+  _parse(value, element, applyMapping) {
+    if (!element) {
+      // If no element exists and we have a default, return it
+      return this.default !== undefined ? this.default : [];
+    }
+
+    console.log('element', element);
+    
+    const items = (element.$$children || []).filter(
+      c => c.$$tagname.toLowerCase() === 'item'
+    );
+
+    // If no items and we have a default, return it
+    if (items.length === 0 && this.default !== undefined) {
+      return this.default;
+    }
+
+    const result = items.map(node => {
+      if (typeof this.itemType === 'object' && !Array.isArray(this.itemType)) {
+        return applyMapping(node, this.itemType);
+      } else {
+        return this.itemType.parse(node.$$text, node, applyMapping);
+      }
+    });
+
+    // Apply array-level validation if present
+    if (this.validate && !this.validate(result)) {
+      return this.default !== undefined ? this.default : result;
+    }
+
+    // Apply array-level transformation if present
+    return this.transform ? this.transform(result) : result;
+  }
+
+  generateScaffold(genTypeHint) {
+    // If itemType is a Type instance, wrap it in <item> tags
+    if (this.itemType instanceof Type) {
+      const content = this.itemType.generateScaffold(genTypeHint);
+      return [
+        `<item>${content}</item>`,
+        `<item>${content}</item>`,
+        '/*etc.*/'
+      ].join('\n');
+    }
+
+    // If itemType is an object, generate scaffold for each property within <item>
+    if (typeof this.itemType === 'object') {
+      // Separate attributes, text content, and regular properties
+      const attributes = [];
+      let textContent = null;
+      const regularProps = [];
+
+      Object.entries(this.itemType).forEach(([key, value]) => {
+        if (key === '$$text') {
+          textContent = value;
+        } else if (key.startsWith('$')) {
+          attributes.push([key.slice(1), value]); // Remove $ prefix
+        } else {
+          regularProps.push([key, value]);
+        }
+      });
+
+      // Generate attribute string
+      const attrStr = attributes.map(([key, value]) => {
+        const content = value instanceof Type ? 
+          value.generateScaffold(genTypeHint) :
+          value === String ? genTypeHint('String') :
+          value === Number ? genTypeHint('Number') :
+          value === Boolean ? genTypeHint('Boolean') :
+          typeof value === 'string' ? value : '...';
+        return `${key}="${content}"`;
+      }).join(' ');
+
+      // Generate content string
+      const getContent = () => {
+        let content = '';
+        
+        // Add text content if present
+        if (textContent) {
+          content += textContent instanceof Type ? 
+            textContent.generateScaffold(genTypeHint) :
+            textContent === String ? genTypeHint('String') :
+            textContent === Number ? genTypeHint('Number') :
+            textContent === Boolean ? genTypeHint('Boolean') :
+            typeof textContent === 'string' ? textContent : '...';
+        }
+
+        // Add regular properties
+        const props = regularProps.map(([key, value]) => {
+          const propContent = typeof value === 'string' ? 
+            genTypeHint(`String: ${value}`) :
+            value instanceof Type ? value.generateScaffold(genTypeHint) :
+            value === String ? genTypeHint('String') :
+            value === Number ? genTypeHint('Number') :
+            value === Boolean ? genTypeHint('Boolean') : '...';
+          return `<${key}>${propContent}</${key}>`;
+        }).join('\n');
+
+        if (props) {
+          content += (content ? '\n' : '') + props;
+        }
+
+        return content;
+      };
+
+      const content = getContent();
+      const itemStart = attrStr ? `<item ${attrStr}>` : '<item>';
+
+      // Show two examples with proper spacing
+      return [
+        `${itemStart}${content ? '\n' + content : ''}${content ? '\n' : ''}</item>`,
+        `${itemStart}${content ? '\n' + content : ''}${content ? '\n' : ''}</item>`,
+        '/*etc.*/'
+      ].join('\n');
+    }
+
+    // Fallback for other cases
+    return genTypeHint('Items');
   }
 }
 
@@ -123,7 +370,10 @@ const types = {
   raw: (hint) => new RawType(hint),
   
   // Enum type
-  enum: (hint, values) => new EnumType(hint, values)
+  enum: (hint, values) => new EnumType(hint, values),
+  
+  // New items type
+  items: (itemType, hint) => new ItemsType(itemType, hint)
 };
 
 export { types };

@@ -3,7 +3,8 @@ import {
   EnumType,
   StringType,
   NumberType,
-  BooleanType
+  BooleanType,
+  ItemsType
 } from '../types.mjs';
 
 class Node {
@@ -172,24 +173,18 @@ class AbstractIncomingParserSelectorEngine {
 
       // Handle Type instances
       if (map instanceof Type) {
-        
-        // If there's no element and no default, return undefined
         if (!element && map.default === undefined) {
           return undefined;
         }
         
-        // Get the raw value and parse it according to the type
-        const value = map.parse(element?.$$text);
+        const value = map.parse(element?.$$text, element, applyMapping);
+        // let result = map.transform ? map.transform(value) : value;
+        let result = value;
         
-        // Apply transform or use default transformer
-        let result = map.transform ? map.transform(value) : value;
-        
-        // Apply default value if result is empty or NaN
         if ((result === '' || (typeof result === 'number' && isNaN(result))) && map.default !== undefined) {
           result = map.default;
         }
         
-        // If we still have an empty result and no default, return undefined
         if (result === '' && map.default === undefined) {
           return undefined;
         }
@@ -350,6 +345,13 @@ class AbstractIncomingParserSelectorEngine {
     validateStructure(schema, hints);
   }
 
+  // New helper method
+  static getTypeHintForPrimitive(value) {
+    return value === String ? this.GEN_TYPE_HINT('String') : 
+           value === Number ? this.GEN_TYPE_HINT('Number') : 
+           value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
+  }
+
   static makeMapSelectScaffold(schema, hints = {}, indent = 2) {
     // Add validation before processing
     this.validateSchema(schema);
@@ -359,14 +361,29 @@ class AbstractIncomingParserSelectorEngine {
       const indentation = ' '.repeat(level * indent);
 
       for (let key in obj) {
-        const value = obj[key];
+        let value = obj[key];
         const hint = hintObj[key];
-        // Skip attribute markers
+
+        // Skip attribute markers if configured to do so
         if (
           this.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD &&
           this.GEN_ATTRIBUTE_MARKER() &&
           key.startsWith(this.GEN_ATTRIBUTE_MARKER())
         ) {
+          continue;
+        }
+
+        // Handle Type instances
+        if (value instanceof Type) {
+          const content = hint || value.generateScaffold(
+            type => this.GEN_TYPE_HINT(type)
+          );
+          
+          if (value.isCData) {
+            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${this.GEN_CDATA_OPEN()}${content}${this.GEN_CDATA_CLOSE()}${this.GEN_CLOSE_TAG(key)}\n`;
+          } else {
+            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
+          }
           continue;
         }
 
@@ -378,108 +395,87 @@ class AbstractIncomingParserSelectorEngine {
 
         // Handle functions (including primitives) with optional hints
         if (typeof value === 'function') {
-          const typeHint = value === String ? this.GEN_TYPE_HINT('String') : 
-                          value === Number ? this.GEN_TYPE_HINT('Number') : 
-                          value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
+          const typeHint = this.getTypeHintForPrimitive(value);
           const content = hint ? hint : typeHint || '...';
           xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
           continue;
         }
 
-        // Handle Type instances
-        if (value instanceof Type) {
-          // Determine content following the same pattern as other types
-          let typeHint = '';
-          if (value instanceof StringType) typeHint = this.GEN_TYPE_HINT('String' + (value.hint ? ': ' + value.hint : ''));
-          else if (value instanceof NumberType) typeHint = this.GEN_TYPE_HINT('Number' + (value.hint ? ': ' + value.hint : ''));
-          else if (value instanceof BooleanType) typeHint = this.GEN_TYPE_HINT('Boolean' + (value.hint ? ': ' + value.hint : ''));
-          else if (value instanceof EnumType) typeHint = this.GEN_TYPE_HINT('Enum:' + (value.hint ? ' ' + value.hint : '') + ' (allowed values: ' + value.allowedValues.join('|') + ')');
-          
-          const content = hint || typeHint || '...';
-          
-          if (value.isCData) {
-            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${this.GEN_CDATA_OPEN()}${content}${this.GEN_CDATA_CLOSE()}${this.GEN_CLOSE_TAG(key)}\n`;
-          } else {
-            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
-          }
-          continue;
-        }
-
         // Handle arrays
         if (Array.isArray(value)) {
-          const itemValue = value[0];
-          const itemHint = Array.isArray(hint) ? hint[0] : hint;
-
-          // Show two examples for arrays
-          for (let i = 0; i < 2; i++) {
-            xml += `${indentation}${this.GEN_OPEN_TAG(key, itemValue, itemHint)}\n`;
-            
-            // Handle text content for array items
-            if (typeof itemValue !== 'object' || itemValue === null) {
-              // For primitive arrays, use the hint directly if it's a string
-              const content =
-                typeof itemHint === 'string' ? itemHint :
-                typeof itemValue === 'string' ? itemValue :
-                itemValue === String ? this.GEN_TYPE_HINT('String') :
-                itemValue === Number ? this.GEN_TYPE_HINT('Number') :
-                itemValue === Boolean ? this.GEN_TYPE_HINT('Boolean') : '...';
-              xml += `${indentation}  ${content}\n`;
-            } else {
-              // Handle text content from $$text in object
-              if (itemValue.$$text !== undefined) {
-                const textContent = itemHint?.$$text || (
-                  typeof itemValue.$$text === 'function' ? 
-                    (itemValue.$$text === String ? this.GEN_TYPE_HINT('String') :
-                     itemValue.$$text === Number ? this.GEN_TYPE_HINT('Number') :
-                     itemValue.$$text === Boolean ? this.GEN_TYPE_HINT('Boolean') : '...') :
-                    (typeof itemValue.$$text === 'string' ? itemValue.$$text : '...')
-                );
-                xml += `${indentation}  ${textContent}\n`;
-              } else if (itemHint?.$$text) {
-                xml += `${indentation}  ${itemHint.$$text}\n`;
-              }
-              xml += processObject(itemValue, itemHint, level + 1);
-            }
-            
-            xml += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
-          }
-          xml += `${indentation}/*etc.*/\n`;
+          xml += this.processArrayScaffold(key, value, hint, indentation, level, indent, processObject);
           continue;
         }
 
         // Handle objects
         if (typeof value === 'object' && value !== null) {
-          xml += `${indentation}${this.GEN_OPEN_TAG(key, value, hint)}\n`;
-          
-          // Handle text content - check if it's explicitly typed
-          if (value.$$text !== undefined) {
-            const textContent = hint?.$$text || (
-              typeof value.$$text === 'function' ? 
-                (value.$$text === String ? this.GEN_TYPE_HINT('String') :
-                 value.$$text === Number ? this.GEN_TYPE_HINT('Number') :
-                 value.$$text === Boolean ? this.GEN_TYPE_HINT('Boolean') :
-                 '...') :
-              (typeof value.$$text === 'string' ? value.$$text : '...')
-            );
-            xml += `${indentation}  ${textContent}\n`;
-          } else if (hint?.$$text) {
-            xml += `${indentation}  ${hint.$$text}\n`;
-          }
-          
-          xml += processObject(value, hint || {}, level + 1);
-          xml += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
+          xml += this.processObjectScaffold(key, value, hint, indentation, level, indent, processObject);
         }
       }
 
       return xml;
     }
 
-    // Validate hints against schema if provided
-    if (Object.keys(hints).length > 0) {
-      AbstractIncomingParserSelectorEngine.validateHints(schema, hints);
-    }
-
     return processObject(schema, hints);
+  }
+
+  // New extracted method for object scaffold generation
+  static processObjectScaffold(key, value, hint, indentation, level, indent, processObject) {
+    let xml = '';
+    xml += `${indentation}${this.GEN_OPEN_TAG(key, value, hint)}\n`;
+    
+    if (value.$$text !== undefined) {
+      const textContent = hint?.$$text || (
+        typeof value.$$text === 'function' ? 
+          this.getTypeHintForPrimitive(value.$$text) || '...' :
+          (typeof value.$$text === 'string' ? value.$$text : '...')
+      );
+      xml += `${indentation}  ${textContent}\n`;
+    } else if (hint?.$$text) {
+      xml += `${indentation}  ${hint.$$text}\n`;
+    }
+    
+    xml += processObject(value, hint || {}, level + 1);
+    xml += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
+    return xml;
+  }
+
+  // New extracted method for array scaffold generation
+  static processArrayScaffold(key, value, hint, indentation, level, indent, processObject) {
+    let xml = '';
+    const itemValue = value[0];
+    const itemHint = Array.isArray(hint) ? hint[0] : hint;
+
+    // Show two examples for arrays
+    for (let i = 0; i < 2; i++) {
+      xml += `${indentation}${this.GEN_OPEN_TAG(key, itemValue, itemHint)}\n`;
+      
+      // Handle text content for array items
+      if (typeof itemValue !== 'object' || itemValue === null) {
+        const content =
+          typeof itemHint === 'string' ? itemHint :
+          typeof itemValue === 'string' ? itemValue :
+          this.getTypeHintForPrimitive(itemValue) || '...';
+        xml += `${indentation}  ${content}\n`;
+      } else {
+        // Handle text content from $$text in object
+        if (itemValue.$$text !== undefined) {
+          const textContent = itemHint?.$$text || (
+            typeof itemValue.$$text === 'function' ? 
+              this.getTypeHintForPrimitive(itemValue.$$text) || '...' :
+              (typeof itemValue.$$text === 'string' ? itemValue.$$text : '...')
+          );
+          xml += `${indentation}  ${textContent}\n`;
+        } else if (itemHint?.$$text) {
+          xml += `${indentation}  ${itemHint.$$text}\n`;
+        }
+        xml += processObject(itemValue, itemHint, level + 1);
+      }
+      
+      xml += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
+    }
+    xml += `${indentation}/*etc.*/\n`;
+    return xml;
   }
 
   static validateSchema(schema, path = '') {

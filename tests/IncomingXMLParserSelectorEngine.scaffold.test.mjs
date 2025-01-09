@@ -11,7 +11,7 @@ describe('Schema and Hints Scaffold Generation', () => {
   test('should generate scaffold using hints where available', () => {
     const schema = {
       analysis: {
-        summary: String,
+        summary: types.string('the summary'),
         findings: {
           finding: [{
             $severity: String,
@@ -325,5 +325,58 @@ describe('Schema and Hints Scaffold Generation', () => {
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     expect(normalized).toContain('<name>{Enum: (allowed values: John|Jane|Doe)}</name>');
+  });
+
+  test('handles primitive types consistently in different contexts', () => {
+    const schema = {
+      root: {
+        // Direct primitive
+        name: String,
+        // In array
+        tags: [String],
+        // In object text
+        details: {
+          $$text: String,
+          $type: Number
+        }
+      }
+    };
+    
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+    
+    // Should show {String} consistently - no extra spaces around type hint
+    expect(normalized).toContain('<name>{String}</name>');
+    expect(normalized).toContain('<tags> {String} </tags>');
+    expect(normalized).toMatch(/<details[^>]*> {String}/);
+  });
+
+  test('handles deeply nested arrays correctly', () => {
+    const schema = {
+      root: {
+        sections: [{
+          items: [{
+            values: [String]
+          }]
+        }]
+      }
+    };
+    
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    // Should show proper nesting structure
+    expect(normalized).toMatch(
+      /<root>.*?<sections>.*?<items>.*?<values>.*?{String}.*?<\/values>.*?<\/items>.*?<\/sections>.*?<\/root>/
+    );
+
+    // Should show two examples at each array level
+    const sectionsCount = (normalized.match(/<sections>/g) || []).length;
+    const itemsCount = (normalized.match(/<items>/g) || []).length;
+    const valuesCount = (normalized.match(/<values>/g) || []).length;
+
+    expect(sectionsCount).toBe(2); // Two section examples
+    expect(itemsCount).toBe(4);    // Two items per section
+    expect(valuesCount).toBe(8);   // Two values per item
   });
 }); 

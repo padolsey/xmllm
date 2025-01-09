@@ -87,6 +87,5 @@ describe('Object Coercion Investigation', () => {
     engine.add('</root>');
 
     const results = engine.select('item');
-    console.log('Parser results:', results);
   });
 }); 
