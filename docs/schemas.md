@@ -13,9 +13,7 @@ const schema = {
   analysis: {                                    
     sentiment: types.string("Sentiment value"),  // Hint-first pattern
     score: types.number("Score from 0-1"),
-    categories: {
-      category: [types.string("Category name")] 
-    }
+    categories: types.items(types.string("Category name"))
   }
 };
 ```
@@ -26,8 +24,8 @@ Guides the AI to generate XML like this:
   <sentiment>positive</sentiment>
   <score>0.87</score>
   <categories>
-    <category>technical</category>
-    <category>detailed</category>
+    <item>technical</item>
+    <item>detailed</item>
   </categories>
 </analysis>
 ```
@@ -38,12 +36,10 @@ And transforms it into this JavaScript object:
   analysis: {
     sentiment: "positive",  // String conversion
     score: 0.87,           // Number conversion
-    categories: {
-      category: [          // Array conversion
-        "technical",
-        "detailed"
-      ]
-    }
+    categories: [          // Array conversion
+      "technical",
+      "detailed"
+    ]
   }
 }
 ```
@@ -67,8 +63,10 @@ const schema = {
     age: types.number("Age in years"),
     // Boolean type with hint:
     active: types.boolean("Account status"),
+    // Lists of strings:
+    hobbies: types.items(types.string('A hobby')),
     // Enum type with hint and values:
-    status: types.enum("Status", ['ACTIVE', 'PENDING']),
+    status: types.enum("Status", ["ACTIVE", "PENDING"]),
     // Raw content with hint (preserves CDATA):
     content: types.raw("HTML content"),
     // String type without hint:
@@ -91,8 +89,7 @@ const schema = {
     age: types.number()
       .withHint("Age in years")
       .withDefault(0)
-      .withTransform(age => Math.floor(age))
-      .withValidate(age => isNaN(age) && age >= 0),
+      .withTransform(age => Math.floor(age)),
     
     // Enum type with hint, allowed values, and default
     status: types.enum("Account status", ['ACTIVE', 'PENDING'])
@@ -103,12 +100,13 @@ const schema = {
 
 ### Type Processing Order
 
-When processing values, xmllm will do the following to a given value:
+When processing values, xmllm will:
 
-1. Parse the raw value according to its type (e.g., `parseFloat` for numbers)
-2. Apply custom transform function (optional)
-3. Apply custom validation function (optional)
-4. Use default value (or `null`) if the result is invalid or missing
+- 1. Check if element exists
+  - If missing → use default if provided, otherwise undefined
+  - If empty → use default if provided, otherwise continue processing
+- 2. Parse raw value according to type (e.g. `parseFloat` for numbers)
+- 3. Apply transform if present
 
 ```javascript
 const schema = {
@@ -124,6 +122,82 @@ const schema = {
       .withDefault(false)
   }
 };
+```
+
+### Working with Lists using types.items()
+
+The `items()` type handles arrays of values or objects. It supports both item-level and array-level operations:
+
+```javascript
+const schema = {
+  colors: types.items(
+    types.string("A color name")  // Item type definition
+  )
+  .withDefault(['red', 'blue'])   // Array-level default
+  .withTransform(arr => arr.sort()) // Array-level transform
+};
+
+// Complex items
+const schema = {
+  users: types.items({
+    name: types.string("User's name"),
+    age: types.number("User's age")
+  })
+}
+```
+
+#### Default Values
+
+When using `withDefault()` on an ItemsType, the default values are considered pre-processed and will only be affected by array-level transformations:
+
+```javascript
+const schema = {
+  numbers: types.items(
+    types.number()
+      .withTransform(n => n * 2)  // Won't affect defaults
+  )
+  .withDefault([1, 2, 3])
+  .withTransform(arr => arr.map(n => n + 1))  // Will affect defaults
+};
+```
+
+#### Nesting
+
+ItemsType supports deep nesting for complex data structures:
+
+```javascript
+const schema = {
+  departments: types.items({
+    name: types.string("Department name"),
+    employees: types.items({
+      name: types.string("Employee name"),
+      skills: types.items(types.string("Skill name"))
+    })
+  })
+};
+```
+
+This will generate scaffold like:
+```xml
+<departments>
+  <item>
+    <name>{String: Department name}</name>
+    <employees>
+      <item>
+        <name>{String: Employee name}</name>
+        <skills>
+          <item>{String: Skill name}</item>
+          <item>{String: Skill name}</item>
+          /*etc.*/
+        </skills>
+      </item>
+      <item>...</item>
+      /*etc.*/
+    </employees>
+  </item>
+  <item>...</item>
+  /*etc.*/
+</departments>
 ```
 
 ## Working with Attributes
@@ -166,60 +240,24 @@ element: {
 
 ### Arrays and Objects
 
-As mentioned, you can define arrays or objects as well. Objects are for expressing nested data, like so:
+Objects in schemas are used for expressing nested data structures:
 
 ```javascript
 const schema = {
   person: {
-    fav_city: {
-      name: types.string(),
-      population: types.number(),
-      mayor: {
-        name: types.string(),
-        tenure: types.string()
-      }
+    details: {
+      name: types.string("Full name"),
+      age: types.number("Age in years")
     }
   }
 };
 ```
 
-To specify arrays or lists, you would use an array literal (or the `Array` constructor in JS):
-
-```
-const schema = {
-  pet_names: [
-    types.string('a pet name')
-  ]
-};
-```
-
-Arrays in schemas are defined using a single template item in square brackets (or `Array(...)` constructor, which in JS is equivalent to `[...]`). This template defines the structure and type for all items that will appear in that array. For example:
-
-```javascript
-const schema = {
-  pet_names: [
-    // Template for each item in the array:
-    // (You can only define a single item)
-    types.string('a fun pet name')
-  ]
-};
-```
-
-This will allow the LLM to generate multiple items following this template structure. The hint provided with the template will be used to guide the LLM in generating appropriate values. Since xmllm will use 2 examples as a guide (to increase compliance), the scaffold for the above would be as follows:
-
-```xml
-<pet_names>
-  <pet_name>a fun pet name</pet_name>
-  <pet_name>a fun pet name</pet_name>
-  /*etc.*/
-</pet_names>
-```
-
-The `/*etc.*/` is literally in the scaffold as a guide for the LLM, so it understands it's a list/continuation.
+For arrays or lists, use `types.items()` as described in the Types section above. While array literals are supported for backward compatibility, `types.items()` is the recommended approach as it provides better control over item processing and clearer scaffolding.
 
 ## Guiding AI Responses (more on scaffolding)
 
-As touched on, a crucial function of xmllm is in guiding the LLM towards the appropriate structured response. To achieve this we send along a desired example structure with your prompts. We call this the scaffold.
+A crucial function of xmllm is in guiding the LLM towards the appropriate structured response. To achieve this we send along a desired example structure with your prompts. We call this the scaffold.
 
 The schema you define and the hints will determine the scaffolding we generate for the LLM. For example:
 
@@ -271,11 +309,11 @@ The `enum` type enforces a set of allowed values and provides clear scaffolding:
 ```javascript
 const schema = {
   order: {
-    // Enum with hint and allowed values
+    // Enum with hint and allowed values and a default value
     status: types.enum("Order status", ['PENDING', 'SHIPPED', 'DELIVERED'])
       .withDefault('PENDING'),
     
-    // Enum with validation through allowed values
+    // Another enum example
     priority: types.enum("Priority level", ['LOW', 'MEDIUM', 'HIGH'])
   }
 };
@@ -285,8 +323,8 @@ When scaffolding, FYI, enums show their allowed values:
 
 ```xml
 <order>
-  <status>{Enum: PENDING|SHIPPED|DELIVERED}</status>
-  <priority>{Enum: LOW|MEDIUM|HIGH}</priority>
+  <status>{Enum: Order status (allowed values: PENDING|SHIPPED|DELIVERED)}</status>
+  <priority>{Enum: Priority level (allowed values: LOW|MEDIUM|HIGH)}</priority>
 </order>
 ```
 
@@ -314,9 +352,9 @@ Generates scaffold:
 
 Compliance is sometimes a bit tricky with raw types, so if you encounter issues, I'd suggest taking a look at the [Idio parser](https://github.com/padolsey/xmllm/blob/main/docs/idio-syntax.md) which can help to disambiguate further.
 
-## Alternative Type System (legacy, but _not_ deprecated)
+## Convenience Type System
 
-While the Type system is recommended, xmllm maintains backward compatibility with simpler type definitions:
+While the `Type` system (via `types`, explained above) is recommended, xmllm allows you to define types in a simpler way:
 
 ### Basic Type Conversion
 
@@ -341,5 +379,66 @@ const schema = {
 ```javascript
 const schema = {
   status: "pending"  // Used as a hint for the AI
+};
+```
+
+The above would be equivalent to:
+```javascript
+const schema = {
+  status: types.string('pending')
+};
+```
+
+### Transformation
+Types can be transformed using the `withTransform` method. This is useful for
+both data conversion and validation:
+
+```javascript
+const schema = {
+  score: types.number()
+    .withTransform(n => {
+      // Transform and validate in one step
+      if (n >= 0 && n <= 100) return n;
+      return undefined; // Invalid values become undefined
+    })
+    .withDefault(0)
+};
+```
+
+### Number Parsing
+
+The number type finds the first occurrence of a number pattern and uses everything from that point onwards for parsing:
+
+1. Looks for the first match of: `-?\d*\.?\d+` (a negative sign, digits, optional decimal point, more digits)
+2. Takes the substring from the start of that match to the end of the string
+3. Passes that substring to `parseFloat()`
+
+```javascript
+const schema = {
+  data: {
+    price: types.number()  // "costs $42.50" -> parseFloat("42.50") -> 42.50
+                          // "4.5/5 stars"   -> parseFloat("4.5/5 stars") -> 4.5
+                          // "-3.2 degrees"  -> parseFloat("-3.2 degrees") -> -3.2
+                          // ".75 percent"   -> parseFloat(".75 percent") -> 0.75
+                          // "no numbers"    -> NaN (no number pattern found)
+  }
+};
+```
+
+This approach lets parseFloat handle the actual number parsing while we just help it find where the number starts. It's particularly useful for LLM outputs that might include currency symbols, units, or descriptive text. LLMs are rarely perfect at complying with strict types, so we try to be flexible.
+
+If you need more control over number parsing, you can use a string type with a custom transform:
+
+```javascript
+const schema = {
+  data: {
+    // Custom number parsing logic
+    price: types.string()
+      .withTransform(str => {
+        // Your custom parsing logic here
+        const match = str.match(/\$(\d+\.?\d*)/);
+        return match ? parseFloat(match[1]) : undefined;
+      })
+  }
 };
 ```

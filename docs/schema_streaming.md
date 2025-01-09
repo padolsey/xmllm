@@ -10,7 +10,7 @@ import { stream, types } from 'xmllm';
 // 1. State (Open) Mode - Shows growing state including partials
 const colors = stream('List colors', {
   schema: { 
-    color: [types.string("Color name")] 
+    color: [types.string()] 
   },
   mode: 'state_open'  // default mode
 });
@@ -113,20 +113,23 @@ const stream1 = stream('Process data', {
   schema: {
     data: {
       value: types.number("Score between 0-100")
-        .withTransform(n => Math.min(100, Math.max(0, n)))  // Clamp between 0-100
-        .withDefault(0),                                     // Default if invalid
+        .withTransform(n => {
+          // Transform handles both conversion and validation
+          const val = Math.min(100, Math.max(0, n));
+          return isNaN(val) ? undefined : val;
+        })
+        .withDefault(0),
       status: types.enum("Processing status", ['PENDING', 'DONE'])
-        .withValidate(s => ['PENDING', 'DONE'].includes(s)) // Validate allowed values
-        .withDefault('PENDING')                             // Default if invalid
+        .withDefault('PENDING')
     }
   }
 });
 
 // Processing order for each value:
-// 1. Parse raw value according to type
-// 2. Apply custom transform
-// 3. Apply validation
-// 4. Use default if invalid
+// 1. Check if element exists, if not → use default
+// 2. Parse raw value according to type
+// 3. Apply type-specific defaults if value invalid (e.g. false for empty booleans)
+// 3. Apply transform if present
 ```
 
 ## Handling Partial Updates
@@ -206,7 +209,7 @@ Different ways to handle schema-based streams:
 ```javascript
 // 1. See every update (including partials)
 for await (const update of stream('Query', {
-  schema: { answer: String },
+  schema: { answer: types.string('The answer') },
   mode: 'state_open'
 })) {
   console.log('Progress:', update);
@@ -214,13 +217,13 @@ for await (const update of stream('Query', {
 
 // 2. Get final complete state
 const final = await stream('Query', {
-  schema: { answer: String },
+  schema: { answer: types.string('The answer') },
   mode: 'state_closed'  // Best for getting clean final state
 }).last();
 
 // 3. Process complete elements one by one
 const elements = await stream('Query', {
-  schema: { answer: String },
+  schema: { answer: types.string('The answer') },
   mode: 'root_closed'  // Best for processing elements individually
 }).all();
 ```
@@ -233,7 +236,7 @@ Schema streaming provides type safety and validation:
 const numbers = stream('List numbers', {
   schema: {
     numbers: {
-      value: [Number]  // Expects numbers
+      value: [types.number('The number')]  // Expects numbers
     }
   }
 });
@@ -252,7 +255,7 @@ You can still use stream methods with schemas:
 
 ```javascript
 const colors = stream('List colors', {
-  schema: { color: Array(String) }
+  schema: { color: [types.string('A color')] }
 })
 .map(update => ({
   ...update,
@@ -288,8 +291,8 @@ configure({
 const mainStream = stream('Get user data', {
   schema: {
     user: [{
-      name: String,
-      age: Number
+      name: types.string(),
+      age: types.number()
     }]
   }
 });
@@ -320,7 +323,7 @@ BTW: You can also configure error messages per-request; you don't have to do it 
 stream('Make users', {
   schema: {
     user: [{
-      name: String
+      name: types.string('The user\'s name')
     }]
   },
   errorMessages: {
