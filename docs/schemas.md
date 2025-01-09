@@ -416,7 +416,7 @@ The number type finds the first occurrence of a number pattern and uses everythi
 ```javascript
 const schema = {
   data: {
-    price: types.number()  // "costs $42.50" -> parseFloat("42.50") -> 42.50
+    price: types.number() // "costs $42.50" -> parseFloat("42.50") -> 42.50
                           // "4.5/5 stars"   -> parseFloat("4.5/5 stars") -> 4.5
                           // "-3.2 degrees"  -> parseFloat("-3.2 degrees") -> -3.2
                           // ".75 percent"   -> parseFloat(".75 percent") -> 0.75
