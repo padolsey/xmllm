@@ -2,7 +2,7 @@
 
 xmllm is a JS utility that makes it easy to get structured data from LLMs, using a boring, time-tested, semantically enriched human-writable/readable syntax that is resilient and forgiving of human-made (and thus, **LLM-made**) mistakes.
 
-> **PLEASE:** This is very experimental. I <u>have</u> shipped fully operable apps with xmllm but please have patience whenever trying to derive structured data from LLMs. It's not as deterministic as normal programming. You can find demos and examples in the [xmllm_demos](https://github.com/padolsey/xmllm_demos) repo. Shipped live at [xmllm.j11y.io](https://xmllm.j11y.io) if you want to have a play (rate-limited so apologies for any issues!)
+> **PLEASE:** This is experimental. However I <u>have</u> shipped fully operable apps with xmllm. But please have patience whenever trying to derive structured data from LLMs. It's not as deterministic as normal programming. You can find demos and examples in the [xmllm_demos](https://github.com/padolsey/xmllm_demos) repo. Shipped live at [xmllm.j11y.io](https://xmllm.j11y.io) if you want to have a play (rate-limited so apologies for any issues!)
 
 > **I'm looking for collaborators and testers to help me improve this library**.
 
@@ -14,9 +14,9 @@ Simple example:
 import { simple, types } from 'xmllm';
 await simple('fun pet names', {
   schema: { 
-    name: [types.string("Pet name")] 
+    name: types.items(types.string("Pet name")) 
   }
-}); // => ["Daisy", "Whiskers", "Rocky"]
+}); // => { name: ["Daisy", "Whiskers", "Rocky"] }
 ```
 
 What actually happened:
@@ -54,6 +54,8 @@ Because xmllm uses a rather flexible HTML parser, even LLMs providing weird flou
   name: ['Charlie', 'Bella', 'King Julian']
 }
 ```
+
+---
 
 ## XML *{through the eyes of a forgiving HTML parser.}*
 
@@ -120,11 +122,11 @@ const analysis = await simple(
   {
     schema: {
       approach: types.string("The approach you will use for counting"),
-      letter: [{
+      letter: types.items({
         character: types.string("Current letter being analyzed"),
         is_r_letter: types.boolean("Whether this is the letter R")
           .withTransform(b => b === true)  // Ensure boolean
-      }],
+      }),
       final_answer: types.string("The complete answer with explanation")
     },
     model: 'openrouter:mistralai/ministral-3b',
@@ -155,13 +157,14 @@ in the word 'strawberry'.</approach>
 ```
 
 Which transforms into structured data:
+
 ```javascript
 {
   approach: "To solve this problem, I will first count...",
   letter: [
-    {"character": "s", "is_r_letter": false},
-    {"character": "t", "is_r_letter": false},
-    {"character": "r", "is_r_letter": true},
+    {character: "s", is_r_letter: false},
+    {character: "t", is_r_letter: false},
+    {character: "r", is_r_letter: true},
     //....
   ],
   final_answer: "There are 3 Rs in the word 'strawberry'."
@@ -267,7 +270,7 @@ const analysis = await stream('Analyze the sentiment', {
   }
 }).last();
 
-// 4. WITH VALIDATION: Ensure data quality
+// 4. WITH DEFAULTS IN CASE OF NO XML FOR THAT VALUE:
 const userProfile = await stream('Create a user profile', {
   schema: {
     user: {
@@ -275,7 +278,7 @@ const userProfile = await stream('Create a user profile', {
         .withDefault("Anonymous"),
       age: types.number("Age in years")
         .withTransform(n => Math.max(0, Math.floor(n)))
-        .withValidate(n => n >= 0 && n <= 120),
+        .withDefault(0),
       status: types.enum("Account status", ['ACTIVE', 'PENDING', 'INACTIVE'])
         .withDefault('PENDING')
     }
@@ -323,11 +326,11 @@ xmllm uses schemas to transform XML into structured data.
 ```javascript
 const schema = {
   analysis: {
-    score: Number,
-    tag: [String],
+    score: types.number('The score'),
+    tag: types.items(types.string('The tag')), // array of strings
     details: {
-      $lang: String,    // Attribute
-      $$text: String     // Text content
+      $lang: types.string('The language'),     // Attribute
+      $$text: types.string('The text content') // Text content
     }
   }
 };
@@ -336,7 +339,7 @@ const schema = {
 A schema is an object that indicates what kind of object you want _back_ from xmllm at the end of the process. So if you want an array of strings under the key 'color' you'll use: 
 
 ```javascript
-{ color: Array(String) }
+{ color: types.items(types.string('The color')) }
 ```
 
 This will give you something like:
@@ -345,7 +348,7 @@ This will give you something like:
 { color: ['red', 'blue', 'green'] }
 ```
 
-You **vital** thing when composing schemas with xmllm is to realize that each key you define becomes an XML element. So, we are using the key 'color' instead of 'colors' because we want this:
+The **vital** thing when composing schemas with xmllm is to realize that each key you define becomes an XML element. So, we are using the key 'color' instead of 'colors' because we want this:
 
 ```xml
 <color>red</color>
@@ -368,7 +371,7 @@ The best practice to avoid this mental overhead is to wrap a singular named arra
 ```javascript
 schema = {
   colors: {
-    color: Array(String)
+    color: types.items(types.string('The color'))
   }
 }
 ```
@@ -385,7 +388,25 @@ schema = {
 
 This makes things simpler usually.
 
-This plural/singular thing is, tbh, a leaky abstraction. But if you're savvy enough to be dealing with the leakiest and most chaotic abstractions ever -- LLMs -- then hopefully you're not dissuaded.
+For simplicity, there is also a `types.items()` as well which makes reasoning way simpler for lists of things. It works like this. If you want a list of strings, for example, you would do this:
+
+```javascript
+schema = {
+  colors: types.items(types.string('a fun color'))
+  // "a color" is a hint sent to the LLM
+}
+```
+
+This would, behind the scenes, be asking the LLM for the following structure:
+
+```xml
+<colors>
+  <item></item>
+  <item></item>
+  <item></item>
+  /*etc*/
+</colors>
+```
 
 **See more details in the [Schema Guide](https://github.com/padolsey/xmllm/blob/main/docs/schemas.md).**
 
@@ -421,7 +442,7 @@ import { stream, ClientProvider } from 'xmllm/client';
 const client = new ClientProvider('http://localhost:3124/api/stream');
 
 const result = await stream('Tell me a joke', {
-  schema: { joke: String }
+  schema: { joke: types.string('The joke') }
 }, client).last()
 
 // btw: last() is a shortcut for getting the very final value
@@ -444,8 +465,8 @@ const analysis = pipeline(({ prompt, promptClosed }) => [
   // promptClosed means 'close the tags before yielding'
   promptClosed('Name a scientist', {
     scientist: {
-      name: String,
-      field: String
+      name: types.string('The scientist\'s name'),
+      field: types.string('The scientist\'s field')
     }
   }),
 
@@ -459,8 +480,8 @@ const analysis = pipeline(({ prompt, promptClosed }) => [
       }],
       schema: {
         discovery: {
-          year: Number,
-          description: String
+          year: types.number('The year of the discovery'),
+          description: types.string('The description of the discovery')
         }
       }
     };
@@ -553,14 +574,14 @@ configure({
 
 This will mean it ignores XML and sees it just as regular content/prose, meaning you can do stuff like this:
 
-```
+```javascript
 configure({
   globalParser: 'idio'
 })
 
 simple('Make me "hello world" in HTML', {
   schema: {
-    html: String
+    html: types.string('The HTML')
   }
 })
 
@@ -578,3 +599,4 @@ See [Idio Syntax Guide](docs/idio-syntax.md) for more details.
 ## License
 
 MIT
+
