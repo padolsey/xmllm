@@ -63,6 +63,10 @@ class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngi
     return attrs;
   }
 
+  static GEN_ATTRIBUTE = (key, value) => {
+    return `${key}="${value}"`;  // XML style: key="value"
+  }
+
   constructor() {
     super();
     

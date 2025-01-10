@@ -19,7 +19,6 @@ const DEFAULT_RETRY_MAX = 3;
 const DEFAULT_RETRY_START_DELAY = 1000; // 1 second
 const DEFAULT_RETRY_BACKOFF_MULTIPLIER = 2;
 
-// Add this line to create a delay function
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const CACHE_VERSION = '1.0';

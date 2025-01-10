@@ -5,6 +5,13 @@ config({
   path: '.env'
 });
 
+const standardHeaderGen = function() {
+  return {
+    'Authorization': `Bearer ${this.key}`,
+    'Content-Type': 'application/json'
+  };
+};
+
 const standardPayloader = ({
   messages = [],
   max_tokens = 300,
@@ -284,4 +291,84 @@ export function createCustomModel(baseProvider, config) {
       }
     }
   };
+}
+
+export function registerProvider(name, config) {
+  // Validate required fields
+  if (!name || typeof name !== 'string') {
+    throw new ModelValidationError('Provider name is required');
+  }
+  
+  if (!config || typeof config !== 'object') {
+    throw new ModelValidationError('Provider configuration is required');
+  }
+
+  if (!config.endpoint) {
+    throw new ModelValidationError(
+      'Provider endpoint is required',
+      { provider: name }
+    );
+  }
+
+  // Validate models configuration
+  if (!config.models || typeof config.models !== 'object') {
+    throw new ModelValidationError(
+      'Provider must define at least one model',
+      { provider: name }
+    );
+  }
+
+  // Ensure at least one speed category is defined
+  const hasSpeedCategory = ['superfast', 'fast', 'good'].some(
+    speed => config.models[speed]
+  );
+  if (!hasSpeedCategory) {
+    throw new ModelValidationError(
+      'Provider must define at least one speed category (superfast, fast, or good)',
+      { provider: name }
+    );
+  }
+
+  // Add URL validation
+  try {
+    new URL(config.endpoint);
+  } catch (e) {
+    throw new ModelValidationError(
+      'Invalid endpoint URL',
+      { provider: name, endpoint: config.endpoint }
+    );
+  }
+
+  // Validate model names
+  Object.entries(config.models).forEach(([speed, model]) => {
+    if (!model.name) {
+      throw new ModelValidationError(
+        'Each model must have a name',
+        { provider: name, speed }
+      );
+    }
+  });
+
+  // Add to providers registry
+  providers[name] = {
+    constraints: {
+      rpmLimit: config.constraints?.rpmLimit || 100,
+      tokensPerMinute: config.constraints?.tokensPerMinute,
+      requestsPerHour: config.constraints?.requestsPerHour
+    },
+    endpoint: config.endpoint,
+    key: config.key || process.env[`${name.toUpperCase()}_API_KEY`] || process.env[`${name.toUpperCase().replace(/-/g, '_')}_API_KEY`],
+    models: config.models,
+    headerGen: config.headerGen || standardHeaderGen,
+    payloader: config.payloader || standardPayloader
+  };
+
+  // Add any aliases
+  if (config.aliases) {
+    config.aliases.forEach(alias => {
+      PROVIDER_ALIASES[alias] = name;
+    });
+  }
+
+  return providers[name];
 }

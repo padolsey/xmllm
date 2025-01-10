@@ -37,6 +37,10 @@ class AbstractIncomingParserSelectorEngine {
     throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
   };
 
+  static GEN_ATTRIBUTE = (key, value) => {
+    throw new Error('Subclass must implement GEN_ATTRIBUTE');
+  };
+
   static GEN_OPEN_TAG = () => {
     throw new Error('Subclass must implement GEN_OPEN_TAG');
   }
@@ -352,10 +356,10 @@ class AbstractIncomingParserSelectorEngine {
            value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
   }
 
-  static makeMapSelectScaffold(schema, hints = {}, indent = 2) {
+  static makeMapSelectScaffold(schema, hints = {}, indent = 2, tagGenerators = {}) {
     // Add validation before processing
     this.validateSchema(schema);
-    
+
     const processObject = (obj, hintObj = {}, level = 0) => {
       let xml = '';
       const indentation = ' '.repeat(level * indent);
@@ -375,9 +379,7 @@ class AbstractIncomingParserSelectorEngine {
 
         // Handle Type instances
         if (value instanceof Type) {
-          const content = hint || value.generateScaffold(
-            type => this.GEN_TYPE_HINT(type)
-          );
+          const content = hint || value.generateScaffold(this.GEN_TYPE_HINT, { parser: this });
           
           if (value.isCData) {
             xml += `${indentation}${this.GEN_OPEN_TAG(key)}${this.GEN_CDATA_OPEN()}${content}${this.GEN_CDATA_CLOSE()}${this.GEN_CLOSE_TAG(key)}\n`;
@@ -529,6 +531,29 @@ class AbstractIncomingParserSelectorEngine {
         this.validateSchema(value, `${path}.${key}`);
       }
     }
+  }
+
+  static makeArrayScaffold(tag, content) {
+    // Create a mini schema with two items to show repetition
+    const schema = {
+      [tag]: [
+        content,
+        content
+      ]
+    };
+    return this.makeMapSelectScaffold(schema) + '/*etc.*/';
+  }
+
+  static makeObjectScaffold(tag, { attributes, textContent, properties }) {
+    // Create a schema with the attributes and properties
+    const schema = {
+      [tag]: {
+        ...Object.fromEntries(attributes.map(({ key, value }) => [`$${key}`, value])),
+        ...(textContent ? { $$text: textContent } : {}),
+        ...Object.fromEntries(properties.map(({ key, value }) => [key, value]))
+      }
+    };
+    return this.makeMapSelectScaffold(schema);
   }
 }
 

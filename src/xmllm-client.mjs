@@ -170,6 +170,28 @@ async function simple(promptOrConfig, options = {}) {
   return stream(promptOrConfig, options).last();
 }
 
+function clientRegisterProvider() {
+  throw new Error(`
+⚠️ registerProvider() is not available in the client build.
+
+For security reasons, providers should only be registered server-side
+where API keys can be kept private. Use xmllm-proxy instead:
+
+1. Set up xmllm-proxy on your server
+2. Register providers there
+3. Use clientProvider to connect to your proxy
+
+Example:
+import { stream } from 'xmllm/client';
+
+stream('prompt', {
+  clientProvider: 'https://xmllm-proxy.your-server.com/api/stream'
+});
+
+See: https://github.com/padolsey/xmllm/blob/main/docs/providers.md
+`);
+}
+
 // Export named exports
 export {
   configure,
@@ -180,7 +202,8 @@ export {
   simple,
   getConfig,
   resetConfig,
-  types
+  types,
+  clientRegisterProvider as registerProvider
 };
 
 // Attach utility functions to xmllmClient
@@ -193,6 +216,7 @@ xmllmClient.getConfig = getConfig;
 xmllmClient.resetConfig = resetConfig;
 xmllmClient.ClientProvider = ClientProvider;
 xmllmClient.types = types;
+xmllmClient.registerProvider = clientRegisterProvider;
 
 // Export default
 export default xmllmClient;

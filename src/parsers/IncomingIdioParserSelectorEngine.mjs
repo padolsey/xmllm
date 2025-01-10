@@ -60,6 +60,10 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     return `...${type}...`;
   }
 
+  static GEN_ATTRIBUTE = (key, value) => {
+    return `@START(@${key})${value}@END(@${key})`; // Idio style: @START(@key)value@END(@key)
+  }
+
   add(chunk) {
     this.buffer += chunk;
     

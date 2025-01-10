@@ -52,7 +52,7 @@ export class Type {
    * @param {Function} genTypeHint Function to generate type hint (from parser)
    * @returns {string} Scaffold content
    */
-  generateScaffold(genTypeHint) {
+  generateScaffold(genTypeHint, { parser }) {
     // If there's a hint, use it directly
     if (this.hint) {
       return genTypeHint(`${this.constructor.name.replace('Type', '')}: ${this.hint}`);
@@ -261,18 +261,14 @@ export class ItemsType extends Type {
     return this.transform ? this.transform(result) : result;
   }
 
-  generateScaffold(genTypeHint) {
-    // If itemType is a Type instance, wrap it in <item> tags
+  generateScaffold(genTypeHint, { parser }) {
+    // If itemType is a Type instance
     if (this.itemType instanceof Type) {
-      const content = this.itemType.generateScaffold(genTypeHint);
-      return [
-        `<item>${content}</item>`,
-        `<item>${content}</item>`,
-        '/*etc.*/'
-      ].join('\n');
+      const content = this.itemType.generateScaffold(genTypeHint, { parser });
+      return parser.makeArrayScaffold('item', content);
     }
 
-    // If itemType is an object, generate scaffold for each property within <item>
+    // If itemType is an object
     if (typeof this.itemType === 'object') {
       // Separate attributes, text content, and regular properties
       const attributes = [];
@@ -280,71 +276,32 @@ export class ItemsType extends Type {
       const regularProps = [];
 
       Object.entries(this.itemType).forEach(([key, value]) => {
-        if (key === '$$text') {
-          textContent = value;
-        } else if (key.startsWith('$')) {
-          attributes.push([key.slice(1), value]); // Remove $ prefix
-        } else {
-          regularProps.push([key, value]);
-        }
+        if (key === '$$text') textContent = value;
+        else if (key.startsWith('$')) attributes.push([key.slice(1), value]);
+        else regularProps.push([key, value]);
       });
 
-      // Generate attribute string
-      const attrStr = attributes.map(([key, value]) => {
-        const content = value instanceof Type ? 
-          value.generateScaffold(genTypeHint) :
-          value === String ? genTypeHint('String') :
-          value === Number ? genTypeHint('Number') :
-          value === Boolean ? genTypeHint('Boolean') :
-          typeof value === 'string' ? value : '...';
-        return `${key}="${content}"`;
-      }).join(' ');
-
-      // Generate content string
-      const getContent = () => {
-        let content = '';
-        
-        // Add text content if present
-        if (textContent) {
-          content += textContent instanceof Type ? 
-            textContent.generateScaffold(genTypeHint) :
-            textContent === String ? genTypeHint('String') :
-            textContent === Number ? genTypeHint('Number') :
-            textContent === Boolean ? genTypeHint('Boolean') :
-            typeof textContent === 'string' ? textContent : '...';
-        }
-
-        // Add regular properties
-        const props = regularProps.map(([key, value]) => {
-          const propContent = typeof value === 'string' ? 
-            genTypeHint(`String: ${value}`) :
-            value instanceof Type ? value.generateScaffold(genTypeHint) :
+      return parser.makeObjectScaffold('item', {
+        attributes: attributes.map(([key, value]) => ({
+          key,
+          value: value instanceof Type ? 
+            value.generateScaffold(genTypeHint, { parser }) :
             value === String ? genTypeHint('String') :
             value === Number ? genTypeHint('Number') :
-            value === Boolean ? genTypeHint('Boolean') : '...';
-          return `<${key}>${propContent}</${key}>`;
-        }).join('\n');
-
-        if (props) {
-          content += (content ? '\n' : '') + props;
-        }
-
-        return content;
-      };
-
-      const content = getContent();
-      const itemStart = attrStr ? `<item ${attrStr}>` : '<item>';
-
-      // Show two examples with proper spacing
-      return [
-        `${itemStart}${content ? '\n' + content : ''}${content ? '\n' : ''}</item>`,
-        `${itemStart}${content ? '\n' + content : ''}${content ? '\n' : ''}</item>`,
-        '/*etc.*/'
-      ].join('\n');
+            value === Boolean ? genTypeHint('Boolean') :
+            typeof value === 'string' ? value : '...'
+        })),
+        textContent: textContent?.generateScaffold(genTypeHint, { parser }),
+        properties: regularProps.map(([key, value]) => ({
+          key,
+          value: value instanceof Type ?
+            value.generateScaffold(genTypeHint, { parser }) :
+            typeof value === 'string' ?
+              genTypeHint(`String: ${value}`) :
+              parser.getTypeHintForPrimitive(value) || genTypeHint('String')
+        }))
+      });
     }
-
-    // Fallback for other cases
-    return genTypeHint('Items');
   }
 }
 
