@@ -1,6 +1,8 @@
-# Streaming Interface
+# Streaming Guide
 
-xmllm provides several ways to process AI responses, from simple one-shot requests to complex streaming scenarios.
+> For the complete API reference, see the [Stream API Reference](./api/stream.md)
+
+xmllm provides powerful streaming capabilities for processing AI responses in real-time. This guide covers common patterns and practical examples. 
 
 ## Quick Results with simple()
 

@@ -1,6 +1,6 @@
 # Pipeline API
 
-The Pipeline API is xmllm's lower-level interface, giving you direct control over data flow. While [`stream()`](./stream.md) is great for common cases, pipelines let you chain multiple requests and transformations together, process results in parallel, and build custom streaming flows. Under the surface pipelines are implemented via [streamops](https://github.com/padolsey/streamops).
+The Pipeline API is xmllm's lower-level interface, giving you direct control over data flow. While [`stream()`](./api/stream.md) is great for common cases, pipelines let you chain multiple requests and transformations together, process results in parallel, and build custom streaming flows. Under the surface pipelines are implemented via [streamops](https://github.com/padolsey/streamops).
 
 ## Core Concepts
 

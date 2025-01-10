@@ -616,59 +616,83 @@ const percentageModel = {
   }
 };
 
-// Example: Model with categorical parameters
-const categoricalModel = {
-  inherit: 'anthropic',
-  name: 'categorical-model',
-  payloader: function(payload) {
-    // Map temperature to creativity modes
-    const creativityMode = 
-      payload.temperature < 0.3 ? 'conservative' :
-      payload.temperature < 0.7 ? 'balanced' :
-      'creative';
-    
-    // Map presence_penalty to repetition strategies
-    const repetitionStrategy =
-      payload.presence_penalty <= 0 ? 'allow_repetition' :
-      payload.presence_penalty < 0.5 ? 'gentle_variation' :
-      'force_unique';
-
-    return {
-      creativity_mode: creativityMode,
-      repetition_strategy: repetitionStrategy,
-      response_length: payload.max_tokens > 1000 ? 'long' : 'short'
-    };
-  }
-};
-
-// Example: Model with nested parameter groups
-const nestedParamsModel = {
-  inherit: 'anthropic',
-  name: 'nested-params-model',
-  payloader: function(payload) {
-    return {
-      generation_settings: {
-        creative: {
-          primary_temp: payload.temperature,
-          secondary_temp: payload.temperature * 0.8,
-          variance_factor: payload.top_p
-        },
-        constraints: {
-          max_output_length: payload.max_tokens,
-          repetition_settings: {
-            penalty_multiplier: payload.presence_penalty,
-            scope: 'global',
-            decay_rate: 0.98
-          }
-        }
-      },
-      execution_mode: payload.stream ? 'streaming' : 'complete',
-      quality_preferences: {
-        enhance_coherence: true,
-        maintain_style: true,
-        fact_checking: 'strict'
-      }
-    };
-  }
-};
+// Usage:
+stream('Query', {
+  model: percentageModel
+});
 ```
+
+## Registering New Providers
+
+You can register new providers globally using the `registerProvider` function:
+
+```javascript
+import { registerProvider } from 'xmllm';
+
+// Register a new provider
+registerProvider('mistral', {
+  endpoint: 'https://api.mistral.ai/v1/chat/completions',
+  models: {
+    superfast: {
+      name: 'mistral-tiny',
+      maxContextSize: 32000
+    },
+    fast: {
+      name: 'mistral-small', 
+      maxContextSize: 32000
+    },
+    good: {
+      name: 'mistral-medium',
+      maxContextSize: 32000
+    }
+  },
+  constraints: {
+    rpmLimit: 150
+  },
+  // Optional custom header generator
+  headerGen() {
+    return {
+      'Authorization': `Bearer ${this.key}`,
+      'Content-Type': 'application/json'
+    };
+  },
+  // Optional custom payload transformer
+  payloader: standardPayloader,
+  // Optional aliases
+  aliases: ['mistralai']
+});
+```
+
+### Provider Configuration
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `endpoint` | string | Yes | The API endpoint URL |
+| `models` | object | Yes | Model configurations |
+| `models.superfast` | object | No* | Ultra-fast model config |
+| `models.fast` | object | No* | Fast model config |
+| `models.good` | object | No* | High-quality model config |
+| `constraints` | object | No | Provider limits |
+| `constraints.rpmLimit` | number | No | Requests per minute (default: 100) |
+| `key` | string | No | API key (falls back to env var) |
+| `headerGen` | function | No | Custom header generator |
+| `payloader` | function | No | Custom payload transformer |
+| `aliases` | string[] | No | Alternative provider names |
+
+\* At least one speed category (superfast/fast/good) must be defined.
+
+### Environment Variables
+
+The provider will look for an API key in the following environment variable:
+```
+{PROVIDER_NAME}_API_KEY=your_api_key
+```
+
+For example, for a provider named 'mistral', it would look for:
+```
+MISTRAL_API_KEY=your_mistral_key
+```
+
+### Examples
+
+See the [Provider Examples](./provider-examples.md) guide for more configuration examples.
