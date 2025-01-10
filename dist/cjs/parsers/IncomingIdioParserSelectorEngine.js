@@ -566,4 +566,7 @@ _defineProperty(IncomingIdioParserSelectorEngine, "GEN_TYPE_HINT", function (typ
   var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
   return "...".concat(type, "...");
 });
+_defineProperty(IncomingIdioParserSelectorEngine, "GEN_ATTRIBUTE", function (key, value) {
+  return "@START(@".concat(key, ")").concat(value, "@END(@").concat(key, ")"); // Idio style: @START(@key)value@END(@key)
+});
 var _default = exports["default"] = IncomingIdioParserSelectorEngine;

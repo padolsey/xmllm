@@ -41,14 +41,14 @@ var DefaultProxy = /*#__PURE__*/function (_ProxyBase) {
           while (1) switch (_context.prev = _context.next) {
             case 0:
               // Add debug logging
-              console.log('Handling streaming request:', data);
+              // console.log('Handling streaming request:', data);
               messages = data.messages, model = data.model, max_tokens = data.max_tokens, maxTokens = data.maxTokens, temperature = data.temperature, top_p = data.top_p, topP = data.topP, presence_penalty = data.presence_penalty, presencePenalty = data.presencePenalty, errorMessages = data.errorMessages, fakeDelay = data.fakeDelay, stop = data.stop, cache = data.cache, stream = data.stream; // Set SSE headers
               res.writeHead(200, {
                 'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive'
               });
-              _context.next = 5;
+              _context.next = 4;
               return (0, _Stream["default"])({
                 messages: messages,
                 max_tokens: max_tokens || maxTokens,
@@ -62,11 +62,11 @@ var DefaultProxy = /*#__PURE__*/function (_ProxyBase) {
                 cache: cache,
                 stream: stream == null ? true : stream
               });
-            case 5:
+            case 4:
               theStream = _context.sent;
-              _context.next = 8;
+              _context.next = 7;
               return this.streamManager.createStream(theStream, res);
-            case 8:
+            case 7:
             case "end":
               return _context.stop();
           }

@@ -31,6 +31,11 @@ export interface SchemaEnumType extends SchemaType {
   parse(value: string | undefined): string;
 }
 
+export interface SchemaItemsType extends SchemaType {
+  itemType: SchemaType | { [key: string]: Schema };
+  parse(value: string | undefined): any[];
+}
+
 export interface SchemaTypeCreators {
   string(hint?: string): SchemaStringType;
   str(hint?: string): SchemaStringType;
@@ -40,6 +45,10 @@ export interface SchemaTypeCreators {
   bool(hint?: string): SchemaBooleanType;
   raw(hint?: string): SchemaRawType;
   enum(hint: string | string[], values?: string[]): SchemaEnumType;
+  items<T extends SchemaType | { [key: string]: Schema }>(
+    itemType: T,
+    hint?: string
+  ): SchemaItemsType;
 }
 
 export const schemaTypes: SchemaTypeCreators; 

@@ -1,4 +1,6 @@
 var _excluded = ["text", "children", "key", "closed"];
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -324,6 +326,7 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       var _this3 = this;
       var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var indent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
+      var tagGenerators = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
       // Add validation before processing
       this.validateSchema(schema);
       var _processObject = function processObject(obj) {
@@ -342,8 +345,8 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
 
           // Handle Type instances
           if (value instanceof Type) {
-            var content = hint || value.generateScaffold(function (type) {
-              return _this3.GEN_TYPE_HINT(type);
+            var content = hint || value.generateScaffold(_this3.GEN_TYPE_HINT, {
+              parser: _this3
             });
             if (value.isCData) {
               xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(_this3.GEN_CDATA_OPEN()).concat(content).concat(_this3.GEN_CDATA_CLOSE()).concat(_this3.GEN_CLOSE_TAG(key), "\n");
@@ -479,6 +482,33 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
         }
       }
     }
+  }, {
+    key: "makeArrayScaffold",
+    value: function makeArrayScaffold(tag, content) {
+      // Create a mini schema with two items to show repetition
+      var schema = _defineProperty({}, tag, [content, content]);
+      return this.makeMapSelectScaffold(schema) + '/*etc.*/';
+    }
+  }, {
+    key: "makeObjectScaffold",
+    value: function makeObjectScaffold(tag, _ref2) {
+      var attributes = _ref2.attributes,
+        textContent = _ref2.textContent,
+        properties = _ref2.properties;
+      // Create a schema with the attributes and properties
+      var schema = _defineProperty({}, tag, _objectSpread(_objectSpread(_objectSpread({}, Object.fromEntries(attributes.map(function (_ref3) {
+        var key = _ref3.key,
+          value = _ref3.value;
+        return ["$".concat(key), value];
+      }))), textContent ? {
+        $$text: textContent
+      } : {}), Object.fromEntries(properties.map(function (_ref4) {
+        var key = _ref4.key,
+          value = _ref4.value;
+        return [key, value];
+      }))));
+      return this.makeMapSelectScaffold(schema);
+    }
   }]);
 }();
 _defineProperty(AbstractIncomingParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", true);
@@ -486,6 +516,9 @@ _defineProperty(AbstractIncomingParserSelectorEngine, "NAME", 'AbstractIncomingP
 _defineProperty(AbstractIncomingParserSelectorEngine, "RESERVED_PROPERTIES", new Set(['$$tagclosed', '$$tagkey', '$$children', '$$tagname', '__isNodeObj__']));
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", function () {
   throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
+});
+_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_ATTRIBUTE", function (key, value) {
+  throw new Error('Subclass must implement GEN_ATTRIBUTE');
 });
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_OPEN_TAG", function () {
   throw new Error('Subclass must implement GEN_OPEN_TAG');

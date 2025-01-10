@@ -394,4 +394,7 @@ _defineProperty(IncomingXMLParserSelectorEngine, "GEN_CDATA_OPEN", function () {
 _defineProperty(IncomingXMLParserSelectorEngine, "GEN_CDATA_CLOSE", function () {
   return ']]>';
 });
+_defineProperty(IncomingXMLParserSelectorEngine, "GEN_ATTRIBUTE", function (key, value) {
+  return "".concat(key, "=\"").concat(value, "\""); // XML style: key="value"
+});
 var _default = exports["default"] = IncomingXMLParserSelectorEngine;

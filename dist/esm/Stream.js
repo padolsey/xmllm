@@ -30,8 +30,6 @@ var DEFAULT_WAIT_MESSAGE_DELAY = 10000; // 10 seconds
 var DEFAULT_RETRY_MAX = 3;
 var DEFAULT_RETRY_START_DELAY = 1000; // 1 second
 var DEFAULT_RETRY_BACKOFF_MULTIPLIER = 2;
-
-// Add this line to create a delay function
 var delay = function delay(ms) {
   return new Promise(function (resolve) {
     return setTimeout(resolve, ms);

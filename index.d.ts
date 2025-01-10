@@ -1,5 +1,5 @@
-import { SchemaType, SchemaTypeCreators } from './schemaTypes';
-export { SchemaType, SchemaTypeCreators };
+import { SchemaType, SchemaTypeCreators, SchemaItemsType } from './schemaTypes';
+export { SchemaType, SchemaTypeCreators, SchemaItemsType };
 
 export declare const types: SchemaTypeCreators;
 
@@ -112,7 +112,8 @@ export type Schema =
   | { readonly [key: string]: Schema }
   | { [key: string]: Schema }
   | readonly Schema[]
-  | Schema[];
+  | Schema[]
+  | SchemaItemsType;
 
 export type Hints = {
   [key: string]: Hint | Hints;
@@ -308,3 +309,39 @@ export interface PromptStrategy {
 // Export strategy-related functions
 export function getStrategy(id: string): PromptStrategy;
 export const STRATEGIES: Record<string, PromptStrategy>;
+
+export interface ProviderConfig {
+  endpoint: string;
+  models: {
+    superfast?: {
+      name: string;
+      maxContextSize?: number;
+    };
+    fast?: {
+      name: string;
+      maxContextSize?: number;
+    };
+    good?: {
+      name: string;
+      maxContextSize?: number;
+    };
+    [key: string]: {
+      name: string;
+      maxContextSize?: number;
+    };
+  };
+  constraints?: {
+    rpmLimit?: number;
+    tokensPerMinute?: number;
+    requestsPerHour?: number;
+  };
+  key?: string;
+  headerGen?: () => Record<string, string>;
+  payloader?: (payload: any) => any;
+  aliases?: string[];
+}
+
+export function registerProvider(
+  name: string, 
+  config: ProviderConfig
+): Provider;

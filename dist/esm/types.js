@@ -80,7 +80,8 @@ export var Type = /*#__PURE__*/function () {
      */
   }, {
     key: "generateScaffold",
-    value: function generateScaffold(genTypeHint) {
+    value: function generateScaffold(genTypeHint, _ref) {
+      var parser = _ref.parser;
       // If there's a hint, use it directly
       if (this.hint) {
         return genTypeHint("".concat(this.constructor.name.replace('Type', ''), ": ").concat(this.hint));
@@ -289,7 +290,6 @@ export var ItemsType = /*#__PURE__*/function (_Type6) {
       throw new Error('ItemsType itemType must be an object, Type instance, String/Number/Boolean constructor, or string literal');
     }
     _this4.itemType = itemType;
-    console.log('Set itemType', itemType);
     return _this4;
   }
   _inherits(ItemsType, _Type6);
@@ -301,7 +301,6 @@ export var ItemsType = /*#__PURE__*/function (_Type6) {
         // If no element exists and we have a default, return it
         return this["default"] !== undefined ? this["default"] : [];
       }
-      console.log('element', element);
       var items = (element.$$children || []).filter(function (c) {
         return c.$$tagname.toLowerCase() === 'item';
       });
@@ -328,72 +327,57 @@ export var ItemsType = /*#__PURE__*/function (_Type6) {
     }
   }, {
     key: "generateScaffold",
-    value: function generateScaffold(genTypeHint) {
-      // If itemType is a Type instance, wrap it in <item> tags
+    value: function generateScaffold(genTypeHint, _ref2) {
+      var parser = _ref2.parser;
+      // If itemType is a Type instance
       if (this.itemType instanceof Type) {
-        var content = this.itemType.generateScaffold(genTypeHint);
-        return ["<item>".concat(content, "</item>"), "<item>".concat(content, "</item>"), '/*etc.*/'].join('\n');
+        var content = this.itemType.generateScaffold(genTypeHint, {
+          parser: parser
+        });
+        return parser.makeArrayScaffold('item', content);
       }
 
-      // If itemType is an object, generate scaffold for each property within <item>
+      // If itemType is an object
       if (_typeof(this.itemType) === 'object') {
+        var _textContent;
         // Separate attributes, text content, and regular properties
         var attributes = [];
         var textContent = null;
         var regularProps = [];
-        Object.entries(this.itemType).forEach(function (_ref) {
-          var _ref2 = _slicedToArray(_ref, 2),
-            key = _ref2[0],
-            value = _ref2[1];
-          if (key === '$$text') {
-            textContent = value;
-          } else if (key.startsWith('$')) {
-            attributes.push([key.slice(1), value]); // Remove $ prefix
-          } else {
-            regularProps.push([key, value]);
-          }
-        });
-
-        // Generate attribute string
-        var attrStr = attributes.map(function (_ref3) {
+        Object.entries(this.itemType).forEach(function (_ref3) {
           var _ref4 = _slicedToArray(_ref3, 2),
             key = _ref4[0],
             value = _ref4[1];
-          var content = value instanceof Type ? value.generateScaffold(genTypeHint) : value === String ? genTypeHint('String') : value === Number ? genTypeHint('Number') : value === Boolean ? genTypeHint('Boolean') : typeof value === 'string' ? value : '...';
-          return "".concat(key, "=\"").concat(content, "\"");
-        }).join(' ');
-
-        // Generate content string
-        var getContent = function getContent() {
-          var content = '';
-
-          // Add text content if present
-          if (textContent) {
-            content += textContent instanceof Type ? textContent.generateScaffold(genTypeHint) : textContent === String ? genTypeHint('String') : textContent === Number ? genTypeHint('Number') : textContent === Boolean ? genTypeHint('Boolean') : typeof textContent === 'string' ? textContent : '...';
-          }
-
-          // Add regular properties
-          var props = regularProps.map(function (_ref5) {
+          if (key === '$$text') textContent = value;else if (key.startsWith('$')) attributes.push([key.slice(1), value]);else regularProps.push([key, value]);
+        });
+        return parser.makeObjectScaffold('item', {
+          attributes: attributes.map(function (_ref5) {
             var _ref6 = _slicedToArray(_ref5, 2),
               key = _ref6[0],
               value = _ref6[1];
-            var propContent = typeof value === 'string' ? genTypeHint("String: ".concat(value)) : value instanceof Type ? value.generateScaffold(genTypeHint) : value === String ? genTypeHint('String') : value === Number ? genTypeHint('Number') : value === Boolean ? genTypeHint('Boolean') : '...';
-            return "<".concat(key, ">").concat(propContent, "</").concat(key, ">");
-          }).join('\n');
-          if (props) {
-            content += (content ? '\n' : '') + props;
-          }
-          return content;
-        };
-        var _content = getContent();
-        var itemStart = attrStr ? "<item ".concat(attrStr, ">") : '<item>';
-
-        // Show two examples with proper spacing
-        return ["".concat(itemStart).concat(_content ? '\n' + _content : '').concat(_content ? '\n' : '', "</item>"), "".concat(itemStart).concat(_content ? '\n' + _content : '').concat(_content ? '\n' : '', "</item>"), '/*etc.*/'].join('\n');
+            return {
+              key: key,
+              value: value instanceof Type ? value.generateScaffold(genTypeHint, {
+                parser: parser
+              }) : value === String ? genTypeHint('String') : value === Number ? genTypeHint('Number') : value === Boolean ? genTypeHint('Boolean') : typeof value === 'string' ? value : '...'
+            };
+          }),
+          textContent: (_textContent = textContent) === null || _textContent === void 0 ? void 0 : _textContent.generateScaffold(genTypeHint, {
+            parser: parser
+          }),
+          properties: regularProps.map(function (_ref7) {
+            var _ref8 = _slicedToArray(_ref7, 2),
+              key = _ref8[0],
+              value = _ref8[1];
+            return {
+              key: key,
+              value: value instanceof Type ? value.generateScaffold(genTypeHint, {
+                parser: parser
+              }) : typeof value === 'string' ? genTypeHint("String: ".concat(value)) : parser.getTypeHintForPrimitive(value) || genTypeHint('String')
+            };
+          })
+        });
       }
-
-      // Fallback for other cases
-      return genTypeHint('Items');
     }
   }]);
 }(Type);

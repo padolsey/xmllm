@@ -6,8 +6,15 @@ Object.defineProperty(exports, "__esModule", {
 exports.PROVIDER_ALIASES = void 0;
 exports.createCustomModel = createCustomModel;
 exports["default"] = void 0;
+exports.registerProvider = registerProvider;
 var _dotenv = require("dotenv");
 var _ProviderErrors = require("./errors/ProviderErrors.js");
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -17,6 +24,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 (0, _dotenv.config)({
   path: '.env'
 });
+var standardHeaderGen = function standardHeaderGen() {
+  return {
+    'Authorization': "Bearer ".concat(this.key),
+    'Content-Type': 'application/json'
+  };
+};
 var standardPayloader = function standardPayloader(_ref) {
   var _ref$messages = _ref.messages,
     messages = _ref$messages === void 0 ? [] : _ref$messages,
@@ -298,4 +311,81 @@ function createCustomModel(baseProvider, config) {
       }
     }
   });
+}
+function registerProvider(name, config) {
+  var _config$constraints, _config$constraints2, _config$constraints3;
+  // Validate required fields
+  if (!name || typeof name !== 'string') {
+    throw new _ProviderErrors.ModelValidationError('Provider name is required');
+  }
+  if (!config || _typeof(config) !== 'object') {
+    throw new _ProviderErrors.ModelValidationError('Provider configuration is required');
+  }
+  if (!config.endpoint) {
+    throw new _ProviderErrors.ModelValidationError('Provider endpoint is required', {
+      provider: name
+    });
+  }
+
+  // Validate models configuration
+  if (!config.models || _typeof(config.models) !== 'object') {
+    throw new _ProviderErrors.ModelValidationError('Provider must define at least one model', {
+      provider: name
+    });
+  }
+
+  // Ensure at least one speed category is defined
+  var hasSpeedCategory = ['superfast', 'fast', 'good'].some(function (speed) {
+    return config.models[speed];
+  });
+  if (!hasSpeedCategory) {
+    throw new _ProviderErrors.ModelValidationError('Provider must define at least one speed category (superfast, fast, or good)', {
+      provider: name
+    });
+  }
+
+  // Add URL validation
+  try {
+    new URL(config.endpoint);
+  } catch (e) {
+    throw new _ProviderErrors.ModelValidationError('Invalid endpoint URL', {
+      provider: name,
+      endpoint: config.endpoint
+    });
+  }
+
+  // Validate model names
+  Object.entries(config.models).forEach(function (_ref4) {
+    var _ref5 = _slicedToArray(_ref4, 2),
+      speed = _ref5[0],
+      model = _ref5[1];
+    if (!model.name) {
+      throw new _ProviderErrors.ModelValidationError('Each model must have a name', {
+        provider: name,
+        speed: speed
+      });
+    }
+  });
+
+  // Add to providers registry
+  providers[name] = {
+    constraints: {
+      rpmLimit: ((_config$constraints = config.constraints) === null || _config$constraints === void 0 ? void 0 : _config$constraints.rpmLimit) || 100,
+      tokensPerMinute: (_config$constraints2 = config.constraints) === null || _config$constraints2 === void 0 ? void 0 : _config$constraints2.tokensPerMinute,
+      requestsPerHour: (_config$constraints3 = config.constraints) === null || _config$constraints3 === void 0 ? void 0 : _config$constraints3.requestsPerHour
+    },
+    endpoint: config.endpoint,
+    key: config.key || process.env["".concat(name.toUpperCase(), "_API_KEY")] || process.env["".concat(name.toUpperCase().replace(/-/g, '_'), "_API_KEY")],
+    models: config.models,
+    headerGen: config.headerGen || standardHeaderGen,
+    payloader: config.payloader || standardPayloader
+  };
+
+  // Add any aliases
+  if (config.aliases) {
+    config.aliases.forEach(function (alias) {
+      PROVIDER_ALIASES[alias] = name;
+    });
+  }
+  return providers[name];
 }
