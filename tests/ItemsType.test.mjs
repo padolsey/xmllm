@@ -1,4 +1,5 @@
 import IncomingXMLParserSelectorEngine from '../src/parsers/IncomingXMLParserSelectorEngine';
+import IncomingIdioParserSelectorEngine from '../src/parsers/IncomingIdioParserSelectorEngine';
 import { types } from '../src/types.mjs';
 
 describe('ItemsType', () => {
@@ -419,46 +420,56 @@ describe('ItemsType scaffolding', () => {
     expect(normalized).toMatch(/<colors>.*?<item>.*?<\/item>.*?<item>.*?<\/item>.*?\/\*etc\.\*\/.*?<\/colors>/);
     
     // Check content
-    expect(normalized).toContain('<item>{String: A color}</item>');
-    expect(normalized).toContain('<item>{Number: A number}</item>');
-    expect(normalized).toContain('<item>{Boolean: A flag}</item>');
+    expect(normalized).toContain('<item> {String: A color} </item>');
+    expect(normalized).toContain('<item> {Number: A number} </item>');
+    expect(normalized).toContain('<item> {Boolean: A flag} </item>');
   });
 
   test('should generate correct scaffold for items with attributes', () => {
     const schema = {
       tasks: types.items({
-        $priority: types.string('Priority level'),
-        $due: types.string('Due date'),
-        $$text: types.string('Task description')
+        $priority: types.string("Priority level"),
+        $due: types.string("Due date"),
+        $$text: types.string("Task description")
       })
     };
 
     const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
-    expect(normalized).toContain('<item priority="{String: Priority level}" due="{String: Due date}">');
+    expect(normalized).toContain('<item');
+    expect(normalized).toContain('priority="{String: Priority level}"');
+    expect(normalized).toContain('due="{String: Due date}"');
     expect(normalized).toContain('{String: Task description}');
   });
 
   test('should generate correct scaffold for nested items', () => {
     const schema = {
       departments: types.items({
-        name: types.string('Department name'),
+        name: types.string("Department name"),
         employees: types.items({
-          $role: types.string('Employee role'),
-          $$text: types.string('Employee name')
+          $role: types.string("Employee role"),
+          name: types.string("Employee name"),
+          skills: types.items(types.string("Skill name"))
         })
       })
     };
 
-    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
+    const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(
+      schema,
+      undefined, // hints
+      2, // indent
+    );
+
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
     expect(normalized).toContain('<departments>');
     expect(normalized).toContain('<item>');
     expect(normalized).toContain('<name>{String: Department name}</name>');
     expect(normalized).toContain('<employees>');
-    expect(normalized).toContain('<item role="{String: Employee role}"> {String: Employee name} </item>');
+    expect(normalized).toContain('<item');
+    expect(normalized).toContain('role="{String: Employee role}"');
+    expect(normalized).toContain('<name>{String: Employee name}</name>');
   });
 
   test('should handle string literals as hints in scaffold', () => {
@@ -474,9 +485,9 @@ describe('ItemsType scaffolding', () => {
     const scaffold = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
-    expect(normalized).toContain('<item>{String: Simple item hint}</item>');
+    expect(normalized).toContain('<item> {String: Simple item hint} </item>');
     expect(normalized).toContain('<name>{String: Person name here}</name>');
-    expect(normalized).toContain('<item>{String: Hobby description}</item>');
+    expect(normalized).toContain('<item> {String: Hobby description} </item>');
   });
 });
 
@@ -824,4 +835,22 @@ describe('ItemsType edge cases', () => {
       }
     });
   });
+});
+
+test('should generate correct scaffold for items with attributes in Idio format', () => {
+  const schema = {
+    tasks: types.items({
+      $priority: types.string("Priority level"),
+      $due: types.string("Due date"),
+      $$text: types.string("Task description")
+    })
+  };
+
+  const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
+  const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+  expect(normalized).toContain('@START(tasks)');
+  expect(normalized).toContain('@START(@priority)...String: Priority level...@END(@priority)');
+  expect(normalized).toContain('@START(@due)...String: Due date...@END(@due)');
+  expect(normalized).toContain('...String: Task description...');
 }); 

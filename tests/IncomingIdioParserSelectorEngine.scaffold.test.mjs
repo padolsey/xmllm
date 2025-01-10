@@ -256,4 +256,66 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
 @END(user)
     `.trim() + '\n');
   });
+
+  test('should handle types.items() correctly', () => {
+    const schema = {
+      data: {
+        // Simple array of strings
+        tags: types.items(types.string("A tag name")),
+        
+        // Array with attributes
+        tasks: types.items({
+          $priority: types.string("Priority level"),
+          description: types.string("Task description")
+        }),
+        
+        // Nested arrays
+        categories: types.items({
+          name: types.string("Category name"),
+          items: types.items(types.string("Item in category"))
+        })
+      }
+    };
+
+    const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    // Simple array
+    expect(normalized).toContain('@START(tags)');
+    expect(normalized).toContain('@START(item) ...String: A tag name... @END(item)');
+    
+    // Array with attributes
+    expect(normalized).toContain('@START(tasks)');
+    expect(normalized).toContain('@START(@priority)...String: Priority level...@END(@priority)');
+    expect(normalized).toContain('@START(description)...String: Task description...@END(description)');
+    
+    // Nested arrays
+    expect(normalized).toContain('@START(categories)');
+    expect(normalized).toContain('@START(name)...String: Category name...@END(name)');
+    expect(normalized).toContain('@START(items)');
+    expect(normalized).toContain('@START(item) ...String: Item in category... @END(item)');
+
+    // Should show multiple examples and /*etc*/
+    expect(normalized).toMatch(/@START\(item\).*@END\(item\).*@START\(item\).*@END\(item\).*\/\*etc\.\*\//);
+  });
+
+  test('should handle types.items() with transforms and defaults', () => {
+    const schema = {
+      data: {
+        numbers: types.items(
+          types.number("A number")
+            .withTransform(n => n * 2)
+        )
+        .withDefault([1, 2, 3])
+        .withTransform(arr => arr.filter(n => n > 0))
+      }
+    };
+
+    const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    expect(normalized).toContain('@START(numbers)');
+    expect(normalized).toContain('@START(item) ...Number: A number... @END(item)');
+    expect(normalized).toContain('/*etc.*/');
+  });
 });

@@ -410,7 +410,6 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     ];
 
     invalidSchemas.forEach(schema => {
-      console.log('schema111', schema);
       expect(() => {
         engine.mapSelect(schema);
       }).toThrow(/Reserved node property/i);
