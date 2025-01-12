@@ -244,25 +244,29 @@ var EnumType = exports.EnumType = /*#__PURE__*/function (_Type5) {
     }
     _this3.allowedValues = allowedValues;
     // Transform to default if not in allowed values
-    _this3.transform = function (value) {
-      return _this3.allowedValues.includes(value) ? value : _this3["default"];
+    _this3._parse = function (valueFromLLM) {
+      var _valueFromLLM;
+      valueFromLLM = ((_valueFromLLM = valueFromLLM) === null || _valueFromLLM === void 0 ? void 0 : _valueFromLLM.trim()) || '';
+      var found = _this3.allowedValues.filter(function (v) {
+        var normalizedValue = valueFromLLM.toLowerCase().replace(/[^a-z0-9]/g, '');
+        var normalizedAllowed = v.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normalizedValue.includes(normalizedAllowed);
+      });
+      return found.length > 0 ? found[0] : _this3["default"];
     };
     return _this3;
   }
   _inherits(EnumType, _Type5);
   return _createClass(EnumType, [{
-    key: "_parse",
-    value: function _parse(value) {
-      return (value === null || value === void 0 ? void 0 : value.trim()) || '';
-    }
-  }, {
     key: "generateScaffold",
     value: function generateScaffold(genTypeHint) {
-      var enumValues = this.allowedValues.join('|');
+      var enumValues = this.allowedValues.map(function (value) {
+        return "\"".concat(value, "\"");
+      }).join(' or ');
       if (this.hint) {
-        return genTypeHint("Enum: ".concat(this.hint, " (allowed values: ").concat(enumValues, ")"));
+        return genTypeHint("".concat(this.hint, " (Allowed values: ").concat(enumValues, ")"));
       }
-      return genTypeHint("Enum: (allowed values: ".concat(enumValues, ")"));
+      return genTypeHint("Allowed values: ".concat(enumValues));
     }
   }]);
 }(Type);

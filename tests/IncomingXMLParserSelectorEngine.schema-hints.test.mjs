@@ -168,7 +168,7 @@ describe('Schema and Hints Validation', () => {
 
     invalidSchemas.forEach(schema => {
       expect(() => {
-        IncomingXMLParserSelectorEngine.validateSchema(schema);
+        (new IncomingXMLParserSelectorEngine()).validateSchema(schema);
       }).toThrow(/Cannot have both property .* and attribute/);
     });
 
@@ -182,7 +182,7 @@ describe('Schema and Hints Validation', () => {
     };
 
     expect(() => {
-      IncomingXMLParserSelectorEngine.validateSchema(validSchema);
+      (new IncomingXMLParserSelectorEngine()).validateSchema(validSchema);
     }).not.toThrow();
   });
 
@@ -196,7 +196,7 @@ describe('Schema and Hints Validation', () => {
     };
 
     expect(() => {
-      IncomingXMLParserSelectorEngine.validateSchema(schema);
+      (new IncomingXMLParserSelectorEngine()).validateSchema(schema);
     }).not.toThrow();
 
     // But should still catch other duplicates
@@ -210,7 +210,7 @@ describe('Schema and Hints Validation', () => {
     };
 
     expect(() => {
-      IncomingXMLParserSelectorEngine.validateSchema(invalidSchema);
+      (new IncomingXMLParserSelectorEngine()).validateSchema(invalidSchema);
     }).toThrow(/Cannot have both property/);
   });
 }); 

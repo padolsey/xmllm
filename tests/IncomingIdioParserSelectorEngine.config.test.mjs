@@ -369,9 +369,7 @@ describe('IncomingIdioParserSelectorEngine Configuration', () => {
 
       engine.add(`
         ::NODE_BOUNDARY(element)$$
-          ::NODE_BOUNDARY(@attr1)$$
-            value1
-          ::NODE_END_BOUNDARY(@attr1)$$
+          ::NODE_BOUNDARY(@attr1)$$value1::NODE_END_BOUNDARY(@attr1)$$
           ::NODE_BOUNDARY(child)$$
             ::NODE_BOUNDARY(@attr2)$$
               value2

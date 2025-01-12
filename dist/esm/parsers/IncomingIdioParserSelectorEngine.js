@@ -1,4 +1,3 @@
-var _IncomingIdioParserSelectorEngine;
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -52,6 +51,30 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
   }
   _inherits(IncomingIdioParserSelectorEngine, _AbstractIncomingPars);
   return _createClass(IncomingIdioParserSelectorEngine, [{
+    key: "GEN_ATTRIBUTE_MARKER",
+    value: function GEN_ATTRIBUTE_MARKER() {
+      return '$';
+    }
+  }, {
+    key: "GEN_OPEN_TAG",
+    value: function GEN_OPEN_TAG(name, attrs, hints) {
+      name = name.replace(/^\$/, '@');
+      var symbols = this.config;
+      return "".concat(symbols.openTagPrefix[0]).concat(symbols.tagOpener[0]).concat(name).concat(symbols.tagSuffix[0]);
+    }
+  }, {
+    key: "GEN_CLOSE_TAG",
+    value: function GEN_CLOSE_TAG(name) {
+      name = name.replace(/^\$/, '@');
+      var symbols = this.config;
+      return "".concat(symbols.closeTagPrefix[0]).concat(symbols.tagCloser[0]).concat(name).concat(symbols.tagSuffix[0]);
+    }
+  }, {
+    key: "GEN_ATTRIBUTE",
+    value: function GEN_ATTRIBUTE(key, value) {
+      return "".concat(this.GEN_OPEN_TAG('@' + key)).concat(value).concat(this.GEN_CLOSE_TAG('@' + key));
+    }
+  }, {
     key: "add",
     value: function add(chunk) {
       var _this2 = this;
@@ -518,43 +541,12 @@ var IncomingIdioParserSelectorEngine = /*#__PURE__*/function (_AbstractIncomingP
     }
   }]);
 }(AbstractIncomingParserSelectorEngine);
-_IncomingIdioParserSelectorEngine = IncomingIdioParserSelectorEngine;
 _defineProperty(IncomingIdioParserSelectorEngine, "NAME", 'idioParser');
-_defineProperty(IncomingIdioParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", function () {
-  return '$';
-});
 _defineProperty(IncomingIdioParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", false);
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_MARKER", '@');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_MARKER", '@');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_START_WRAPPER", 'START(');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_END_WRAPPER", 'END(');
 _defineProperty(IncomingIdioParserSelectorEngine, "DEFAULT_CLOSE_WRAPPER", ')');
-_defineProperty(IncomingIdioParserSelectorEngine, "GEN_OPEN_TAG", function (name, attrs, hints) {
-  name = name.replace(/^\$/, '@');
-  var globalConfig = getConfig();
-  var symbols = globalConfig.idioSymbols || {
-    openTagPrefix: [_IncomingIdioParserSelectorEngine.DEFAULT_START_MARKER],
-    tagOpener: [_IncomingIdioParserSelectorEngine.DEFAULT_START_WRAPPER],
-    tagSuffix: [_IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER]
-  };
-  return "".concat(symbols.openTagPrefix[0]).concat(symbols.tagOpener[0]).concat(name).concat(symbols.tagSuffix[0]);
-});
-_defineProperty(IncomingIdioParserSelectorEngine, "GEN_CLOSE_TAG", function (name) {
-  name = name.replace(/^\$/, '@');
-  var globalConfig = getConfig();
-  var symbols = globalConfig.idioSymbols || {
-    closeTagPrefix: [_IncomingIdioParserSelectorEngine.DEFAULT_END_MARKER],
-    tagCloser: [_IncomingIdioParserSelectorEngine.DEFAULT_END_WRAPPER],
-    tagSuffix: [_IncomingIdioParserSelectorEngine.DEFAULT_CLOSE_WRAPPER]
-  };
-  return "".concat(symbols.closeTagPrefix[0]).concat(symbols.tagCloser[0]).concat(name).concat(symbols.tagSuffix[0]);
-});
-_defineProperty(IncomingIdioParserSelectorEngine, "GEN_TYPE_HINT", function (type) {
-  var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-  return "...".concat(type, "...");
-});
-_defineProperty(IncomingIdioParserSelectorEngine, "GEN_ATTRIBUTE", function (key, value) {
-  return "@START(@".concat(key, ")").concat(value, "@END(@").concat(key, ")"); // Idio style: @START(@key)value@END(@key)
-});
 export { Node };
 export default IncomingIdioParserSelectorEngine;

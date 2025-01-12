@@ -311,20 +311,9 @@ export function registerProvider(name, config) {
   }
 
   // Validate models configuration
-  if (!config.models || typeof config.models !== 'object') {
+  if (!config.models || Object.keys(config.models).length === 0) {
     throw new ModelValidationError(
       'Provider must define at least one model',
-      { provider: name }
-    );
-  }
-
-  // Ensure at least one speed category is defined
-  const hasSpeedCategory = ['superfast', 'fast', 'good'].some(
-    speed => config.models[speed]
-  );
-  if (!hasSpeedCategory) {
-    throw new ModelValidationError(
-      'Provider must define at least one speed category (superfast, fast, or good)',
       { provider: name }
     );
   }
@@ -340,11 +329,11 @@ export function registerProvider(name, config) {
   }
 
   // Validate model names
-  Object.entries(config.models).forEach(([speed, model]) => {
+  Object.entries(config.models).forEach(([alias, model]) => {
     if (!model.name) {
       throw new ModelValidationError(
         'Each model must have a name',
-        { provider: name, speed }
+        { provider: name, alias }
       );
     }
   });

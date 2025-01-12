@@ -86,8 +86,8 @@ describe('IncomingIdioParserSelectorEngine Alternative Syntax', () => {
       tagSuffix: [')', '>']
     });
 
-    const openTag = IncomingIdioParserSelectorEngine.GEN_OPEN_TAG('test');
-    const closeTag = IncomingIdioParserSelectorEngine.GEN_CLOSE_TAG('test');
+    const openTag = (new IncomingIdioParserSelectorEngine()).GEN_OPEN_TAG('test');
+    const closeTag = (new IncomingIdioParserSelectorEngine()).GEN_CLOSE_TAG('test');
 
     expect(openTag).toBe('@START(test)');
     expect(closeTag).toBe('@END(test)');

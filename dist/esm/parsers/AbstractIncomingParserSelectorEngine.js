@@ -1,3 +1,4 @@
+var _AbstractIncomingParserSelectorEngine;
 var _excluded = ["text", "children", "key", "closed"];
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -42,6 +43,21 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
     this.returnedElementSignatures = new Map();
   }
   return _createClass(AbstractIncomingParserSelectorEngine, [{
+    key: "GEN_TYPE_HINT",
+    value: function GEN_TYPE_HINT(type) {
+      return "...".concat(type, "...");
+    }
+  }, {
+    key: "GEN_CDATA_OPEN",
+    value: function GEN_CDATA_OPEN() {
+      return '';
+    }
+  }, {
+    key: "GEN_CDATA_CLOSE",
+    value: function GEN_CDATA_CLOSE() {
+      return '';
+    }
+  }, {
     key: "add",
     value: function add(chunk) {
       throw new Error('Subclass must implement add');
@@ -142,7 +158,7 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       var includeOpenTags = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
       var doDedupe = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
       var normalizedMapping = this.normalizeSchemaWithCache(mapping);
-      var attributeMarker = this.constructor.GEN_ATTRIBUTE_MARKER();
+      var attributeMarker = this.GEN_ATTRIBUTE_MARKER();
       var _applyMapping = function applyMapping(element, map) {
         // Handle arrays first
         if (Array.isArray(map)) {
@@ -279,160 +295,169 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
     value: function normalizeSchemaWithCache(schema) {
       return schema;
     }
-  }], [{
-    key: "validateHints",
-    value: function validateHints(schema, hints) {
-      function validateStructure(schemaObj, hintsObj) {
-        var path = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
-        if (!hintsObj) return; // Hints are optional
-
-        // Handle primitives in schema
-        if (_typeof(schemaObj) !== 'object' || schemaObj === null || schemaObj instanceof Type) {
-          return;
-        }
-
-        // Handle arrays
-        if (Array.isArray(schemaObj)) {
-          if (schemaObj.length !== 1) {
-            throw new Error("Schema array at ".concat(path, " must have exactly one element"));
-          }
-          if (hintsObj && !Array.isArray(hintsObj) && typeof hintsObj !== 'string') {
-            throw new Error("Hints at ".concat(path, " must be array or string for array schema"));
-          }
-          validateStructure(schemaObj[0], Array.isArray(hintsObj) ? hintsObj[0] : hintsObj, "".concat(path, "[]"));
-          return;
-        }
-
-        // Check each hint has corresponding schema definition
-        for (var key in hintsObj) {
-          if (!schemaObj.hasOwnProperty(key)) {
-            throw new Error("Hint \"".concat(key, "\" has no corresponding schema definition at ").concat(path));
-          }
-          validateStructure(schemaObj[key], hintsObj[key], path ? "".concat(path, ".").concat(key) : key);
-        }
-      }
-      validateStructure(schema, hints);
-    }
-
-    // New helper method
   }, {
     key: "getTypeHintForPrimitive",
-    value: function getTypeHintForPrimitive(value) {
+    value:
+    // New helper method
+    function getTypeHintForPrimitive(value) {
       return value === String ? this.GEN_TYPE_HINT('String') : value === Number ? this.GEN_TYPE_HINT('Number') : value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
     }
   }, {
     key: "makeMapSelectScaffold",
     value: function makeMapSelectScaffold(schema) {
+      var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      var indent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
+      return this.generateScaffold(schema, hints, indent);
+    }
+  }, {
+    key: "generateScaffold",
+    value: function generateScaffold(schema) {
       var _this3 = this;
       var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var indent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
-      var tagGenerators = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
-      // Add validation before processing
-      this.validateSchema(schema);
-      var _processObject = function processObject(obj) {
-        var hintObj = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      this.validateSchema(schema, '');
+      var _traverseSchema = function traverseSchema(schemaNode) {
+        var hintNode = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         var level = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
-        var xml = '';
+        var output = '';
         var indentation = ' '.repeat(level * indent);
-        for (var key in obj) {
-          var value = obj[key];
-          var hint = hintObj[key];
 
-          // Skip attribute markers if configured to do so
-          if (_this3.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD && _this3.GEN_ATTRIBUTE_MARKER() && key.startsWith(_this3.GEN_ATTRIBUTE_MARKER())) {
-            continue;
-          }
-
-          // Handle Type instances
-          if (value instanceof Type) {
-            var content = hint || value.generateScaffold(_this3.GEN_TYPE_HINT, {
-              parser: _this3
-            });
-            if (value.isCData) {
-              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(_this3.GEN_CDATA_OPEN()).concat(content).concat(_this3.GEN_CDATA_CLOSE()).concat(_this3.GEN_CLOSE_TAG(key), "\n");
-            } else {
-              xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(content).concat(_this3.GEN_CLOSE_TAG(key), "\n");
-            }
-            continue;
-          }
-
-          // Handle string literals as pure hints
-          if (typeof value === 'string') {
-            xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(value).concat(_this3.GEN_CLOSE_TAG(key), "\n");
-            continue;
-          }
-
-          // Handle functions (including primitives) with optional hints
-          if (typeof value === 'function') {
-            var typeHint = _this3.getTypeHintForPrimitive(value);
-            var _content = hint ? hint : typeHint || '...';
-            xml += "".concat(indentation).concat(_this3.GEN_OPEN_TAG(key)).concat(_content).concat(_this3.GEN_CLOSE_TAG(key), "\n");
-            continue;
-          }
-
-          // Handle arrays
-          if (Array.isArray(value)) {
-            xml += _this3.processArrayScaffold(key, value, hint, indentation, level, indent, _processObject);
-            continue;
-          }
-
-          // Handle objects
-          if (_typeof(value) === 'object' && value !== null) {
-            xml += _this3.processObjectScaffold(key, value, hint, indentation, level, indent, _processObject);
-          }
+        // Process attributes first
+        for (var key in schemaNode) {
+          if (key === '$$text') continue;
+          if (!key.startsWith(_this3.GEN_ATTRIBUTE_MARKER())) continue;
+          var value = schemaNode[key];
+          var hint = hintNode[key];
+          output += _this3.renderNode(value, key, hint, indentation, level, indent, _traverseSchema);
         }
-        return xml;
+
+        // Process regular elements
+        for (var _key in schemaNode) {
+          if (_key === '$$text') continue;
+          if (_key.startsWith(_this3.GEN_ATTRIBUTE_MARKER())) continue;
+          var _value6 = schemaNode[_key];
+          var _hint = hintNode[_key];
+          output += _this3.renderNode(_value6, _key, _hint, indentation, level, indent, _traverseSchema);
+        }
+        return output;
       };
-      return _processObject(schema, hints);
+      return _traverseSchema(schema, hints);
     }
-
-    // New extracted method for object scaffold generation
   }, {
-    key: "processObjectScaffold",
-    value: function processObjectScaffold(key, value, hint, indentation, level, indent, processObject) {
-      var xml = '';
-      xml += "".concat(indentation).concat(this.GEN_OPEN_TAG(key, value, hint), "\n");
-      if (value.$$text !== undefined) {
-        var textContent = (hint === null || hint === void 0 ? void 0 : hint.$$text) || (typeof value.$$text === 'function' ? this.getTypeHintForPrimitive(value.$$text) || '...' : typeof value.$$text === 'string' ? value.$$text : '...');
-        xml += "".concat(indentation, "  ").concat(textContent, "\n");
-      } else if (hint !== null && hint !== void 0 && hint.$$text) {
-        xml += "".concat(indentation, "  ").concat(hint.$$text, "\n");
+    key: "renderElementNode",
+    value: function renderElementNode(tagName, schemaNode, hint, indentation, level, indent, traverseSchema) {
+      var output = '';
+
+      // Generate opening tag with attributes
+      output += "".concat(indentation).concat(this.GEN_OPEN_TAG(tagName, schemaNode, hint), "\n");
+
+      // Handle text content
+      var textContent = this.extractTextContent(schemaNode, hint);
+      if (textContent) {
+        output += "".concat(indentation, "  ").concat(textContent, "\n");
       }
-      xml += processObject(value, hint || {}, level + 1);
-      xml += "".concat(indentation).concat(this.GEN_CLOSE_TAG(key), "\n");
-      return xml;
-    }
 
-    // New extracted method for array scaffold generation
+      // Process child elements
+      output += traverseSchema(schemaNode, hint || {}, level + 1);
+
+      // Close tag
+      output += "".concat(indentation).concat(this.GEN_CLOSE_TAG(tagName), "\n");
+      return output;
+    }
   }, {
-    key: "processArrayScaffold",
-    value: function processArrayScaffold(key, value, hint, indentation, level, indent, processObject) {
-      var xml = '';
+    key: "extractTextContent",
+    value: function extractTextContent(schemaNode, hint) {
+      if (hint !== null && hint !== void 0 && hint.$$text) {
+        return hint.$$text;
+      }
+      if (schemaNode.$$text !== undefined) {
+        if (typeof schemaNode.$$text === 'function') {
+          // If it's a built-in type (String, Number, etc), show type hint
+          if (schemaNode.$$text === String || schemaNode.$$text === Number || schemaNode.$$text === Boolean) {
+            return this.GEN_TYPE_HINT(schemaNode.$$text.name, hint);
+          }
+          // For custom transformations, just show ...
+          return '...';
+        }
+        return typeof schemaNode.$$text === 'string' ? schemaNode.$$text : '...';
+      }
+      return null;
+    }
+  }, {
+    key: "renderNode",
+    value: function renderNode(value, key, hint, indentation, level, indent, traverseSchema) {
+      if (this.constructor.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD && key.startsWith(this.GEN_ATTRIBUTE_MARKER())) {
+        return '';
+      }
+
+      // Route to appropriate renderer based on type
+      if (value instanceof Type) {
+        return this.renderTypeNode(value, key, hint, indentation);
+      }
+      if (typeof value === 'string') {
+        return this.renderStringNode(value, key, indentation);
+      }
+      if (typeof value === 'function') {
+        return this.renderFunctionNode(value, key, hint, indentation);
+      }
+      if (Array.isArray(value)) {
+        return this.renderArrayNode(key, value, hint, indentation, level, indent, traverseSchema);
+      }
+      if (_typeof(value) === 'object' && value !== null) {
+        return this.renderElementNode(key, value, hint, indentation, level, indent, traverseSchema);
+      }
+      return '';
+    }
+  }, {
+    key: "renderTypeNode",
+    value: function renderTypeNode(value, key, hint, indentation) {
+      var content = hint || value.generateScaffold(this.GEN_TYPE_HINT, {
+        parser: this
+      });
+      if (value.isCData) {
+        return "".concat(indentation).concat(this.GEN_OPEN_TAG(key)).concat(this.GEN_CDATA_OPEN()).concat(content).concat(this.GEN_CDATA_CLOSE()).concat(this.GEN_CLOSE_TAG(key), "\n");
+      }
+      return "".concat(indentation).concat(this.GEN_OPEN_TAG(key)).concat(content).concat(this.GEN_CLOSE_TAG(key), "\n");
+    }
+  }, {
+    key: "renderStringNode",
+    value: function renderStringNode(value, key, indentation) {
+      return "".concat(indentation).concat(this.GEN_OPEN_TAG(key)).concat(value).concat(this.GEN_CLOSE_TAG(key), "\n");
+    }
+  }, {
+    key: "renderFunctionNode",
+    value: function renderFunctionNode(value, key, hint, indentation) {
+      var typeHint = value === String || value === Number || value === Boolean ? this.GEN_TYPE_HINT(value.name, hint) : '...';
+      var content = hint ? hint : typeHint || '...';
+      return "".concat(indentation).concat(this.GEN_OPEN_TAG(key)).concat(content).concat(this.GEN_CLOSE_TAG(key), "\n");
+    }
+  }, {
+    key: "renderArrayNode",
+    value: function renderArrayNode(key, value, hint, indentation, level, indent, traverseSchema) {
+      var output = '';
       var itemValue = value[0];
       var itemHint = Array.isArray(hint) ? hint[0] : hint;
 
       // Show two examples for arrays
       for (var i = 0; i < 2; i++) {
-        xml += "".concat(indentation).concat(this.GEN_OPEN_TAG(key, itemValue, itemHint), "\n");
-
-        // Handle text content for array items
-        if (_typeof(itemValue) !== 'object' || itemValue === null) {
-          var content = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : this.getTypeHintForPrimitive(itemValue) || '...';
-          xml += "".concat(indentation, "  ").concat(content, "\n");
-        } else {
-          // Handle text content from $$text in object
-          if (itemValue.$$text !== undefined) {
-            var textContent = (itemHint === null || itemHint === void 0 ? void 0 : itemHint.$$text) || (typeof itemValue.$$text === 'function' ? this.getTypeHintForPrimitive(itemValue.$$text) || '...' : typeof itemValue.$$text === 'string' ? itemValue.$$text : '...');
-            xml += "".concat(indentation, "  ").concat(textContent, "\n");
-          } else if (itemHint !== null && itemHint !== void 0 && itemHint.$$text) {
-            xml += "".concat(indentation, "  ").concat(itemHint.$$text, "\n");
-          }
-          xml += processObject(itemValue, itemHint, level + 1);
+        output += "".concat(indentation).concat(this.GEN_OPEN_TAG(key, itemValue, itemHint), "\n");
+        if (_typeof(itemValue) === 'object' && itemValue !== null) {
+          // Always traverse for attributes/nested elements
+          output += traverseSchema(itemValue, itemHint, level + 1);
         }
-        xml += "".concat(indentation).concat(this.GEN_CLOSE_TAG(key), "\n");
+
+        // Then add text content if present
+        var textContent = this.extractTextContent(itemValue, itemHint);
+        if (textContent) {
+          output += "".concat(indentation, "  ").concat(textContent, "\n");
+        } else if (_typeof(itemValue) !== 'object' || itemValue === null) {
+          var content = typeof itemHint === 'string' ? itemHint : typeof itemValue === 'string' ? itemValue : this.getTypeHintForPrimitive(itemValue) || '...';
+          output += "".concat(indentation, "  ").concat(content, "\n");
+        }
+        output += "".concat(indentation).concat(this.GEN_CLOSE_TAG(key), "\n");
       }
-      xml += "".concat(indentation, "/*etc.*/\n");
-      return xml;
+      output += "".concat(indentation, "/*etc.*/\n");
+      return output;
     }
   }, {
     key: "validateSchema",
@@ -447,7 +472,7 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       var attributeNames = new Set();
       for (var key in schema) {
         // Skip internal/reserved properties
-        if (this.RESERVED_PROPERTIES.has(key)) {
+        if (this.constructor.RESERVED_PROPERTIES.has(key)) {
           continue;
         }
 
@@ -485,9 +510,8 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
   }, {
     key: "makeArrayScaffold",
     value: function makeArrayScaffold(tag, content) {
-      // Create a mini schema with two items to show repetition
-      var schema = _defineProperty({}, tag, [content, content]);
-      return this.makeMapSelectScaffold(schema) + '/*etc.*/';
+      var schema = _defineProperty({}, tag, [content]);
+      return this.makeMapSelectScaffold(schema);
     }
   }, {
     key: "makeObjectScaffold",
@@ -495,7 +519,6 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       var attributes = _ref2.attributes,
         textContent = _ref2.textContent,
         properties = _ref2.properties;
-      // Create a schema with the attributes and properties
       var schema = _defineProperty({}, tag, _objectSpread(_objectSpread(_objectSpread({}, Object.fromEntries(attributes.map(function (_ref3) {
         var key = _ref3.key,
           value = _ref3.value;
@@ -509,32 +532,81 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
       }))));
       return this.makeMapSelectScaffold(schema);
     }
+  }, {
+    key: "GEN_ATTRIBUTE_MARKER",
+    value: function GEN_ATTRIBUTE_MARKER() {
+      throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
+    }
+  }, {
+    key: "GEN_ATTRIBUTE",
+    value: function GEN_ATTRIBUTE(key, value) {
+      throw new Error('Subclass must implement GEN_ATTRIBUTE');
+    }
+  }], [{
+    key: "validateHints",
+    value: function validateHints(schema, hints) {
+      function validateStructure(schemaObj, hintsObj) {
+        var path = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+        if (!hintsObj) return; // Hints are optional
+
+        // Handle primitives in schema
+        if (_typeof(schemaObj) !== 'object' || schemaObj === null || schemaObj instanceof Type) {
+          return;
+        }
+
+        // Handle arrays
+        if (Array.isArray(schemaObj)) {
+          if (schemaObj.length !== 1) {
+            throw new Error("Schema array at ".concat(path, " must have exactly one element"));
+          }
+          if (hintsObj && !Array.isArray(hintsObj) && typeof hintsObj !== 'string') {
+            throw new Error("Hints at ".concat(path, " must be array or string for array schema"));
+          }
+          validateStructure(schemaObj[0], Array.isArray(hintsObj) ? hintsObj[0] : hintsObj, "".concat(path, "[]"));
+          return;
+        }
+
+        // Check each hint has corresponding schema definition
+        for (var key in hintsObj) {
+          if (!schemaObj.hasOwnProperty(key)) {
+            throw new Error("Hint \"".concat(key, "\" has no corresponding schema definition at ").concat(path));
+          }
+          validateStructure(schemaObj[key], hintsObj[key], path ? "".concat(path, ".").concat(key) : key);
+        }
+      }
+      validateStructure(schema, hints);
+    }
+  }, {
+    key: "makeMapSelectScaffold",
+    value: function makeMapSelectScaffold(schema) {
+      var hints = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      var indent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
+      var tagGenerators = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+      return new this().makeMapSelectScaffold(schema, hints, indent);
+    }
+  }, {
+    key: "makeArrayScaffold",
+    value: function makeArrayScaffold(tag, content) {
+      return new this().makeArrayScaffold(tag, content);
+    }
+  }, {
+    key: "makeObjectScaffold",
+    value: function makeObjectScaffold(tag, options) {
+      return new this().makeObjectScaffold(tag, options);
+    }
+  }, {
+    key: "getAttributeString",
+    value: function getAttributeString(obj, hints) {
+      return new this().getAttributeString(obj, hints);
+    }
   }]);
 }();
+_AbstractIncomingParserSelectorEngine = AbstractIncomingParserSelectorEngine;
 _defineProperty(AbstractIncomingParserSelectorEngine, "SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD", true);
 _defineProperty(AbstractIncomingParserSelectorEngine, "NAME", 'AbstractIncomingParserSelectorEngine');
 _defineProperty(AbstractIncomingParserSelectorEngine, "RESERVED_PROPERTIES", new Set(['$$tagclosed', '$$tagkey', '$$children', '$$tagname', '__isNodeObj__']));
-_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_ATTRIBUTE_MARKER", function () {
-  throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
-});
 _defineProperty(AbstractIncomingParserSelectorEngine, "GEN_ATTRIBUTE", function (key, value) {
-  throw new Error('Subclass must implement GEN_ATTRIBUTE');
-});
-_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_OPEN_TAG", function () {
-  throw new Error('Subclass must implement GEN_OPEN_TAG');
-});
-_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CLOSE_TAG", function () {
-  throw new Error('Subclass must implement GEN_CLOSE_TAG');
-});
-_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_TYPE_HINT", function (type) {
-  var enumValues = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-  return "{".concat(type).concat(enumValues !== null && enumValues !== void 0 && enumValues.length ? ": ".concat(enumValues.join('|')) : '', "}");
-});
-_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CDATA_OPEN", function () {
-  return '';
-});
-_defineProperty(AbstractIncomingParserSelectorEngine, "GEN_CDATA_CLOSE", function () {
-  return '';
+  return new _AbstractIncomingParserSelectorEngine().GEN_ATTRIBUTE(key, value);
 });
 export { Node };
 export default AbstractIncomingParserSelectorEngine;

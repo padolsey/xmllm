@@ -48,7 +48,7 @@ configure({
 Models can be specified in several ways:
 
 ```javascript
-// Simple provider:speed format
+// Simple provider:alias format
 const model1 = 'anthropic:good';    // High quality
 const model2 = 'openai:fast';       // Fast response
 const model3 = 'claude:superfast';  // Fastest response

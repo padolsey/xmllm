@@ -11,7 +11,6 @@ class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngi
   static NAME = 'xmlParser';
   
   static SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD = true;
-  static GEN_ATTRIBUTE_MARKER = () => '$';
 
   static RESERVED_PROPERTIES = new Set([
     '$$tagclosed',
@@ -22,15 +21,39 @@ class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngi
     '__isNodeObj__',
   ]);
 
-  static GEN_OPEN_TAG = (name, attrs, hints) => {
+  GEN_ATTRIBUTE_MARKER = () => '$';
+
+  GEN_TYPE_HINT(type, hint) {
+
+    // If we have a hint, use it
+    if (hint?.$$text) {
+      return hint.$$text;
+    }
+    
+    // Otherwise use type formatting
+    if (type === 'String') return `{String}${hint?` ${hint}`:''}`;
+    if (type === 'Number') return `{Number}${hint?` ${hint}`:''}`;
+    if (type === 'Boolean') return `{Boolean}${hint?` ${hint}`:''}`;
+    return `{${type}}`;
+  }
+
+  GEN_OPEN_TAG(name, attrs, hints) {
     return `<${name}${attrs ? this.getAttributeString(attrs, hints) : ''}>`;
-  };
-  static GEN_CLOSE_TAG = (name) => `</${name}>`;
+  }
 
-  static GEN_CDATA_OPEN = () => '<![CDATA[';
-  static GEN_CDATA_CLOSE = () => ']]>';
+  GEN_CLOSE_TAG(name) {
+    return `</${name}>`;
+  }
 
-  static getAttributeString(obj, hints = {}) {
+  GEN_CDATA_OPEN() {
+    return '<![CDATA[';
+  }
+
+  GEN_CDATA_CLOSE() {
+    return ']]>';
+  }
+
+  getAttributeString(obj, hints = {}) {
     if (typeof obj !== 'object' || obj === null) return '';
 
     let attrs = '';
@@ -40,30 +63,32 @@ class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngi
         const value = obj[key];
         const hint = hints?.[key];
 
-        // Handle string literals as pure hints
+        // Use the hint text if available
+        if (hint) {
+          attrs += ` ${attrName}="${hint}"`;
+          continue;
+        }
+
+        // Handle functions (including primitives)
+        if (typeof value === 'function') {
+          attrs += ` ${attrName}="${this.GEN_TYPE_HINT(value.name, hint)}"`;
+          continue;
+        }
+
+        // Handle string literals
         if (typeof value === 'string') {
           attrs += ` ${attrName}="${value}"`;
           continue;
         }
 
-        // Handle functions (including primitives) with optional hints
-        if (typeof value === 'function') {
-          const typeHint = value === String ? this.GEN_TYPE_HINT('String') : 
-                          value === Number ? this.GEN_TYPE_HINT('Number') : 
-                          value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
-          const content = hint ? hint : typeHint || '...';
-          attrs += ` ${attrName}="${content}"`;
-          continue;
-        }
-
         // Default case
-        attrs += ` ${attrName}="${hint || '...'}"`;
+        attrs += ` ${attrName}="..."`;
       }
     }
     return attrs;
   }
 
-  static GEN_ATTRIBUTE = (key, value) => {
+  GEN_ATTRIBUTE(key, value) {
     return `${key}="${value}"`;  // XML style: key="value"
   }
 
@@ -363,6 +388,16 @@ class IncomingXMLParserSelectorEngine extends AbstractIncomingParserSelectorEngi
     // Add JSDoc to clarify this is "delta mode"
     return this.mapSelect(schema, false, true); // includeOpen=false, dedupe=true
   }
+
+  // Override processValue to skip attribute processing
+  processValue(value, key, hint, indentation, level, indent, processObject) {
+    // Skip if this is an attribute
+    if (key.startsWith(this.GEN_ATTRIBUTE_MARKER())) {
+      return '';  // Attributes are handled by getAttributeString
+    }
+    return super.processValue(value, key, hint, indentation, level, indent, processObject);
+  }
+
 }
 
 export { Node };

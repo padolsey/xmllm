@@ -54,31 +54,6 @@ describe('Provider Registration', () => {
     })).toThrow(ModelValidationError);
   });
 
-  test('requires at least one speed category', () => {
-    expect(() => registerProvider('test', {
-      endpoint: 'https://test.com',
-      models: {
-        custom: { name: 'test' }
-      }
-    })).toThrow(ModelValidationError);
-
-    // Should work with any speed category
-    expect(() => registerProvider('test', {
-      endpoint: 'https://test.com',
-      models: { superfast: { name: 'test' } }
-    })).not.toThrow();
-
-    expect(() => registerProvider('test', {
-      endpoint: 'https://test.com',
-      models: { fast: { name: 'test' } }
-    })).not.toThrow();
-
-    expect(() => registerProvider('test', {
-      endpoint: 'https://test.com',
-      models: { good: { name: 'test' } }
-    })).not.toThrow();
-  });
-
   test('validates model name is present', () => {
     expect(() => registerProvider('test', {
       endpoint: 'https://test.com',

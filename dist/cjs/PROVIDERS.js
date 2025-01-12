@@ -328,18 +328,8 @@ function registerProvider(name, config) {
   }
 
   // Validate models configuration
-  if (!config.models || _typeof(config.models) !== 'object') {
+  if (!config.models || Object.keys(config.models).length === 0) {
     throw new _ProviderErrors.ModelValidationError('Provider must define at least one model', {
-      provider: name
-    });
-  }
-
-  // Ensure at least one speed category is defined
-  var hasSpeedCategory = ['superfast', 'fast', 'good'].some(function (speed) {
-    return config.models[speed];
-  });
-  if (!hasSpeedCategory) {
-    throw new _ProviderErrors.ModelValidationError('Provider must define at least one speed category (superfast, fast, or good)', {
       provider: name
     });
   }
@@ -357,12 +347,12 @@ function registerProvider(name, config) {
   // Validate model names
   Object.entries(config.models).forEach(function (_ref4) {
     var _ref5 = _slicedToArray(_ref4, 2),
-      speed = _ref5[0],
+      alias = _ref5[0],
       model = _ref5[1];
     if (!model.name) {
       throw new _ProviderErrors.ModelValidationError('Each model must have a name', {
         provider: name,
-        speed: speed
+        alias: alias
       });
     }
   });

@@ -40,8 +40,6 @@ var DefaultProxy = /*#__PURE__*/function (_ProxyBase) {
         return _regeneratorRuntime().wrap(function _callee$(_context) {
           while (1) switch (_context.prev = _context.next) {
             case 0:
-              // Add debug logging
-              // console.log('Handling streaming request:', data);
               messages = data.messages, model = data.model, max_tokens = data.max_tokens, maxTokens = data.maxTokens, temperature = data.temperature, top_p = data.top_p, topP = data.topP, presence_penalty = data.presence_penalty, presencePenalty = data.presencePenalty, errorMessages = data.errorMessages, fakeDelay = data.fakeDelay, stop = data.stop, cache = data.cache, stream = data.stream; // Set SSE headers
               res.writeHead(200, {
                 'Content-Type': 'text/event-stream',

@@ -178,19 +178,23 @@ export class EnumType extends Type {
     }
     this.allowedValues = allowedValues;
     // Transform to default if not in allowed values
-    this.transform = value => this.allowedValues.includes(value) ? value : this.default;
-  }
-
-  _parse(value) {
-    return value?.trim() || '';
+    this._parse = valueFromLLM => {
+      valueFromLLM = valueFromLLM?.trim() || '';
+      const found = this.allowedValues.filter(v => {
+        const normalizedValue = valueFromLLM.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedAllowed = v.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normalizedValue.includes(normalizedAllowed);
+      });
+      return found.length > 0 ? found[0] : this.default;
+    };
   }
 
   generateScaffold(genTypeHint) {
-    const enumValues = this.allowedValues.join('|');
+    const enumValues = this.allowedValues.map(value => `"${value}"`).join(' or ');
     if (this.hint) {
-      return genTypeHint(`Enum: ${this.hint} (allowed values: ${enumValues})`);
+      return genTypeHint(`${this.hint} (Allowed values: ${enumValues})`);
     }
-    return genTypeHint(`Enum: (allowed values: ${enumValues})`);
+    return genTypeHint(`Allowed values: ${enumValues}`);
   }
 }
 

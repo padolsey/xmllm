@@ -306,7 +306,7 @@ describe('Type System', () => {
             <notifications>{Boolean}</notifications>
           </settings>
           <content><![CDATA[{Raw}]]></content>
-          <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
+          <status>{Current status (Allowed values: "PENDING" or "ACTIVE" or "DONE")}</status>
         </person>
         <person>
           <name>{String: name of person}</name>
@@ -317,7 +317,7 @@ describe('Type System', () => {
             <notifications>{Boolean}</notifications>
           </settings>
           <content><![CDATA[{Raw}]]></content>
-          <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
+          <status>{Current status (Allowed values: "PENDING" or "ACTIVE" or "DONE")}</status>
         </person>
         /*etc.*/
       </data>
@@ -368,7 +368,7 @@ describe('Type System', () => {
     const scaffoldNoHints = IncomingXMLParserSelectorEngine.makeMapSelectScaffold(schema);
     expect(normalize(scaffoldNoHints)).toEqual(normalize(`
       <data>
-        <status>{Enum: Current status (allowed values: PENDING|ACTIVE|DONE)}</status>
+        <status>{Current status (Allowed values: "PENDING" or "ACTIVE" or "DONE")}</status>
       </data>
     `));
   });
@@ -568,5 +568,42 @@ describe('Type System', () => {
         zero: 0
       }
     });
+  });
+});
+
+describe('EnumType with flexible matching', () => {
+  test('should handle exact matches', () => {
+    const status = new EnumType('Status', ['PENDING', 'ACTIVE', 'DONE']);
+    
+    expect(status._parse('PENDING')).toBe('PENDING');
+    expect(status._parse('ACTIVE')).toBe('ACTIVE');
+    expect(status._parse('DONE')).toBe('DONE');
+  });
+
+  test('should handle case variations', () => {
+    const status = new EnumType('Status', ['PENDING', 'ACTIVE', 'DONE']);
+    
+    expect(status._parse('pending')).toBe('PENDING');
+    expect(status._parse('Active')).toBe('ACTIVE');
+    expect(status._parse('done')).toBe('DONE');
+  });
+
+  test('should handle common special characters and spaces', () => {
+    const status = new EnumType('Status', ['PENDING', 'ACTIVE', 'DONE']);
+    
+    expect(status._parse('PENDING!')).toBe('PENDING');
+    expect(status._parse('status: ACTIVE')).toBe('ACTIVE');
+    expect(status._parse('Status: DONE...')).toBe('DONE');
+    expect(status._parse('is-pending')).toBe('PENDING');
+    expect(status._parse('currently_active')).toBe('ACTIVE');
+    expect(status._parse('P E N D I N G')).toBe('PENDING');
+  });
+
+  test('should not falsley find a match', () => {
+    const status = new EnumType('Status', ['PENDING', 'ACTIVE', 'DONE']);
+    expect(status._parse('PEND')).toBe(undefined);
+    expect(status._parse('peeeending')).toBe(undefined);
+    expect(status._parse('INVALID')).toBe(undefined);
+    expect(status._parse('')).toBe(undefined);
   });
 });

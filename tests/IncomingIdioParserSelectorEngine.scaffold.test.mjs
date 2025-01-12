@@ -224,7 +224,7 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     const scaffold = IncomingIdioParserSelectorEngine.makeMapSelectScaffold(schema);
     const normalized = scaffold.replace(/\s+/g, ' ').trim();
 
-    expect(normalized).toContain('@START(person) @START(name)...Enum: (allowed values: John|Jane|Doe)...@END(name) @END(person)');
+    expect(normalized).toContain('@START(person) @START(name)...Allowed values: "John" or "Jane" or "Doe"...@END(name) @END(person)');
   });
 
   test('should generate scaffold with attributes', () => {
@@ -317,5 +317,45 @@ describe('Schema and Hints Scaffold Generation for Idio', () => {
     expect(normalized).toContain('@START(numbers)');
     expect(normalized).toContain('@START(item) ...Number: A number... @END(item)');
     expect(normalized).toContain('/*etc.*/');
+  });
+
+  test('should generate scaffold with custom markers', () => {
+    const engine = new IncomingIdioParserSelectorEngine({
+      openTagPrefix: '[[',
+      closeTagPrefix: '[[',
+      tagOpener: 'BEGIN(',
+      tagCloser: 'FINISH(',
+      tagSuffix: ')]]'
+    });
+
+    const schema = {
+      items: {
+        item: [{
+          $category: String,
+          $priority: Number,
+          $$text: String
+        }]
+      }
+    };
+
+    const scaffold = engine.makeMapSelectScaffold(schema);
+    const normalized = scaffold.replace(/\s+/g, ' ').trim();
+
+    // The expected scaffold should use the custom markers
+    expect(normalized).toBe(
+      '[[BEGIN(items)]] ' +
+      '[[BEGIN(item)]] ' +
+      '[[BEGIN(@category)]]...String...[[FINISH(@category)]] ' +
+      '[[BEGIN(@priority)]]...Number...[[FINISH(@priority)]] ' +
+      '...String... ' +
+      '[[FINISH(item)]] ' +
+      '[[BEGIN(item)]] ' +
+      '[[BEGIN(@category)]]...String...[[FINISH(@category)]] ' +
+      '[[BEGIN(@priority)]]...Number...[[FINISH(@priority)]] ' +
+      '...String... ' +
+      '[[FINISH(item)]] ' +
+      '/*etc.*/ ' +
+      '[[FINISH(items)]]'
+    );
   });
 });

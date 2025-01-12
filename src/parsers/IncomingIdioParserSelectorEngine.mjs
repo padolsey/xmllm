@@ -7,7 +7,6 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
 
   static NAME = 'idioParser';
 
-  static GEN_ATTRIBUTE_MARKER = () => '$';
   static SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD = false;
   
   static DEFAULT_START_MARKER = '@';
@@ -15,6 +14,10 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
   static DEFAULT_START_WRAPPER = 'START(';
   static DEFAULT_END_WRAPPER = 'END(';
   static DEFAULT_CLOSE_WRAPPER = ')';
+
+  GEN_ATTRIBUTE_MARKER() {
+    return '$';
+  }
 
   constructor(config = {}) {
     super();
@@ -34,34 +37,24 @@ class IncomingIdioParserSelectorEngine extends AbstractIncomingParserSelectorEng
     this.config = symbols;
   }
 
-  static GEN_OPEN_TAG = (name, attrs, hints) => {
+  GEN_OPEN_TAG(name, attrs, hints) {
     name = name.replace(/^\$/, '@');
-    const globalConfig = getConfig();
-    const symbols = globalConfig.idioSymbols || {
-      openTagPrefix: [this.DEFAULT_START_MARKER],
-      tagOpener: [this.DEFAULT_START_WRAPPER],
-      tagSuffix: [this.DEFAULT_CLOSE_WRAPPER]
-    };
+    const symbols = this.config;
     return `${symbols.openTagPrefix[0]}${symbols.tagOpener[0]}${name}${symbols.tagSuffix[0]}`;
-  };
-
-  static GEN_CLOSE_TAG = (name) => {
-    name = name.replace(/^\$/, '@');
-    const globalConfig = getConfig();
-    const symbols = globalConfig.idioSymbols || {
-      closeTagPrefix: [this.DEFAULT_END_MARKER],
-      tagCloser: [this.DEFAULT_END_WRAPPER],
-      tagSuffix: [this.DEFAULT_CLOSE_WRAPPER]
-    };
-    return `${symbols.closeTagPrefix[0]}${symbols.tagCloser[0]}${name}${symbols.tagSuffix[0]}`;
-  };
-
-  static GEN_TYPE_HINT = (type, enumValues = []) => {
-    return `...${type}...`;
   }
 
-  static GEN_ATTRIBUTE = (key, value) => {
-    return `@START(@${key})${value}@END(@${key})`; // Idio style: @START(@key)value@END(@key)
+  GEN_CLOSE_TAG(name) {
+    name = name.replace(/^\$/, '@');
+    const symbols = this.config;
+    return `${symbols.closeTagPrefix[0]}${symbols.tagCloser[0]}${name}${symbols.tagSuffix[0]}`;
+  }
+
+  GEN_ATTRIBUTE_MARKER() {
+    return '$';
+  }
+
+  GEN_ATTRIBUTE(key, value) {
+    return `${this.GEN_OPEN_TAG('@' + key)}${value}${this.GEN_CLOSE_TAG('@' + key)}`;
   }
 
   add(chunk) {

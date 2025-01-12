@@ -78,8 +78,15 @@ types.boolean() // "true", "yes", "1" -> true
 // Raw type - Preserves content exactly
 types.raw()     // Preserves whitespace, CDATA, etc.
 
-// Enum type - Case-sensitive matching
-types.enum(["A", "B"]) // Must match exactly
+// Enum type - Flexible case-insensitive matching
+types.enum([
+  "ACTIVE",
+  "PENDING"
+]) // Matches flexibly:
+   // "active", "ACTIVE", "Active" -> "ACTIVE"
+   // "status: pending" -> "PENDING"
+   // "is-pending" -> "PENDING"
+   // Invalid matches use default or are excluded
 ```
 
 ## ItemsType

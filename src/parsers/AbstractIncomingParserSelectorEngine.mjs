@@ -33,33 +33,15 @@ class AbstractIncomingParserSelectorEngine {
     '__isNodeObj__',
   ]);
 
-  static GEN_ATTRIBUTE_MARKER = () => {
-    throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
-  };
-
-  static GEN_ATTRIBUTE = (key, value) => {
-    throw new Error('Subclass must implement GEN_ATTRIBUTE');
-  };
-
-  static GEN_OPEN_TAG = () => {
-    throw new Error('Subclass must implement GEN_OPEN_TAG');
+  GEN_TYPE_HINT(type) {
+    return `...${type}...`;
   }
 
-  static GEN_CLOSE_TAG = () => {
-    throw new Error('Subclass must implement GEN_CLOSE_TAG');
-  }
-
-  static GEN_TYPE_HINT = (type, enumValues = []) => {
-    return `{${type}${
-      enumValues?.length ? `: ${enumValues.join('|')}` : ''
-    }}`;
-  }
-
-  static GEN_CDATA_OPEN = () => {
+  GEN_CDATA_OPEN() {
     return '';
   }
 
-  static GEN_CDATA_CLOSE = () => {
+  GEN_CDATA_CLOSE() {
     return '';
   }
 
@@ -147,7 +129,7 @@ class AbstractIncomingParserSelectorEngine {
 
   mapSelect(mapping, includeOpenTags = true, doDedupe = true) {
     const normalizedMapping = this.normalizeSchemaWithCache(mapping);
-    const attributeMarker = this.constructor.GEN_ATTRIBUTE_MARKER()
+    const attributeMarker = this.GEN_ATTRIBUTE_MARKER()
     
     const applyMapping = (element, map) => {
       // Handle arrays first
@@ -350,137 +332,175 @@ class AbstractIncomingParserSelectorEngine {
   }
 
   // New helper method
-  static getTypeHintForPrimitive(value) {
+  getTypeHintForPrimitive(value) {
     return value === String ? this.GEN_TYPE_HINT('String') : 
            value === Number ? this.GEN_TYPE_HINT('Number') : 
            value === Boolean ? this.GEN_TYPE_HINT('Boolean') : '';
   }
 
   static makeMapSelectScaffold(schema, hints = {}, indent = 2, tagGenerators = {}) {
-    // Add validation before processing
-    this.validateSchema(schema);
+    return new this().makeMapSelectScaffold(schema, hints, indent);
+  }
 
-    const processObject = (obj, hintObj = {}, level = 0) => {
-      let xml = '';
+  makeMapSelectScaffold(schema, hints = {}, indent = 2) {
+    return this.generateScaffold(schema, hints, indent);
+  }
+
+  generateScaffold(schema, hints = {}, indent = 2) {
+    this.validateSchema(schema, '');
+
+    const traverseSchema = (schemaNode, hintNode = {}, level = 0) => {
+      let output = '';
       const indentation = ' '.repeat(level * indent);
 
-      for (let key in obj) {
-        let value = obj[key];
-        const hint = hintObj[key];
-
-        // Skip attribute markers if configured to do so
-        if (
-          this.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD &&
-          this.GEN_ATTRIBUTE_MARKER() &&
-          key.startsWith(this.GEN_ATTRIBUTE_MARKER())
-        ) {
-          continue;
-        }
-
-        // Handle Type instances
-        if (value instanceof Type) {
-          const content = hint || value.generateScaffold(this.GEN_TYPE_HINT, { parser: this });
-          
-          if (value.isCData) {
-            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${this.GEN_CDATA_OPEN()}${content}${this.GEN_CDATA_CLOSE()}${this.GEN_CLOSE_TAG(key)}\n`;
-          } else {
-            xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
-          }
-          continue;
-        }
-
-        // Handle string literals as pure hints
-        if (typeof value === 'string') {
-          xml += `${indentation}${this.GEN_OPEN_TAG(key)}${value}${this.GEN_CLOSE_TAG(key)}\n`;
-          continue;
-        }
-
-        // Handle functions (including primitives) with optional hints
-        if (typeof value === 'function') {
-          const typeHint = this.getTypeHintForPrimitive(value);
-          const content = hint ? hint : typeHint || '...';
-          xml += `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
-          continue;
-        }
-
-        // Handle arrays
-        if (Array.isArray(value)) {
-          xml += this.processArrayScaffold(key, value, hint, indentation, level, indent, processObject);
-          continue;
-        }
-
-        // Handle objects
-        if (typeof value === 'object' && value !== null) {
-          xml += this.processObjectScaffold(key, value, hint, indentation, level, indent, processObject);
-        }
+      // Process attributes first
+      for (let key in schemaNode) {
+        if (key === '$$text') continue;
+        if (!key.startsWith(this.GEN_ATTRIBUTE_MARKER())) continue;
+        
+        let value = schemaNode[key];
+        const hint = hintNode[key];
+        output += this.renderNode(value, key, hint, indentation, level, indent, traverseSchema);
       }
 
-      return xml;
+      // Process regular elements
+      for (let key in schemaNode) {
+        if (key === '$$text') continue;
+        if (key.startsWith(this.GEN_ATTRIBUTE_MARKER())) continue;
+        
+        let value = schemaNode[key];
+        const hint = hintNode[key];
+        output += this.renderNode(value, key, hint, indentation, level, indent, traverseSchema);
+      }
+
+      return output;
     }
 
-    return processObject(schema, hints);
+    return traverseSchema(schema, hints);
   }
 
-  // New extracted method for object scaffold generation
-  static processObjectScaffold(key, value, hint, indentation, level, indent, processObject) {
-    let xml = '';
-    xml += `${indentation}${this.GEN_OPEN_TAG(key, value, hint)}\n`;
+  renderElementNode(tagName, schemaNode, hint, indentation, level, indent, traverseSchema) {
+    let output = '';
     
-    if (value.$$text !== undefined) {
-      const textContent = hint?.$$text || (
-        typeof value.$$text === 'function' ? 
-          this.getTypeHintForPrimitive(value.$$text) || '...' :
-          (typeof value.$$text === 'string' ? value.$$text : '...')
-      );
-      xml += `${indentation}  ${textContent}\n`;
-    } else if (hint?.$$text) {
-      xml += `${indentation}  ${hint.$$text}\n`;
+    // Generate opening tag with attributes
+    output += `${indentation}${this.GEN_OPEN_TAG(tagName, schemaNode, hint)}\n`;
+    
+    // Handle text content
+    const textContent = this.extractTextContent(schemaNode, hint);
+    if (textContent) {
+      output += `${indentation}  ${textContent}\n`;
     }
     
-    xml += processObject(value, hint || {}, level + 1);
-    xml += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
-    return xml;
+    // Process child elements
+    output += traverseSchema(schemaNode, hint || {}, level + 1);
+    
+    // Close tag
+    output += `${indentation}${this.GEN_CLOSE_TAG(tagName)}\n`;
+    
+    return output;
   }
 
-  // New extracted method for array scaffold generation
-  static processArrayScaffold(key, value, hint, indentation, level, indent, processObject) {
-    let xml = '';
+  extractTextContent(schemaNode, hint) {
+    if (hint?.$$text) {
+      return hint.$$text;
+    }
+    
+    if (schemaNode.$$text !== undefined) {
+      if (typeof schemaNode.$$text === 'function') {
+        // If it's a built-in type (String, Number, etc), show type hint
+        if (schemaNode.$$text === String || schemaNode.$$text === Number || schemaNode.$$text === Boolean) {
+          return this.GEN_TYPE_HINT(schemaNode.$$text.name, hint);
+        }
+        // For custom transformations, just show ...
+        return '...';
+      }
+      return typeof schemaNode.$$text === 'string' ? schemaNode.$$text : '...';
+    }
+    
+    return null;
+  }
+
+  renderNode(value, key, hint, indentation, level, indent, traverseSchema) {
+    if (this.constructor.SKIP_ATTRIBUTE_MARKER_IN_SCAFFOLD && 
+        key.startsWith(this.GEN_ATTRIBUTE_MARKER())) {
+      return '';
+    }
+
+    // Route to appropriate renderer based on type
+    if (value instanceof Type) {
+      return this.renderTypeNode(value, key, hint, indentation);
+    }
+    
+    if (typeof value === 'string') {
+      return this.renderStringNode(value, key, indentation);
+    }
+    
+    if (typeof value === 'function') {
+      return this.renderFunctionNode(value, key, hint, indentation);
+    }
+    
+    if (Array.isArray(value)) {
+      return this.renderArrayNode(key, value, hint, indentation, level, indent, traverseSchema);
+    }
+    
+    if (typeof value === 'object' && value !== null) {
+      return this.renderElementNode(key, value, hint, indentation, level, indent, traverseSchema);
+    }
+
+    return '';
+  }
+
+  renderTypeNode(value, key, hint, indentation) {
+    const content = hint || value.generateScaffold(this.GEN_TYPE_HINT, { parser: this });
+    if (value.isCData) {
+      return `${indentation}${this.GEN_OPEN_TAG(key)}${this.GEN_CDATA_OPEN()}${content}${this.GEN_CDATA_CLOSE()}${this.GEN_CLOSE_TAG(key)}\n`;
+    }
+    return `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
+  }
+
+  renderStringNode(value, key, indentation) {
+    return `${indentation}${this.GEN_OPEN_TAG(key)}${value}${this.GEN_CLOSE_TAG(key)}\n`;
+  }
+
+  renderFunctionNode(value, key, hint, indentation) {
+    const typeHint = value === String || value === Number || value === Boolean ? this.GEN_TYPE_HINT(value.name, hint) : '...';
+    const content = hint ? hint : typeHint || '...';
+    return `${indentation}${this.GEN_OPEN_TAG(key)}${content}${this.GEN_CLOSE_TAG(key)}\n`;
+  }
+
+  renderArrayNode(key, value, hint, indentation, level, indent, traverseSchema) {
+    let output = '';
     const itemValue = value[0];
     const itemHint = Array.isArray(hint) ? hint[0] : hint;
 
     // Show two examples for arrays
     for (let i = 0; i < 2; i++) {
-      xml += `${indentation}${this.GEN_OPEN_TAG(key, itemValue, itemHint)}\n`;
+      output += `${indentation}${this.GEN_OPEN_TAG(key, itemValue, itemHint)}\n`;
       
-      // Handle text content for array items
-      if (typeof itemValue !== 'object' || itemValue === null) {
+      if (typeof itemValue === 'object' && itemValue !== null) {
+        // Always traverse for attributes/nested elements
+        output += traverseSchema(itemValue, itemHint, level + 1);
+      }
+      
+      // Then add text content if present
+      const textContent = this.extractTextContent(itemValue, itemHint);
+      if (textContent) {
+        output += `${indentation}  ${textContent}\n`;
+      } else if (typeof itemValue !== 'object' || itemValue === null) {
         const content =
           typeof itemHint === 'string' ? itemHint :
           typeof itemValue === 'string' ? itemValue :
           this.getTypeHintForPrimitive(itemValue) || '...';
-        xml += `${indentation}  ${content}\n`;
-      } else {
-        // Handle text content from $$text in object
-        if (itemValue.$$text !== undefined) {
-          const textContent = itemHint?.$$text || (
-            typeof itemValue.$$text === 'function' ? 
-              this.getTypeHintForPrimitive(itemValue.$$text) || '...' :
-              (typeof itemValue.$$text === 'string' ? itemValue.$$text : '...')
-          );
-          xml += `${indentation}  ${textContent}\n`;
-        } else if (itemHint?.$$text) {
-          xml += `${indentation}  ${itemHint.$$text}\n`;
-        }
-        xml += processObject(itemValue, itemHint, level + 1);
+        output += `${indentation}  ${content}\n`;
       }
       
-      xml += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
+      output += `${indentation}${this.GEN_CLOSE_TAG(key)}\n`;
     }
-    xml += `${indentation}/*etc.*/\n`;
-    return xml;
+    output += `${indentation}/*etc.*/\n`;
+    return output;
   }
 
-  static validateSchema(schema, path = '') {
+  validateSchema(schema, path = '') {
     if (!schema || typeof schema !== 'object') {
       return;
     }
@@ -491,7 +511,7 @@ class AbstractIncomingParserSelectorEngine {
 
     for (const key in schema) {
       // Skip internal/reserved properties
-      if (this.RESERVED_PROPERTIES.has(key)) {
+      if (this.constructor.RESERVED_PROPERTIES.has(key)) {
         continue;
       }
 
@@ -533,19 +553,18 @@ class AbstractIncomingParserSelectorEngine {
     }
   }
 
-  static makeArrayScaffold(tag, content) {
-    // Create a mini schema with two items to show repetition
+  makeArrayScaffold(tag, content) {
     const schema = {
-      [tag]: [
-        content,
-        content
-      ]
+      [tag]: [content]
     };
-    return this.makeMapSelectScaffold(schema) + '/*etc.*/';
+    return this.makeMapSelectScaffold(schema);
   }
 
-  static makeObjectScaffold(tag, { attributes, textContent, properties }) {
-    // Create a schema with the attributes and properties
+  static makeArrayScaffold(tag, content) {
+    return new this().makeArrayScaffold(tag, content);
+  }
+
+  makeObjectScaffold(tag, { attributes, textContent, properties }) {
     const schema = {
       [tag]: {
         ...Object.fromEntries(attributes.map(({ key, value }) => [`$${key}`, value])),
@@ -554,6 +573,26 @@ class AbstractIncomingParserSelectorEngine {
       }
     };
     return this.makeMapSelectScaffold(schema);
+  }
+
+  static makeObjectScaffold(tag, options) {
+    return new this().makeObjectScaffold(tag, options);
+  }
+
+  GEN_ATTRIBUTE_MARKER() {
+    throw new Error('Subclass must implement GEN_ATTRIBUTE_MARKER');
+  }
+
+  GEN_ATTRIBUTE(key, value) {
+    throw new Error('Subclass must implement GEN_ATTRIBUTE');
+  }
+
+  static GEN_ATTRIBUTE = (key, value) => {
+    return new this().GEN_ATTRIBUTE(key, value);
+  }
+
+  static getAttributeString(obj, hints) {
+    return new this().getAttributeString(obj, hints);
   }
 }
 

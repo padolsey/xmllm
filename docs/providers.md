@@ -679,8 +679,6 @@ registerProvider('mistral', {
 | `payloader` | function | No | Custom payload transformer |
 | `aliases` | string[] | No | Alternative provider names |
 
-\* At least one speed category (superfast/fast/good) must be defined.
-
 ### Environment Variables
 
 The provider will look for an API key in the following environment variable:

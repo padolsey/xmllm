@@ -78,10 +78,10 @@ export interface StreamingSchemaServerConfig extends ServerConfig, BaseStreaming
 
 // Model types
 export type ModelProvider = 'anthropic' | 'openai' | 'togetherai' | 'perplexityai' | 'openrouter' | 'claude';
-export type ModelSpeed = 'superfast' | 'fast' | 'good';
-export type ModelString = `${ModelProvider}:${ModelSpeed}` | `${ModelProvider}:${string}`;
+export type ModelString = `${ModelProvider}:${string}`;
 
-export interface ModelConfig {
+// Rename this to ModelPreferenceConfig to avoid confusion
+export interface ModelPreferenceConfig {
   inherit: ModelProvider;
   name: string;
   maxContextSize?: number;
@@ -92,10 +92,21 @@ export interface ModelConfig {
   };
 }
 
+// Keep this one for provider models
+export interface ModelConfig {
+  name: string;
+  maxContextSize?: number;
+}
+
 export type ModelPreference = 
   | ModelString
-  | ModelConfig
-  | Array<ModelString | ModelConfig>;
+  | ModelPreferenceConfig
+  | Array<ModelString | ModelPreferenceConfig>;
+
+// Provider models are just a map of model configs
+export type ProviderModels = {
+  [key: string]: ModelConfig | undefined;
+}
 
 // Schema types
 export type Hint = string | string[];
@@ -310,26 +321,25 @@ export interface PromptStrategy {
 export function getStrategy(id: string): PromptStrategy;
 export const STRATEGIES: Record<string, PromptStrategy>;
 
+// First, let's add the Provider type definition
+export interface Provider {
+  name: string;
+  endpoint: string;
+  key?: string;
+  models: ProviderModels;
+  constraints?: {
+    rpmLimit?: number;
+    tokensPerMinute?: number;
+    requestsPerHour?: number;
+  };
+  headerGen?: () => Record<string, string>;
+  payloader?: (payload: ProviderPayload) => Record<string, any>;
+}
+
+// Update ProviderConfig to use the same types
 export interface ProviderConfig {
   endpoint: string;
-  models: {
-    superfast?: {
-      name: string;
-      maxContextSize?: number;
-    };
-    fast?: {
-      name: string;
-      maxContextSize?: number;
-    };
-    good?: {
-      name: string;
-      maxContextSize?: number;
-    };
-    [key: string]: {
-      name: string;
-      maxContextSize?: number;
-    };
-  };
+  models: ProviderModels;
   constraints?: {
     rpmLimit?: number;
     tokensPerMinute?: number;
@@ -337,11 +347,47 @@ export interface ProviderConfig {
   };
   key?: string;
   headerGen?: () => Record<string, string>;
-  payloader?: (payload: any) => any;
+  payloader?: (payload: ProviderPayload) => Record<string, any>;
   aliases?: string[];
 }
 
+// Update the registerProvider return type
 export function registerProvider(
   name: string, 
   config: ProviderConfig
 ): Provider;
+
+// Add type for provider response formats
+export interface ProviderResponse {
+  content?: string;
+  choices?: Array<{
+    message?: {
+      content: string;
+    };
+    text?: string;
+    delta?: {
+      content?: string;
+      text?: string;
+      stop_reason?: string;
+    };
+  }>;
+  content_block?: {
+    text: string;
+  };
+}
+
+// Add type for provider payload
+export interface ProviderPayload {
+  messages: Message[];
+  max_tokens?: number;
+  maxTokens?: number;
+  temperature?: number;
+  top_p?: number;
+  topP?: number;
+  presence_penalty?: number;
+  presencePenalty?: number;
+  stop?: string[];
+  system?: string;
+  stream?: boolean;
+  model?: string;
+}
