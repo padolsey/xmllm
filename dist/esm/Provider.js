@@ -37,7 +37,6 @@ if (!AbortController) {
 var logger = new Logger('Provider');
 var DEFAULT_ASSUMED_MAX_CONTEXT_SIZE = 8000; // input token size
 var DEFAULT_RESPONSE_TOKEN_LENGTH = 300; // max_tokens
-var MAX_TOKEN_HISTORICAL_MESSAGE = 600;
 
 /**
  * Handles direct communication with LLM APIs.
@@ -259,47 +258,48 @@ var Provider = /*#__PURE__*/function () {
                 return controller.abort();
               }, this.REQUEST_TIMEOUT_MS);
               _context2.prev = 3;
-              _context2.next = 6;
+              logger.log('Attempting request', this.endpoint, preparedPayload);
+              _context2.next = 7;
               return this.fetch(this.endpoint, {
                 method: 'POST',
                 headers: this.headerGen ? this.headerGen.call(this) : this.getHeaders(),
                 body: JSON.stringify(preparedPayload),
                 signal: controller.signal
               });
-            case 6:
+            case 7:
               response = _context2.sent;
               clearTimeout(timeoutId);
               if (response !== null && response !== void 0 && response.ok) {
-                _context2.next = 12;
+                _context2.next = 13;
                 break;
               }
-              _context2.next = 11;
+              _context2.next = 12;
               return this.handleErrorResponse(response);
-            case 11:
-              throw _context2.sent;
             case 12:
-              _context2.next = 14;
+              throw _context2.sent;
+            case 13:
+              _context2.next = 15;
               return response.json();
-            case 14:
+            case 15:
               data = _context2.sent;
               return _context2.abrupt("return", data !== null && data !== void 0 && (_data$content = data.content) !== null && _data$content !== void 0 && (_data$content = _data$content[0]) !== null && _data$content !== void 0 && _data$content.text ? {
                 content: data === null || data === void 0 || (_data$content2 = data.content) === null || _data$content2 === void 0 || (_data$content2 = _data$content2[0]) === null || _data$content2 === void 0 ? void 0 : _data$content2.text
               } : data === null || data === void 0 || (_data$choices = data.choices) === null || _data$choices === void 0 || (_data$choices = _data$choices[0]) === null || _data$choices === void 0 ? void 0 : _data$choices.message);
-            case 18:
-              _context2.prev = 18;
+            case 19:
+              _context2.prev = 19;
               _context2.t0 = _context2["catch"](3);
               if (!(_context2.t0.name === 'AbortError')) {
-                _context2.next = 22;
+                _context2.next = 23;
                 break;
               }
               throw new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
-            case 22:
-              throw _context2.t0;
             case 23:
+              throw _context2.t0;
+            case 24:
             case "end":
               return _context2.stop();
           }
-        }, _callee2, this, [[3, 18]]);
+        }, _callee2, this, [[3, 19]]);
       }));
       function attemptRequest(_x2) {
         return _attemptRequest.apply(this, arguments);
@@ -451,7 +451,7 @@ var Provider = /*#__PURE__*/function () {
                         // Handle streaming response formats
                         var text = (json === null || json === void 0 || (_json$delta = json.delta) === null || _json$delta === void 0 ? void 0 : _json$delta.text) || (json === null || json === void 0 || (_json$content_block = json.content_block) === null || _json$content_block === void 0 ? void 0 : _json$content_block.text) || ((_json$choices3 = json.choices) === null || _json$choices3 === void 0 || (_json$choices3 = _json$choices3[0]) === null || _json$choices3 === void 0 || (_json$choices3 = _json$choices3.delta) === null || _json$choices3 === void 0 ? void 0 : _json$choices3.content) || ((_json$choices4 = json.choices) === null || _json$choices4 === void 0 || (_json$choices4 = _json$choices4[0]) === null || _json$choices4 === void 0 ? void 0 : _json$choices4.text);
                         if (json !== null && json !== void 0 && (_json$delta2 = json.delta) !== null && _json$delta2 !== void 0 && _json$delta2.stop_reason) {
-                          logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
+                          logger.log('[done] Closing readable stream');
                           data += '\n';
                           controller.enqueue(encoder.encode('\n'));
                           controller.close();
@@ -595,6 +595,7 @@ var Provider = /*#__PURE__*/function () {
           preparedPayload,
           controller,
           timeoutId,
+          fetchOptions,
           response,
           delay,
           _args5 = arguments;
@@ -602,6 +603,8 @@ var Provider = /*#__PURE__*/function () {
           while (1) switch (_context5.prev = _context5.next) {
             case 0:
               retries = _args5.length > 1 && _args5[1] !== undefined ? _args5[1] : 0;
+              logger.log('createStream', this.endpoint, payload);
+
               // Check resource limits
               limitCheck = this.resourceLimiter.consume(_objectSpread({
                 rpm: 1
@@ -609,7 +612,7 @@ var Provider = /*#__PURE__*/function () {
                 tpm: estimateTokens(payload.messages.join(''))
               } : {}));
               if (limitCheck.allowed) {
-                _context5.next = 4;
+                _context5.next = 5;
                 break;
               }
               throw new ProviderRateLimitError(this.name, limitCheck.limits.rpm.resetInMs, Object.entries(limitCheck.limits).filter(function (_ref5) {
@@ -626,8 +629,8 @@ var Provider = /*#__PURE__*/function () {
                   resetInMs: status.resetInMs
                 };
               }));
-            case 4:
-              _context5.prev = 4;
+            case 5:
+              _context5.prev = 5;
               preparedPayload = this.preparePayload(_objectSpread(_objectSpread({}, payload), {}, {
                 stream: true
               }));
@@ -635,51 +638,53 @@ var Provider = /*#__PURE__*/function () {
               timeoutId = setTimeout(function () {
                 return controller.abort();
               }, this.REQUEST_TIMEOUT_MS);
-              _context5.next = 10;
-              return this.fetch(this.endpoint, {
+              fetchOptions = {
                 method: 'POST',
                 headers: this.headerGen ? this.headerGen.call(this) : this.getHeaders(),
                 body: JSON.stringify(preparedPayload),
                 signal: controller.signal
-              });
-            case 10:
+              };
+              logger.log('fetch()', this.endpoint, fetchOptions);
+              _context5.next = 13;
+              return this.fetch(this.endpoint, fetchOptions);
+            case 13:
               response = _context5.sent;
               clearTimeout(timeoutId);
               if (response.ok) {
-                _context5.next = 16;
+                _context5.next = 19;
                 break;
               }
-              _context5.next = 15;
+              _context5.next = 18;
               return this.handleErrorResponse(response);
-            case 15:
+            case 18:
               throw _context5.sent;
-            case 16:
-              return _context5.abrupt("return", this.createReadableStream(response));
             case 19:
-              _context5.prev = 19;
-              _context5.t0 = _context5["catch"](4);
+              return _context5.abrupt("return", this.createReadableStream(response));
+            case 22:
+              _context5.prev = 22;
+              _context5.t0 = _context5["catch"](5);
               if (!(_context5.t0.name === 'AbortError')) {
-                _context5.next = 23;
+                _context5.next = 26;
                 break;
               }
               throw new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
-            case 23:
+            case 26:
               if (!(this.shouldRetry(_context5.t0) && retries < this.MAX_RETRIES)) {
-                _context5.next = 28;
+                _context5.next = 31;
                 break;
               }
               delay = this.calculateBackoff(retries);
-              _context5.next = 27;
+              _context5.next = 30;
               return this.delay(delay);
-            case 27:
+            case 30:
               return _context5.abrupt("return", this.createStream(payload, retries + 1));
-            case 28:
+            case 31:
               throw _context5.t0;
-            case 29:
+            case 32:
             case "end":
               return _context5.stop();
           }
-        }, _callee5, this, [[4, 19]]);
+        }, _callee5, this, [[5, 22]]);
       }));
       function createStream(_x4) {
         return _createStream.apply(this, arguments);

@@ -47,6 +47,9 @@ describe('Logging Configuration', () => {
         logging: { level: 'ERROR' }
       });
 
+      // Reset any loggers that might have been created
+      jest.clearAllMocks();
+      
       // Clear any configuration logs before our actual test
       mockConsole.log.mockClear();
       mockCustomLogger.mockClear();

@@ -1,6 +1,7 @@
 import { LOG_LEVELS } from './LogLevels.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
 import { Logger } from './Logger.mjs';
+import { configure as configureCache, setLogger } from './mainCache.mjs';
 
 const DEFAULT_CONFIG = {
   logging: {
@@ -41,7 +42,7 @@ const DEFAULT_CONFIG = {
       networkError: "Failed to connect to the service. Please check your connection and try again.",
       unexpectedError: "An unexpected error occurred. Please try again later."
     }
-  }
+  },
 };
 
 let CONFIG = { ...DEFAULT_CONFIG };
@@ -228,6 +229,11 @@ export function configure(options = {}) {
       ...symbols
     };
   }
+
+  // Handle cache configuration by delegating to mainCache
+  if (options.cache) {
+    configureCache({ cache: options.cache });
+  }
 }
 
 export function getConfig() {
@@ -237,7 +243,7 @@ export function getConfig() {
   return frozenConfig;
 }
 
-export { LOG_LEVELS };
+export { LOG_LEVELS, setLogger as setCacheLogger };
 export function resetConfig() {
   CONFIG = { ...DEFAULT_CONFIG };
 } 

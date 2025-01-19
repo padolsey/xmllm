@@ -252,4 +252,48 @@ stream('Query', {
   genUserPrompt: (scaffold, prompt) => 
     `Custom user: ${prompt}`
 });
-``` 
+```
+
+### Cache Configuration
+
+The proxy server supports caching to improve performance and reduce API calls. Caching is disabled by default but can be enabled per-request via the `cache: true` option, or configured globally:
+
+```javascript
+// Enable caching per-request
+stream('Query', {
+  cache: true  // Defaults to false
+});
+
+// Or configure globally
+configure({
+  defaults: {
+    cache: true
+  }
+});
+```
+
+For proxy server cache settings:
+
+```bash
+# Start proxy with cache configuration (these are the defaults)
+xmllm-proxy \
+  --cache.maxSize=5000000 \      # Max cache size in bytes (5MB)
+  --cache.maxEntries=1000 \      # Max number of cached items
+  --cache.maxEntrySize=10000 \   # Max size per entry in bytes
+  --cache.persistInterval=60000 \ # Save cache every 60 seconds
+  --cache.ttl=3600000 \          # Items expire after 1 hour
+  --cache.dir=".cache" \   # Custom cache directory
+  --cache.filename="llm-cache.json"   # Custom cache filename
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| maxSize | Maximum cache size in bytes | 5MB (5000000) |
+| maxEntries | Maximum number of cached items | 100000 |
+| maxEntrySize | Maximum size per entry in bytes | 10KB (10000) |
+| persistInterval | How often to save cache to disk (ms) | 5 min (300000) |
+| ttl | Time-to-live for cached items (ms) | 5 days (432000000) |
+| dir | Cache directory path (relative to process.cwd()) | .cache |
+| filename | Cache file name | llm-cache.json |
+
+The cache helps reduce API costs and improve response times by storing frequently requested completions. Cache entries are automatically pruned when they expire or when size limits are reached. 

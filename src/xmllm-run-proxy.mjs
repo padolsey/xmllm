@@ -4,6 +4,7 @@ console.log('Starting Proxy');
 import dotenv from 'dotenv';
 import createDefaultProxy from './proxies/default.mjs';
 import createCoTProxy from './proxies/cot.mjs';
+import { configure as configureCache } from './mainCache.mjs';
 
 // Load environment variables from .env file if present
 dotenv.config();
@@ -77,7 +78,21 @@ try {
       'globalRequestsPerHour'
     ),
     rateLimitMessage: getArg('rateLimitMessage'),
+    cache: {
+      maxSize: safeParseInt(getArg('cache.maxSize'), 'cache.maxSize'),
+      maxEntries: safeParseInt(getArg('cache.maxEntries'), 'cache.maxEntries'),
+      maxEntrySize: safeParseInt(getArg('cache.maxEntrySize'), 'cache.maxEntrySize'),
+      persistInterval: safeParseInt(getArg('cache.persistInterval'), 'cache.persistInterval'),
+      ttl: safeParseInt(getArg('cache.ttl'), 'cache.ttl'),
+      cacheDir: getArg('cache.dir'),
+      cacheFilename: getArg('cache.filename')
+    }
   };
+
+  // Configure cache if options provided
+  if (Object.values(config.cache).some(v => v !== undefined)) {
+    configureCache({ cache: config.cache });
+  }
 
   console.log('Starting proxy with config:', config);
 

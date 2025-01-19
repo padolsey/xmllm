@@ -231,6 +231,16 @@ export interface LoggingConfig {
 
 export interface DefaultsConfig extends BaseStreamingSchemaConfig {}
 
+// Add cache configuration types
+export interface CacheConfig {
+  maxSize?: number;
+  maxEntries?: number;
+  persistInterval?: number;
+  ttl?: number;
+  maxEntrySize?: number;
+}
+
+// Update ConfigureOptions to include cache config
 export interface ConfigureOptions {
   logging?: LoggingConfig;
   defaults?: DefaultsConfig;
@@ -242,6 +252,7 @@ export interface ConfigureOptions {
     tagCloser?: string;
     tagSuffix?: string;
   };
+  cache?: CacheConfig;
   keys?: {
     openai?: string;
     anthropic?: string;

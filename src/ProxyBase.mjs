@@ -28,7 +28,7 @@ function validateProxyConfig(config) {
     'port', 'corsOrigins', 'maxRequestSize', 'timeout',
     'debug', 'verbose', 'globalRequestsPerMinute', 'globalTokensPerMinute',
     'globalTokensPerHour', 'globalRequestsPerHour', 'rateLimitMessage',
-    'listen', 'errorMessages', 'paths'
+    'listen', 'errorMessages', 'paths', 'cache'
   ]);
 
   Object.keys(config).forEach(key => {
@@ -71,6 +71,23 @@ function validateProxyConfig(config) {
       if (config.paths.limits && typeof config.paths.limits !== 'string') {
         errors.push('paths.limits must be a string');
       }
+    }
+  }
+
+  // Add cache validation
+  if (config.cache) {
+    validateLimit('cache.maxSize', config.cache.maxSize);
+    validateLimit('cache.maxEntries', config.cache.maxEntries);
+    validateLimit('cache.maxEntrySize', config.cache.maxEntrySize);
+    validateLimit('cache.persistInterval', config.cache.persistInterval, 1000);
+    validateLimit('cache.ttl', config.cache.ttl);
+    
+    // Validate cache file options
+    if (config.cache.cacheDir && typeof config.cache.cacheDir !== 'string') {
+      errors.push('cache.dir must be a string');
+    }
+    if (config.cache.cacheFilename && typeof config.cache.cacheFilename !== 'string') {
+      errors.push('cache.filename must be a string');
     }
   }
 

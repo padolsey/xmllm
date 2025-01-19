@@ -36,17 +36,28 @@ var standardPayloader = function standardPayloader(_ref) {
     presence_penalty = _ref$presence_penalty === void 0 ? 0 : _ref$presence_penalty,
     _ref$system = _ref.system,
     system = _ref$system === void 0 ? '' : _ref$system;
-  return {
+  var payload = {
     messages: [{
       role: 'system',
       content: system || ''
-    }].concat(messages),
-    max_tokens: max_tokens,
-    stop: stop,
-    temperature: temperature,
-    top_p: top_p,
-    presence_penalty: presence_penalty
+    }].concat(messages)
   };
+  if (max_tokens != null) {
+    payload.max_tokens = max_tokens;
+  }
+  if (stop != null) {
+    payload.stop = stop;
+  }
+  if (temperature != null) {
+    payload.temperature = temperature;
+  }
+  if (top_p != null) {
+    payload.top_p = top_p;
+  }
+  if (presence_penalty != null) {
+    payload.presence_penalty = presence_penalty;
+  }
+  return payload;
 };
 var taiStylePayloader = function taiStylePayloader(_ref2) {
   var _ref2$messages = _ref2.messages,

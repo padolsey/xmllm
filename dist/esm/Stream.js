@@ -15,10 +15,9 @@ function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 var _PQueue = import('p-queue');
 import { createHash } from 'crypto';
-import { get as getCache, set as setCache } from './mainCache.mjs';
+import { get as getCache, set as setCache, getConfig as getCacheConfig } from './mainCache.mjs';
 import Logger from './Logger.mjs';
 import ProviderManager from './ProviderManager.mjs';
-import { DEFAULT_CONFIG } from './mainCache.mjs';
 import { getConfig } from './config.mjs';
 import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
 var logger = new Logger('APIStream');
@@ -110,7 +109,7 @@ function _APIStream() {
                     break;
                   }
                   cachedData = cachedData.value;
-                  logger.log('OpenAIStream: cached', hash);
+                  logger.log('Stream: cached', hash);
                   return _context3.abrupt("return", new ReadableStream({
                     start: function start(controller) {
                       controller.enqueue(encoder.encode(cachedData));
@@ -140,7 +139,7 @@ function _APIStream() {
                   return _context3.abrupt("return", new ReadableStream({
                     start: function start(controller) {
                       return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize, _payload$errorMessage, _payload$errorMessage2, config, errorMessage;
+                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize, cacheConfig, _payload$errorMessage, _payload$errorMessage2, config, errorMessage;
                         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                           while (1) switch (_context2.prev = _context2.next) {
                             case 0:
@@ -203,26 +202,27 @@ function _APIStream() {
                               break;
                             case 24:
                               if (!(payload.cache === true)) {
-                                _context2.next = 32;
+                                _context2.next = 33;
                                 break;
                               }
                               contentSize = content.length;
-                              if (!(contentSize <= DEFAULT_CONFIG.maxEntrySize)) {
-                                _context2.next = 31;
+                              cacheConfig = getCacheConfig();
+                              if (!(contentSize <= cacheConfig.maxEntrySize)) {
+                                _context2.next = 32;
                                 break;
                               }
-                              _context2.next = 29;
+                              _context2.next = 30;
                               return setCache(hash, content);
-                            case 29:
-                              _context2.next = 32;
+                            case 30:
+                              _context2.next = 33;
                               break;
-                            case 31:
-                              logger.warn("Content too large to cache (".concat(contentSize, " chars)"));
                             case 32:
-                              _context2.next = 39;
+                              logger.warn("Content too large to cache (".concat(contentSize, " chars)"));
+                            case 33:
+                              _context2.next = 40;
                               break;
-                            case 34:
-                              _context2.prev = 34;
+                            case 35:
+                              _context2.prev = 35;
                               _context2.t0 = _context2["catch"](2);
                               logger.error('Error in stream:', _context2.t0);
                               if (waitMessageTimer) clearTimeout(waitMessageTimer);
@@ -231,15 +231,15 @@ function _APIStream() {
                                 errorMessage = _context2.t0 instanceof ProviderRateLimitError ? (payload === null || payload === void 0 || (_payload$errorMessage = payload.errorMessages) === null || _payload$errorMessage === void 0 ? void 0 : _payload$errorMessage.rateLimitExceeded) || config.defaults.errorMessages.rateLimitExceeded : (payload === null || payload === void 0 || (_payload$errorMessage2 = payload.errorMessages) === null || _payload$errorMessage2 === void 0 ? void 0 : _payload$errorMessage2.genericFailure) || config.defaults.errorMessages.genericFailure;
                                 controller.enqueue(encoder.encode(errorMessage));
                               }
-                            case 39:
-                              _context2.prev = 39;
+                            case 40:
+                              _context2.prev = 40;
                               controller.close();
-                              return _context2.finish(39);
-                            case 42:
+                              return _context2.finish(40);
+                            case 43:
                             case "end":
                               return _context2.stop();
                           }
-                        }, _callee2, null, [[2, 34, 39, 42]]);
+                        }, _callee2, null, [[2, 35, 40, 43]]);
                       }))();
                     }
                   }));

@@ -743,3 +743,135 @@ describe('Token Management', () => {
     expect(payload.messages[payload.messages.length - 1].content).toEqual(messages[messages.length - 1].content);
   });
 });
+
+describe('simple() with realistic chunking', () => {
+  it('should handle gradually streamed complex response', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<analy',
+        'sis><sentiment>Pos',
+        'itive</sentiment><topics><to',
+        'pic>Technology</topic><topic>AI</to',
+        'pic></topics><key_points><point>Main idea</p',
+        'oint><point>Secondary point</point></key_points></analysis>'
+      ])
+    }));
+
+    const result = await simple({
+      prompt: "Analyze this text",
+      schema: {
+        analysis: {
+          sentiment: String,
+          topics: {
+            topic: Array(String)
+          },
+          key_points: {
+            point: Array(String)
+          }
+        }
+      },
+      llmStream: TestStream
+    });
+
+    expect(result).toEqual({
+      analysis: {
+        sentiment: 'Positive',
+        topics: {
+          topic: ['Technology', 'AI']
+        },
+        key_points: {
+          point: ['Main idea', 'Secondary point']
+        }
+      }
+    });
+  });
+
+  it('should handle interleaved elements in chunks', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<analysis><item id="1"><name>First',
+        '</name><value>10',
+        '</value></item><item id="2"><name>Sec',
+        'ond</name><value>',
+        '20</value></item><summary>All items ',
+        'processed</summary></analysis>'
+      ])
+    }));
+
+    const result = await simple({
+      prompt: "Process items",
+      schema: {
+        analysis: {
+          item: Array({
+            name: String,
+            value: Number,
+            $id: String
+          }),
+          summary: String
+        }
+      },
+      llmStream: TestStream
+    });
+
+    expect(result).toEqual({
+      analysis: {
+        item: [
+          { name: 'First', value: 10, $id: '1' },
+          { name: 'Second', value: 20, $id: '2' }
+        ],
+        summary: 'All items processed'
+      }
+    });
+  });
+
+  it('should handle deeply nested elements split across chunks', async () => {
+    const TestStream = jest.fn().mockImplementation(() => ({
+      getReader: () => createMockReader([
+        '<response><user><pro',
+        'file><name>Jo',
+        'hn</name><details><age>3',
+        '0</age><location>New Yo',
+        'rk</location></details><preferences><item>A</item><it',
+        'em>B</item></preferences></profile></user></response>'
+      ])
+    }));
+
+    const result = await simple({
+      prompt: "Get user profile",
+      schema: {
+        response: {
+          user: {
+            profile: {
+              name: String,
+              details: {
+                age: Number,
+                location: String
+              },
+              preferences: {
+                item: Array(String)
+              }
+            }
+          }
+        }
+      },
+      llmStream: TestStream
+    });
+
+    expect(result).toEqual({
+      response: {
+        user: {
+          profile: {
+            name: 'John',
+            details: {
+              age: 30,
+              location: 'New York'
+            },
+            preferences: {
+              item: ['A', 'B']
+            }
+          }
+        }
+      }
+    });
+  });
+});

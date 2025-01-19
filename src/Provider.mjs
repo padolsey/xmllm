@@ -29,7 +29,6 @@ const logger = new Logger('Provider');
 
 const DEFAULT_ASSUMED_MAX_CONTEXT_SIZE = 8_000; // input token size
 const DEFAULT_RESPONSE_TOKEN_LENGTH = 300; // max_tokens
-const MAX_TOKEN_HISTORICAL_MESSAGE = 600;
 
 /**
  * Handles direct communication with LLM APIs.
@@ -200,6 +199,8 @@ class Provider {
     const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
 
     try {
+      logger.log('Attempting request', this.endpoint, preparedPayload);
+
       const response = await this.fetch(this.endpoint, {
         method: 'POST',
         headers: this.headerGen ? this.headerGen.call(this) : this.getHeaders(),
@@ -362,7 +363,7 @@ class Provider {
                 json.choices?.[0]?.text;
 
               if (json?.delta?.stop_reason) {
-                logger.log('[ANTHROPIC:CLAUDE done] Closing readable stream');
+                logger.log('[done] Closing readable stream');
                 data += '\n';
                 controller.enqueue(encoder.encode('\n'));
                 controller.close();
@@ -465,6 +466,9 @@ class Provider {
   }
 
   async createStream(payload, retries = 0) {
+
+    logger.log('createStream', this.endpoint, payload);
+
     // Check resource limits
     const limitCheck = this.resourceLimiter.consume({
       rpm: 1,
@@ -495,12 +499,16 @@ class Provider {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
 
-      const response = await this.fetch(this.endpoint, {
+      const fetchOptions = {
         method: 'POST',
         headers: this.headerGen ? this.headerGen.call(this) : this.getHeaders(),
         body: JSON.stringify(preparedPayload),
         signal: controller.signal
-      });
+      };
+
+      logger.log('fetch()', this.endpoint, fetchOptions);
+
+      const response = await this.fetch(this.endpoint, fetchOptions);
 
       clearTimeout(timeoutId);
 

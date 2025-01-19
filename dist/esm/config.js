@@ -10,6 +10,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 import { LOG_LEVELS } from './LogLevels.mjs';
 import { ClientProvider } from './ClientProvider.mjs';
 import { Logger } from './Logger.mjs';
+import { configure as configureCache, setLogger } from './mainCache.mjs';
 var DEFAULT_CONFIG = {
   logging: {
     level: 'ERROR',
@@ -209,6 +210,13 @@ export function configure() {
     // Apply validated configuration
     CONFIG.idioSymbols = _objectSpread(_objectSpread(_objectSpread({}, DEFAULT_CONFIG.idioSymbols), CONFIG.idioSymbols), symbols);
   }
+
+  // Handle cache configuration by delegating to mainCache
+  if (options.cache) {
+    configureCache({
+      cache: options.cache
+    });
+  }
 }
 export function getConfig() {
   var frozenConfig = _objectSpread({}, CONFIG);
@@ -216,7 +224,7 @@ export function getConfig() {
   Object.freeze(frozenConfig.logging);
   return frozenConfig;
 }
-export { LOG_LEVELS };
+export { LOG_LEVELS, setLogger as setCacheLogger };
 export function resetConfig() {
   CONFIG = _objectSpread({}, DEFAULT_CONFIG);
 }

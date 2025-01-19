@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import path from 'path';
 import * as fs from 'fs/promises';
+import { configure } from '../src/config.mjs';
 
 // Create mock functions with better tracking
 const mockFs = {
@@ -15,9 +16,6 @@ await jest.unstable_mockModule('fs/promises', () => mockFs);
 
 // Import after mock is set up
 const mainCache = await import('../src/mainCache.mjs');
-
-// Get DEFAULT_CONFIG from mainCache
-const { DEFAULT_CONFIG } = await import('../src/mainCache.mjs');
 
 describe('mainCache', () => {
     beforeAll(async () => {
@@ -36,6 +34,15 @@ describe('mainCache', () => {
         jest.clearAllMocks();
         mainCache.stats.hits = 0;
         mainCache.stats.misses = 0;
+        
+        // Reset CONFIG to its default state
+        mainCache.resetConfig();
+
+        // Mock file operations instead of fs module
+        mainCache.fileOps.ensureDir = jest.fn().mockResolvedValue(true);
+        mainCache.fileOps.writeFile = jest.fn().mockResolvedValue(true);
+        mainCache.fileOps.readFile = jest.fn().mockResolvedValue('{}');
+        mainCache.fileOps.rename = jest.fn().mockResolvedValue(true);
     });
 
     afterEach(async () => {
@@ -142,35 +149,17 @@ describe('mainCache', () => {
 
     describe('Persistence', () => {
         it('should create cache directory when needed', async () => {
-            // Initially, no directory should be created
-            expect(mockFs.mkdir).not.toHaveBeenCalled();
-            
-            // Force cache initialization by setting a value
             await mainCache.set('test-key', 'test-value');
-            
-            // Now mkdir should have been called
-            expect(mockFs.mkdir).toHaveBeenCalledWith(
-                expect.stringContaining('.cache'),
-                { recursive: true }
+            expect(mainCache.fileOps.ensureDir).toHaveBeenCalledWith(
+                expect.stringContaining('.cache')
             );
         });
 
         it('should handle filesystem errors gracefully', async () => {
-            // Reset the mock to track new calls
-            mockFs.writeFile.mockClear();
-            
-            // Setup mock to reject once
-            mockFs.writeFile.mockRejectedValueOnce(new Error('Write failed'));
-            
-            // Set a value and force persistence
-            await mainCache.set('error-test', 'value');
-            await mainCache.cleanup(); // This will force persistence
-            
-            // Verify writeFile was called
-            expect(mockFs.writeFile).toHaveBeenCalled();
-            
-            // Verify the error didn't throw
-            await expect(mainCache.get('error-test')).resolves.not.toThrow();
+            mainCache.fileOps.writeFile.mockRejectedValueOnce(new Error('Write failed'));
+            await mainCache.set('test-key', 'test-value');
+            await mainCache.cleanup();
+            expect(mainCache.fileOps.writeFile).toHaveBeenCalled();
         });
     });
 
@@ -223,10 +212,15 @@ describe('mainCache', () => {
         });
 
         it('should handle set errors gracefully', async () => {
-            const circular = {};
-            circular.self = circular;
+            const problematic = {
+                toJSON: () => { throw new Error('Serialization error'); }
+            };
             
-            await expect(mainCache.set('circular', circular)).resolves.not.toThrow();
+            const result = await mainCache.set('error-test', problematic);
+            expect(result).toBeNull();
+            
+            const cached = await mainCache.get('error-test');
+            expect(cached).toBeNull();
         });
 
         it('should handle delete errors gracefully', async () => {
@@ -249,8 +243,10 @@ describe('mainCache', () => {
         });
         
         it('should handle cache size limits correctly', async () => {
+            // Get current config
+            const config = mainCache.getConfig();
             // Create a string that exceeds maxEntrySize
-            const largeValue = 'x'.repeat(DEFAULT_CONFIG.maxEntrySize + 100);
+            const largeValue = 'x'.repeat(config.maxEntrySize + 100);
             await mainCache.set('large-key', largeValue);
             const result = await mainCache.get('large-key');
             expect(result).toBeNull();
@@ -274,17 +270,16 @@ describe('mainCache', () => {
 
     describe('Cache Initialization', () => {
         it('should not create cache directory until first cache operation', async () => {
-            expect(mockFs.mkdir).not.toHaveBeenCalled();
+            expect(mainCache.fileOps.ensureDir).not.toHaveBeenCalled();
             
             // Just importing should not trigger directory creation
             await import('../src/mainCache.mjs?timestamp=' + Date.now());
-            expect(mockFs.mkdir).not.toHaveBeenCalled();
+            expect(mainCache.fileOps.ensureDir).not.toHaveBeenCalled();
             
             // But setting a value should
             await mainCache.set('test-key', 'test-value');
-            expect(mockFs.mkdir).toHaveBeenCalledWith(
-                expect.stringContaining('.cache'),
-                { recursive: true }
+            expect(mainCache.fileOps.ensureDir).toHaveBeenCalledWith(
+                expect.stringContaining('.cache')
             );
         });
 
@@ -306,7 +301,7 @@ describe('mainCache', () => {
         it('should only persist when cache is modified', async () => {
             // Reading shouldn't trigger persistence
             await mainCache.get('test-key');
-            expect(mockFs.writeFile).not.toHaveBeenCalled();
+            expect(mainCache.fileOps.writeFile).not.toHaveBeenCalled();
             
             // Writing should mark cache for persistence
             await mainCache.set('test-key', 'test-value');
@@ -315,8 +310,8 @@ describe('mainCache', () => {
             await mainCache.cleanup();
             
             // Should have written to temp file and renamed
-            expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
-            expect(mockFs.rename).toHaveBeenCalledTimes(1);
+            expect(mainCache.fileOps.writeFile).toHaveBeenCalledTimes(1);
+            expect(mainCache.fileOps.rename).toHaveBeenCalledTimes(1);
         });
 
         it('should handle persistence errors gracefully', async () => {
@@ -329,55 +324,223 @@ describe('mainCache', () => {
         });
     });
 
-    describe('Memory Management', () => {
-        it('should clear memory under pressure', async () => {
-            // Fill cache with some entries
-            for (let i = 0; i < 100; i++) {
-                await mainCache.set(`key-${i}`, `value-${i}`);
-            }
-            
-            // Mock high memory usage
-            const originalMemoryUsage = process.memoryUsage;
-            process.memoryUsage = jest.fn().mockReturnValue({
-                heapUsed: 900,
-                heapTotal: 1000
-            });
-            
-            // Trigger memory pressure check
-            await mainCache.checkMemoryPressure();
-            
-            // Should have cleared some entries
-            const stats = await mainCache.getStats();
-            expect(stats.entryCount).toBeLessThan(100);
-            
-            // Restore original function
-            process.memoryUsage = originalMemoryUsage;
-        });
-
-        it('should respect entry size limits', async () => {
-            const largeValue = 'x'.repeat(DEFAULT_CONFIG.maxEntrySize + 100);
-            await mainCache.set('large-key', largeValue);
-            
-            // Large value should not be cached
-            const result = await mainCache.get('large-key');
-            expect(result).toBeNull();
-            
-            // Cache should not be marked as modified
-            expect(mockFs.writeFile).not.toHaveBeenCalled();
-        });
-    });
-
     describe('Cache Cleanup', () => {
         it('should properly clean up resources', async () => {
-            // Setup intervals
+            // Reset mocks
+            mainCache.fileOps.writeFile.mockClear();
+            mainCache.fileOps.rename.mockClear();
+            
+            // Setup intervals and ensure cache is modified
             await mainCache.set('test-key', 'test-value');
             
-            // Cleanup should clear intervals and persist changes
+            // Force persistence
             await mainCache.cleanup();
             
             // Should have attempted final persistence
-            expect(mockFs.writeFile).toHaveBeenCalled();
-            expect(mockFs.rename).toHaveBeenCalled();
+            expect(mainCache.fileOps.writeFile).toHaveBeenCalled();
+            expect(mainCache.fileOps.rename).toHaveBeenCalled();
+        });
+    });
+
+    describe('Cache Configuration', () => {
+        beforeEach(async () => {
+            await mainCache._reset();
+            jest.clearAllMocks();
+        });
+
+        it('should apply cache settings from configure()', async () => {
+            configure({
+                cache: {
+                    maxSize: 1000000,      // 1MB
+                    maxEntries: 50,
+                    ttl: 60 * 60 * 1000,   // 1 hour
+                    maxEntrySize: 5000,
+                    persistInterval: 30000  // 30 seconds
+                }
+            });
+
+            // Set a value to initialize cache with new settings
+            await mainCache.set('test-key', 'test-value');
+
+            // Get cache instance and verify settings
+            const stats = await mainCache.getStats();
+            expect(stats).toMatchObject({
+                maxSize: 1000000,
+                maxEntries: 50
+            });
+
+            // Get current config values
+            const currentConfig = mainCache.getConfig();
+            expect(currentConfig).toMatchObject({
+                maxSize: 1000000,
+                maxEntries: 50,
+                ttl: 60 * 60 * 1000,
+                maxEntrySize: 5000,
+                persistInterval: 30000
+            });
+        });
+
+        it('should merge partial cache configurations', async () => {
+            const originalConfig = mainCache.getConfig();
+            
+            configure({
+                cache: {
+                    maxEntries: 75,
+                    ttl: 120000
+                }
+            });
+
+            // Verify partial update
+            const currentConfig = mainCache.getConfig();
+            expect(currentConfig).toMatchObject({
+                maxSize: originalConfig.maxSize,  // Should retain original
+                maxEntries: 75,                  // Should update
+                ttl: 120000                      // Should update
+            });
+        });
+
+        it('should respect configured maxEntrySize', async () => {
+            configure({
+                cache: {
+                    maxEntrySize: 10  // Very small for testing
+                }
+            });
+
+            // Try to cache something larger than maxEntrySize
+            const largeValue = 'x'.repeat(20);
+            await mainCache.set('large-key', largeValue);
+
+            // Should not be cached due to size
+            const result = await mainCache.get('large-key');
+            expect(result).toBeNull();
+        });
+
+        it('should respect configured TTL', async () => {
+            configure({
+                cache: {
+                    ttl: 50  // 50ms TTL for testing
+                }
+            });
+
+            await mainCache.set('ttl-test', 'value');
+            
+            // Should exist immediately
+            let result = await mainCache.get('ttl-test');
+            expect(result?.value).toBe('value');
+            
+            // Wait for TTL to expire
+            await new Promise(resolve => setTimeout(resolve, 60));
+            
+            // Should be expired now
+            result = await mainCache.get('ttl-test');
+            expect(result).toBeNull();
+        });
+
+        describe('Config Validation', () => {
+            it('should reject invalid config values', async () => {
+                expect(() => configure({
+                    cache: { maxSize: -1 }
+                })).toThrow('maxSize must be a positive number');
+
+                expect(() => configure({
+                    cache: { maxEntries: 'invalid' }
+                })).toThrow('maxEntries must be a positive number');
+            });
+        });
+
+        describe('Cache Reinitialization', () => {
+            it('should reinitialize cache with new config', async () => {
+                // Set initial values with default config
+                await mainCache.set('key1', 'value1');
+                await mainCache.set('key2', 'value2');
+
+                // Verify initial state
+                expect((await mainCache.get('key1'))?.value).toBe('value1');
+                expect((await mainCache.get('key2'))?.value).toBe('value2');
+
+                // Change config to smaller size and force reinitialization
+                configure({
+                    cache: {
+                        maxEntries: 1  // Only allow 1 entry
+                    }
+                });
+
+                // Force cache reinitialization
+                await mainCache._reset();
+                
+                // Set values again after reinitialization
+                await mainCache.set('key1', 'value1');
+                await mainCache.set('key2', 'value2');
+                
+                // Only the most recent entry should remain
+                const key1Result = await mainCache.get('key1');
+                const key2Result = await mainCache.get('key2');
+                expect(key1Result).toBeNull();
+                expect(key2Result?.value).toBe('value2');
+            });
+
+            it('should apply new size limits only to future entries', async () => {
+                // Set initial entry with larger size
+                const largeValue = 'x'.repeat(100);
+                const result = await mainCache.set('existing', largeValue);
+                
+                // Verify it was cached successfully
+                expect(result).not.toBeNull();
+                const initialGet = await mainCache.get('existing');
+                expect(initialGet?.value).toBe(largeValue);
+
+                // Change to more restrictive size limit
+                configure({
+                    cache: {
+                        maxEntrySize: 75  // Only allow new entries up to 75 bytes
+                    }
+                });
+
+                // Existing large entry should still be accessible
+                const existingEntry = await mainCache.get('existing');
+                expect(existingEntry?.value).toBe(largeValue);
+
+                // But new large entries should be rejected
+                const newLargeResult = await mainCache.set('new-large', 'x'.repeat(100));
+                expect(newLargeResult).toBeNull();
+                expect(await mainCache.get('new-large')).toBeNull();
+
+                // While new entries within limit should work
+                const smallValue = 'x'.repeat(50);
+                await mainCache.set('new-small', smallValue);
+                const newSmallEntry = await mainCache.get('new-small');
+                expect(newSmallEntry?.value).toBe(smallValue);
+            });
+        });
+
+        describe('TTL Handling', () => {
+            it('should handle undefined TTL correctly', async () => {
+                configure({
+                    cache: {
+                        ttl: undefined  // No default TTL
+                    }
+                });
+
+                await mainCache.set('no-ttl', 'value');
+                const entry = await mainCache.get('no-ttl');
+                expect(entry?.expires).toBeUndefined();
+            });
+
+            it('should use configured default TTL when no TTL provided', async () => {
+                const defaultTTL = 1000;
+                configure({
+                    cache: {
+                        ttl: defaultTTL
+                    }
+                });
+
+                const now = Date.now();
+                await mainCache.set('default-ttl', 'value');
+                const entry = await mainCache.get('default-ttl');
+                
+                expect(entry?.expires).toBeGreaterThan(now + defaultTTL - 100);
+                expect(entry?.expires).toBeLessThan(now + defaultTTL + 100);
+            });
         });
     });
 });

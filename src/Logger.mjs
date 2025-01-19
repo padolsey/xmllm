@@ -6,10 +6,6 @@ export class Logger {
     this.name = name;
   }
 
-  formatMessage(...args) {
-    return `${this.name} ==> ${args.join(' ')}`;
-  }
-
   shouldLog(level) {
     const config = getConfig();
     return LOG_LEVELS[level] <= LOG_LEVELS[config.logging.level];
@@ -20,7 +16,7 @@ export class Logger {
     if (config.logging.customLogger) {
       config.logging.customLogger('error', this.name, ...args);
     } else {
-      console.error(this.formatMessage(...args));
+      console.error(this.name, "==>", ...args);
     }
   }
 
@@ -30,7 +26,7 @@ export class Logger {
     if (config.logging.customLogger) {
       config.logging.customLogger('warn', this.name, ...args);
     } else {
-      console.warn(this.formatMessage(...args));
+      console.warn(this.name, "==>", ...args);
     }
   }
 
@@ -40,7 +36,7 @@ export class Logger {
     if (config.logging.customLogger) {
       config.logging.customLogger('info', this.name, ...args);
     } else {
-      console.log(this.formatMessage(...args));
+      console.log(this.name, "==>", ...args);
     }
   }
 
@@ -50,7 +46,7 @@ export class Logger {
     if (config.logging.customLogger) {
       config.logging.customLogger('debug', this.name, ...args);
     } else {
-      console.log(this.formatMessage(...args));
+      console.log(this.name, "==>", ...args);
     }
   }
 

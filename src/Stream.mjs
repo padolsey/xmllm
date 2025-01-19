@@ -1,9 +1,8 @@
 const _PQueue = import('p-queue');
 import { createHash } from 'crypto';
-import { get as getCache, set as setCache } from './mainCache.mjs';
+import { get as getCache, set as setCache, getConfig as getCacheConfig } from './mainCache.mjs';
 import Logger from './Logger.mjs';
 import ProviderManager from './ProviderManager.mjs';
-import { DEFAULT_CONFIG } from './mainCache.mjs';
 import { getConfig } from './config.mjs';
 import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
 
@@ -76,7 +75,7 @@ export default async function APIStream(payload, injectedProviderManager) {
       let cachedData = await getCache(hash);
       if (cachedData) {
         cachedData = cachedData.value;
-        logger.log('OpenAIStream: cached', hash);
+        logger.log('Stream: cached', hash);
         return new ReadableStream({
           start(controller) {
             controller.enqueue(encoder.encode(cachedData));
@@ -142,7 +141,8 @@ export default async function APIStream(payload, injectedProviderManager) {
           // Set cache if caching is enabled and content isn't too large
           if (payload.cache === true) {
             const contentSize = content.length;
-            if (contentSize <= DEFAULT_CONFIG.maxEntrySize) {
+            const cacheConfig = getCacheConfig();
+            if (contentSize <= cacheConfig.maxEntrySize) {
               await setCache(hash, content);
             } else {
               logger.warn(`Content too large to cache (${contentSize} chars)`);

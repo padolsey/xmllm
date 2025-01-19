@@ -4,6 +4,7 @@
 var _dotenv = _interopRequireDefault(require("dotenv"));
 var _default = _interopRequireDefault(require("./proxies/default.js"));
 var _cot = _interopRequireDefault(require("./proxies/cot.js"));
+var _mainCache = require("./mainCache.js");
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
 console.log('Starting Proxy');
 // Load environment variables from .env file if present
@@ -58,8 +59,26 @@ try {
     globalTokensPerMinute: safeParseInt(getArg('globalTokensPerMinute') || process.env.GLOBAL_TOKENS_PER_MINUTE, 'globalTokensPerMinute'),
     globalTokensPerHour: safeParseInt(getArg('globalTokensPerHour') || process.env.GLOBAL_TOKENS_PER_HOUR, 'globalTokensPerHour'),
     globalRequestsPerHour: safeParseInt(getArg('globalRequestsPerHour') || process.env.GLOBAL_REQUESTS_PER_HOUR, 'globalRequestsPerHour'),
-    rateLimitMessage: getArg('rateLimitMessage')
+    rateLimitMessage: getArg('rateLimitMessage'),
+    cache: {
+      maxSize: safeParseInt(getArg('cache.maxSize'), 'cache.maxSize'),
+      maxEntries: safeParseInt(getArg('cache.maxEntries'), 'cache.maxEntries'),
+      maxEntrySize: safeParseInt(getArg('cache.maxEntrySize'), 'cache.maxEntrySize'),
+      persistInterval: safeParseInt(getArg('cache.persistInterval'), 'cache.persistInterval'),
+      ttl: safeParseInt(getArg('cache.ttl'), 'cache.ttl'),
+      cacheDir: getArg('cache.dir'),
+      cacheFilename: getArg('cache.filename')
+    }
   };
+
+  // Configure cache if options provided
+  if (Object.values(config.cache).some(function (v) {
+    return v !== undefined;
+  })) {
+    (0, _mainCache.configure)({
+      cache: config.cache
+    });
+  }
   console.log('Starting proxy with config:', config);
   createProxy(config);
 } catch (error) {

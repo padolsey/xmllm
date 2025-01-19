@@ -1,22 +1,22 @@
 import { LRUCache } from 'lru-cache';
-import Logger from './Logger.mjs';
 import * as fs from 'fs/promises';
 import path from 'path';
 
-const logger = new Logger('mainCache');
-const CACHE_FILE = path.join(
-  process.cwd(),
-  '.cache',
-  'llm-cache.json'
-);
+let CACHE_DIR = path.join(process.cwd(), '.cache');
+let CACHE_FILENAME = 'llm-cache.json';
+let CACHE_FILE = path.join(CACHE_DIR, CACHE_FILENAME);
 
-export const DEFAULT_CONFIG = {
+const getDefaultConfig = () => ({
   maxSize: 5000000,
   maxEntries: 100000,
   persistInterval: 5 * 60 * 1000,
   ttl: 5 * 24 * 60 * 60 * 1000,
-  maxEntrySize: 3000
-};
+  maxEntrySize: 10000,
+  cacheDir: CACHE_DIR,
+  cacheFilename: CACHE_FILENAME
+});
+
+let CONFIG = getDefaultConfig();
 
 // Add stats object early
 const stats = {
@@ -31,25 +31,156 @@ let persistInterval = null;
 let purgeInterval = null;
 let memoryCheckInterval = null;
 let memoryPressure = false;
+let _logger = null;
 
-function configure(options = {}) {
-  Object.assign(DEFAULT_CONFIG, options);
+const logger = {
+  error: (...args) => {
+    if (_logger) _logger.error(...args);
+  },
+  dev: (...args) => {
+    if (_logger) _logger.dev(...args);
+  }
+};
+
+export function setLogger(logger) {
+  _logger = logger;
 }
 
-async function ensureCacheDir() {
-  try {
-    await fs.mkdir(path.dirname(CACHE_FILE), { recursive: true });
-  } catch (err) {
-    logger.error('Failed to create cache directory:', err);
+// Add internal file operation methods that can be mocked in tests
+export const fileOps = {
+  async ensureDir(dirPath) {
+    try {
+      await fs.mkdir(dirPath, { recursive: true });
+      return true;
+    } catch (err) {
+      logger.error('Failed to create directory:', err);
+      return false;
+    }
+  },
+
+  async writeFile(filePath, data) {
+    try {
+      await fs.writeFile(filePath, data);
+      return true;
+    } catch (err) {
+      logger.error('Failed to write file:', err);
+      return false;
+    }
+  },
+
+  async readFile(filePath) {
+    try {
+      return await fs.readFile(filePath, 'utf8');
+    } catch (err) {
+      logger.dev('Failed to read file:', err);
+      return null;
+    }
+  },
+
+  async rename(oldPath, newPath) {
+    try {
+      await fs.rename(oldPath, newPath);
+      return true;
+    } catch (err) {
+      logger.error('Failed to rename file:', err);
+      return false;
+    }
+  }
+};
+
+// Add validation helpers
+function validatePositiveNumber(value, name) {
+  if (value !== undefined && (typeof value !== 'number' || value <= 0)) {
+    throw new Error(`${name} must be a positive number`);
   }
 }
 
+function validateCacheConfig(config) {
+  validatePositiveNumber(config.maxSize, 'maxSize');
+  validatePositiveNumber(config.maxEntries, 'maxEntries');
+  validatePositiveNumber(config.maxEntrySize, 'maxEntrySize');
+  validatePositiveNumber(config.ttl, 'ttl');
+  validatePositiveNumber(config.persistInterval, 'persistInterval');
+}
+
+// Add helper for TTL calculation
+function calculateExpiry(ttl) {
+  if (!ttl && !CONFIG.ttl) return undefined;
+  return Date.now() + (ttl || CONFIG.ttl);
+}
+
+// Add helper for size calculation
+function calculateSize(value) {
+  return JSON.stringify(value).length;
+}
+
+// Add reinitialize function
+async function reinitializeCache() {
+  if (cache) {
+    const entries = Array.from(cache.entries());
+    
+    const newCache = new LRUCache({
+      max: CONFIG.maxEntries,
+      maxSize: CONFIG.maxSize,
+      sizeCalculation: (entry) => entry.size,
+      dispose: function (value, key) {
+        logger.dev('Disposed old cache entry', key);
+      }
+    });
+
+    // Sort entries by time (most recent first)
+    entries.sort((a, b) => b[1].time - a[1].time);
+
+    // Only restore up to max entries, filtering expired
+    const validEntries = entries
+      .filter(([_, value]) => !value.expires || value.expires > Date.now())
+      .slice(0, CONFIG.maxEntries);
+
+    for (const [key, value] of validEntries) {
+      newCache.set(key, value);
+    }
+    
+    cache = newCache;
+    cacheModified = true;
+  }
+}
+
+// Add function to update cache file path
+function updateCachePath(dir, filename) {
+  if (dir) CACHE_DIR = dir;
+  if (filename) CACHE_FILENAME = filename;
+  CACHE_FILE = path.join(CACHE_DIR, CACHE_FILENAME);
+}
+
+// Update configure function to handle new options
+function configure(options = {}) {
+  if (options.cache) {
+    validateCacheConfig(options.cache);
+    CONFIG = { ...CONFIG, ...options.cache };
+    
+    // Update cache file path if specified
+    if (options.cache.cacheDir || options.cache.cacheFilename) {
+      updateCachePath(options.cache.cacheDir, options.cache.cacheFilename);
+    }
+    
+    // Force cache reinitialization
+    if (cache) {
+      reinitializeCache();
+    }
+  }
+}
+
+async function ensureCacheDir() {
+  return fileOps.ensureDir(path.dirname(CACHE_FILE));
+}
+
 async function loadPersistedCache() {
+  const data = await fileOps.readFile(CACHE_FILE);
+  if (!data) return {};
   try {
-    const data = await fs.readFile(CACHE_FILE, 'utf8');
     return JSON.parse(data);
   } catch (err) {
-    logger.dev('No existing cache file found or error reading it:', err.code);
+    logger.dev('Failed to parse cache file:', err);
     return {};
   }
 }
@@ -61,18 +192,14 @@ async function persistCache(cache) {
   }
   
   try {
-    await ensureCacheDir(); // Ensure directory exists before writing
     const entries = Array.from(cache.entries())
       .filter(([_, value]) => value && (!value.expires || value.expires > Date.now()));
       
     const serialized = JSON.stringify(Object.fromEntries(entries));
     
-    // Write to temporary file first
     const tempFile = `${CACHE_FILE}.tmp`;
-    await fs.writeFile(tempFile, serialized);
-    
-    // Atomically rename temp file to actual cache file
-    await fs.rename(tempFile, CACHE_FILE);
+    await fileOps.writeFile(tempFile, serialized);
+    await fileOps.rename(tempFile, CACHE_FILE);
     
     cacheModified = false;
     logger.dev('Cache persisted to disk');
@@ -83,12 +210,18 @@ async function persistCache(cache) {
 
 async function initializeCache() {
   if (!cache) {
-    await ensureCacheDir();
+    // Always ensure cache directory exists first
+    const dirCreated = await ensureCacheDir();
+    if (!dirCreated) {
+      logger.error('Failed to create cache directory');
+      return null;
+    }
+    
     const persistedData = await loadPersistedCache();
     cache = new LRUCache({
-      max: DEFAULT_CONFIG.maxEntries,
-      maxSize: DEFAULT_CONFIG.maxSize,
-      sizeCalculation: (value, key) => JSON.stringify(value).length,
+      max: CONFIG.maxEntries,
+      maxSize: CONFIG.maxSize,
+      sizeCalculation: (entry) => entry.size,  // Use pre-calculated size
       dispose: function (value, key) {
         logger.dev('Disposed old cache entry', key);
       }
@@ -105,16 +238,11 @@ async function initializeCache() {
     if (!persistInterval) {
       persistInterval = setInterval(async () => {
         await persistCache(cache);
-      }, DEFAULT_CONFIG.persistInterval);
+      }, CONFIG.persistInterval);
     }
 
-    if (!purgeInterval) {
-      purgeInterval = setInterval(purgeOldEntries, 1000 * 60 * 15);
-    }
-
-    if (!memoryCheckInterval) {
-      memoryCheckInterval = setInterval(checkMemoryPressure, 60000);
-    }
+    // Mark as modified to ensure first persistence
+    cacheModified = true;
   }
   return cache;
 }
@@ -142,54 +270,57 @@ async function releaseLock(key) {
 
 async function get(key) {
   const cacheInstance = await getCacheInstance();
-  logger.dev('Getting value from cache', key);
-  const value = cacheInstance.get(key);
-  if (!value) {
+  if (!cacheInstance) return null;
+
+  const entry = cacheInstance.get(key);
+  if (!entry) {
     stats.misses++;
     return null;
   }
-  if (value.expires && value.expires < Date.now()) {
+
+  // Check expiration
+  if (entry.expires && entry.expires < Date.now()) {
     cacheInstance.delete(key);
     stats.misses++;
     return null;
   }
+
   stats.hits++;
-  return value;
+  return entry;
 }
 
-async function set(key, value, ttl = DEFAULT_CONFIG.ttl) {
-  await acquireLock(key);
+// Update set function to use calculateExpiry
+async function set(key, value, ttl) {
+  const cacheInstance = await getCacheInstance();
+  if (!cacheInstance) return null;
+
+  if (value === undefined || value === null) {
+    logger.dev('Skipping null/undefined value');
+    return null;
+  }
+
   try {
-    const cacheInstance = await getCacheInstance();
-    if (value === null || value === undefined) {
-      logger.error('Attempted to set a cache entry without value', key);
+    const size = calculateSize(value);
+    
+    // Check size limit before storing
+    if (size > CONFIG.maxEntrySize) {
+      logger.dev(`Value exceeds maxEntrySize (${size} > ${CONFIG.maxEntrySize})`);
       return null;
     }
 
-    try {
-      const valueSize = JSON.stringify(value).length;
-      if (valueSize > DEFAULT_CONFIG.maxEntrySize) {
-        logger.warn(`Cache entry too large (${valueSize} chars), skipping cache`, key);
-        return null;
-      }
+    const entry = {
+      value,
+      time: Date.now(),
+      size,
+      expires: calculateExpiry(ttl)
+    };
 
-      logger.dev('Committing to cache', key, 'json of length:', valueSize);
-      const data = { 
-        value: value, 
-        time: Date.now(),
-        expires: Date.now() + ttl,
-        size: valueSize
-      };
-      cacheInstance.set(key, data);
-      cacheModified = true;
-      logger.dev('Successfully set cache', key);
-      return data;
-    } catch (e) {
-      logger.error('Failed to set cache', key, e);
-      return null;
-    }
-  } finally {
-    releaseLock(key);
+    cacheInstance.set(key, entry);
+    cacheModified = true;
+    return entry;
+  } catch (e) {
+    logger.error('Failed to set cache entry', key, e);
+    return null;
   }
 }
 
@@ -268,7 +399,8 @@ async function _reset() {
 
 async function cleanup() {
   try {
-    if (cache && cacheModified) {
+    if (cache) {
+      cacheModified = true;  // Force final persistence
       await persistCache(cache);
     }
   } catch (err) {
@@ -293,8 +425,8 @@ async function getStats() {
     entryCount: cacheInstance.size,
     totalSize,
     largestEntry,
-    maxSize: DEFAULT_CONFIG.maxSize,
-    maxEntries: DEFAULT_CONFIG.maxEntries
+    maxSize: CONFIG.maxSize,
+    maxEntries: CONFIG.maxEntries
   };
 }
 
@@ -315,6 +447,15 @@ async function clearExpired() {
   return cleared;
 }
 
+// Add function to force cache modification (for testing)
+export function _setModified(value) {
+  cacheModified = value;
+}
+
+export function getConfig() {
+  return { ...CONFIG };  // Return a copy to prevent mutation
+}
+
 export { 
   get, 
   set, 
@@ -325,5 +466,9 @@ export {
   configure,
   cleanup,
   checkMemoryPressure,
-  _reset,
+  _reset
 };
+
+export function resetConfig() {
+  CONFIG = getDefaultConfig();
+}

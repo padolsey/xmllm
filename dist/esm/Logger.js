@@ -12,14 +12,6 @@ export var Logger = /*#__PURE__*/function () {
     this.name = name;
   }
   return _createClass(Logger, [{
-    key: "formatMessage",
-    value: function formatMessage() {
-      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-        args[_key] = arguments[_key];
-      }
-      return "".concat(this.name, " ==> ").concat(args.join(' '));
-    }
-  }, {
     key: "shouldLog",
     value: function shouldLog(level) {
       var config = getConfig();
@@ -29,14 +21,15 @@ export var Logger = /*#__PURE__*/function () {
     key: "error",
     value: function error() {
       var config = getConfig();
-      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-        args[_key2] = arguments[_key2];
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
       }
       if (config.logging.customLogger) {
         var _config$logging;
         (_config$logging = config.logging).customLogger.apply(_config$logging, ['error', this.name].concat(args));
       } else {
-        console.error(this.formatMessage.apply(this, args));
+        var _console;
+        (_console = console).error.apply(_console, [this.name, "==>"].concat(args));
       }
     }
   }, {
@@ -44,14 +37,15 @@ export var Logger = /*#__PURE__*/function () {
     value: function warn() {
       if (!this.shouldLog('WARN')) return;
       var config = getConfig();
-      for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-        args[_key3] = arguments[_key3];
+      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+        args[_key2] = arguments[_key2];
       }
       if (config.logging.customLogger) {
         var _config$logging2;
         (_config$logging2 = config.logging).customLogger.apply(_config$logging2, ['warn', this.name].concat(args));
       } else {
-        console.warn(this.formatMessage.apply(this, args));
+        var _console2;
+        (_console2 = console).warn.apply(_console2, [this.name, "==>"].concat(args));
       }
     }
   }, {
@@ -59,14 +53,15 @@ export var Logger = /*#__PURE__*/function () {
     value: function info() {
       if (!this.shouldLog('INFO')) return;
       var config = getConfig();
-      for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-        args[_key4] = arguments[_key4];
+      for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+        args[_key3] = arguments[_key3];
       }
       if (config.logging.customLogger) {
         var _config$logging3;
         (_config$logging3 = config.logging).customLogger.apply(_config$logging3, ['info', this.name].concat(args));
       } else {
-        console.log(this.formatMessage.apply(this, args));
+        var _console3;
+        (_console3 = console).log.apply(_console3, [this.name, "==>"].concat(args));
       }
     }
   }, {
@@ -74,14 +69,15 @@ export var Logger = /*#__PURE__*/function () {
     value: function debug() {
       if (!this.shouldLog('DEBUG')) return;
       var config = getConfig();
-      for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-        args[_key5] = arguments[_key5];
+      for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+        args[_key4] = arguments[_key4];
       }
       if (config.logging.customLogger) {
         var _config$logging4;
         (_config$logging4 = config.logging).customLogger.apply(_config$logging4, ['debug', this.name].concat(args));
       } else {
-        console.log(this.formatMessage.apply(this, args));
+        var _console4;
+        (_console4 = console).log.apply(_console4, [this.name, "==>"].concat(args));
       }
     }
   }, {

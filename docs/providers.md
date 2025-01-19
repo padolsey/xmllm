@@ -271,6 +271,32 @@ const stats = stream.getProviderStats();
 }
 ```
 
+### Caching
+
+The proxy server supports caching to reduce API costs and improve response times. Caching is disabled by default but can be enabled per-request:
+
+```javascript
+stream('Query', {
+  cache: true,  // Enable caching for this request
+  model: 'anthropic:fast'
+});
+```
+
+When running the proxy server, you can configure cache settings:
+
+```bash
+xmllm-proxy \
+  --cache.maxSize=5000000 \      # Max cache size in bytes (default: 5MB)
+  --cache.maxEntries=1000 \      # Max number of entries (default: 100000)
+  --cache.maxEntrySize=10000 \   # Max entry size in bytes (default: 10KB)
+  --cache.persistInterval=60000 \ # Save interval in ms (default: 5 min)
+  --cache.ttl=3600000 \          # Time-to-live in ms (default: 5 days)
+  --cache.dir=".cache" \         # Cache directory (relative to process.cwd())
+  --cache.filename="llm-cache.json" # Cache filename
+```
+
+Cache entries are automatically pruned when they expire or when size limits are reached. See [Configuration Guide](./api/configuration.md#cache-configuration) for full cache configuration options.
+
 ## Error Handling
 
 ```javascript

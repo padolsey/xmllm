@@ -20,17 +20,37 @@ const standardPayloader = ({
   top_p = 1,
   presence_penalty = 0,
   system = ''
-}) => ({
-  messages: [{
-    role: 'system',
-    content: system || ''
-  }].concat(messages),
-  max_tokens,
-  stop,
-  temperature,
-  top_p,
-  presence_penalty
-});
+}) => {
+
+  const payload = {
+    messages: [{
+      role: 'system',
+      content: system || ''
+    }].concat(messages)
+  };
+
+  if (max_tokens != null) {
+    payload.max_tokens = max_tokens;
+  }
+
+  if (stop != null) {
+    payload.stop = stop;
+  }
+
+  if (temperature != null) {
+    payload.temperature = temperature;
+  }
+
+  if (top_p != null) {
+    payload.top_p = top_p;
+  }
+
+  if (presence_penalty != null) {
+    payload.presence_penalty = presence_penalty;
+  }
+
+  return payload;
+};
 
 const taiStylePayloader = ({
   messages = [],
