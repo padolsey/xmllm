@@ -286,6 +286,7 @@ export class ProxyBase {
 
       // Check rate limits first
       const limitCheck = this.checkRateLimits(data);
+      console.log('limitCheck', limitCheck);
       if (!limitCheck.allowed) {
         const rateLimitMessage = 
           // First check request-level error messages

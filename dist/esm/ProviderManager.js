@@ -116,164 +116,172 @@ var ProviderManager = /*#__PURE__*/function () {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
               preferredProviders = payload.model ? Array.isArray(payload.model) ? payload.model : [payload.model] : DEFAULT_PREFERRED_PROVIDERS;
+              logger.log('Preferred providers:', preferredProviders); // Debug
               lastError = null;
-              MAX_RETRIES_PER_PROVIDER = payload.retryMax || 3;
+              MAX_RETRIES_PER_PROVIDER = payload.retryMax !== undefined ? payload.retryMax : 3;
               retryDelay = process.env.NODE_ENV === 'test' ? 100 // Much shorter in tests
               : payload.retryStartDelay || 1000;
               backoffMultiplier = process.env.NODE_ENV === 'test' ? 1.5 // Slower growth in tests
               : payload.retryBackoffMultiplier || 2;
+              logger.log('Max retries:', MAX_RETRIES_PER_PROVIDER); // Debug
               _iterator = _createForOfIteratorHelper(preferredProviders);
-              _context2.prev = 6;
+              _context2.prev = 8;
               _iterator.s();
-            case 8:
+            case 10:
               if ((_step = _iterator.n()).done) {
-                _context2.next = 35;
+                _context2.next = 38;
                 break;
               }
               preference = _step.value;
-              _context2.prev = 10;
+              _context2.prev = 12;
               _this$getProviderByPr = this.getProviderByPreference(preference), provider = _this$getProviderByPr.provider, modelType = _this$getProviderByPr.modelType;
               logger.log('Trying provider', provider.name, 'with model', modelType);
               consecutiveServerErrors = 0;
               isOnlyProvider = preferredProviders.length === 1;
               _loop = /*#__PURE__*/_regeneratorRuntime().mark(function _loop() {
-                var currentDelay;
+                var result, currentDelay;
                 return _regeneratorRuntime().wrap(function _loop$(_context) {
                   while (1) switch (_context.prev = _context.next) {
                     case 0:
                       _context.prev = 0;
-                      _context.next = 3;
+                      logger.log("Attempt ".concat(retry + 1, " for ").concat(provider.name)); // Debug
+                      _context.next = 4;
                       return action(provider, _objectSpread(_objectSpread({}, payload), {}, {
                         model: modelType
                       }));
-                    case 3:
-                      _context.t0 = _context.sent;
+                    case 4:
+                      result = _context.sent;
+                      logger.log('Provider succeeded:', provider.name); // Debug
                       return _context.abrupt("return", {
-                        v: _context.t0
+                        v: result
                       });
-                    case 7:
-                      _context.prev = 7;
-                      _context.t1 = _context["catch"](0);
-                      logger.error("Error from provider ".concat(provider.name, " (attempt ").concat(retry + 1, "):"), _context.t1);
-                      lastError = _context.t1;
+                    case 9:
+                      _context.prev = 9;
+                      _context.t0 = _context["catch"](0);
+                      logger.error("Error from provider ".concat(provider.name, " (attempt ").concat(retry + 1, "):"), _context.t0);
+                      lastError = _context.t0;
+                      logger.log('Moving to next retry or provider'); // Debug
 
                       // Don't retry auth errors regardless of fallback availability
-                      if (!(_context.t1 instanceof ProviderAuthenticationError)) {
-                        _context.next = 14;
+                      if (!(_context.t0 instanceof ProviderAuthenticationError)) {
+                        _context.next = 17;
                         break;
                       }
                       logger.warn("Authentication error for ".concat(provider.name, ", skipping retries"));
                       return _context.abrupt("return", 0);
-                    case 14:
-                      if (!(_context.t1.statusCode === 500)) {
-                        _context.next = 27;
+                    case 17:
+                      if (!(_context.t0.statusCode === 500)) {
+                        _context.next = 30;
                         break;
                       }
                       consecutiveServerErrors++;
 
                       // If this is our only provider option, be more persistent
                       if (!isOnlyProvider) {
-                        _context.next = 22;
+                        _context.next = 25;
                         break;
                       }
                       if (!(consecutiveServerErrors >= 5)) {
-                        _context.next = 20;
+                        _context.next = 23;
                         break;
                       }
                       logger.warn("Provider ".concat(provider.name, " returned 5 consecutive 500 errors with no fallback available"));
                       return _context.abrupt("return", 0);
-                    case 20:
-                      _context.next = 25;
+                    case 23:
+                      _context.next = 28;
                       break;
-                    case 22:
+                    case 25:
                       if (!(consecutiveServerErrors >= 2)) {
-                        _context.next = 25;
+                        _context.next = 28;
                         break;
                       }
                       logger.warn("Provider ".concat(provider.name, " returned multiple 500 errors, trying next provider"));
                       return _context.abrupt("return", 0);
-                    case 25:
-                      _context.next = 28;
-                      break;
-                    case 27:
-                      consecutiveServerErrors = 0; // Reset counter for non-500 errors
                     case 28:
+                      _context.next = 31;
+                      break;
+                    case 30:
+                      consecutiveServerErrors = 0; // Reset counter for non-500 errors
+                    case 31:
                       if (!(retry < MAX_RETRIES_PER_PROVIDER - 1)) {
-                        _context.next = 34;
+                        _context.next = 37;
                         break;
                       }
                       currentDelay = isOnlyProvider ? Math.min(retryDelay, 5000) // Cap delay at 5s if it's our only option
                       : retryDelay;
                       logger.log("Retrying ".concat(provider.name, " in ").concat(currentDelay, "ms... (").concat(isOnlyProvider ? 'no fallbacks available' : 'has fallbacks', ")"));
-                      _context.next = 33;
+                      _context.next = 36;
                       return new Promise(function (resolve) {
                         return setTimeout(resolve, currentDelay);
                       });
-                    case 33:
+                    case 36:
                       retryDelay *= backoffMultiplier;
-                    case 34:
+                    case 37:
                     case "end":
                       return _context.stop();
                   }
-                }, _loop, null, [[0, 7]]);
+                }, _loop, null, [[0, 9]]);
               });
               retry = 0;
-            case 17:
-              if (!(retry < MAX_RETRIES_PER_PROVIDER)) {
-                _context2.next = 27;
+            case 19:
+              if (!(retry <= MAX_RETRIES_PER_PROVIDER)) {
+                _context2.next = 29;
                 break;
               }
-              return _context2.delegateYield(_loop(), "t0", 19);
-            case 19:
+              return _context2.delegateYield(_loop(), "t0", 21);
+            case 21:
               _ret = _context2.t0;
               if (!(_ret === 0)) {
-                _context2.next = 22;
-                break;
-              }
-              return _context2.abrupt("break", 27);
-            case 22:
-              if (!_ret) {
                 _context2.next = 24;
                 break;
               }
-              return _context2.abrupt("return", _ret.v);
+              return _context2.abrupt("break", 29);
             case 24:
+              if (!_ret) {
+                _context2.next = 26;
+                break;
+              }
+              return _context2.abrupt("return", _ret.v);
+            case 26:
               retry++;
-              _context2.next = 17;
+              _context2.next = 19;
               break;
-            case 27:
+            case 29:
+              logger.log('All retries failed for provider:', provider.name); // Debug
+
               if (isOnlyProvider) {
                 logger.error("All retries failed for ".concat(provider.name, " with no fallback options available"));
               } else {
                 logger.warn("All retries failed for provider ".concat(provider.name, ", moving to next provider"));
               }
-              _context2.next = 33;
+              _context2.next = 36;
               break;
-            case 30:
-              _context2.prev = 30;
-              _context2.t1 = _context2["catch"](10);
-              logger.error("Error picking preferred provider: ".concat(_context2.t1.message));
             case 33:
-              _context2.next = 8;
+              _context2.prev = 33;
+              _context2.t1 = _context2["catch"](12);
+              logger.error("Error picking preferred provider: ".concat(_context2.t1.message));
+            case 36:
+              _context2.next = 10;
               break;
-            case 35:
-              _context2.next = 40;
+            case 38:
+              _context2.next = 43;
               break;
-            case 37:
-              _context2.prev = 37;
-              _context2.t2 = _context2["catch"](6);
-              _iterator.e(_context2.t2);
             case 40:
               _context2.prev = 40;
-              _iterator.f();
-              return _context2.finish(40);
+              _context2.t2 = _context2["catch"](8);
+              _iterator.e(_context2.t2);
             case 43:
+              _context2.prev = 43;
+              _iterator.f();
+              return _context2.finish(43);
+            case 46:
+              logger.log('All providers failed'); // Debug
               throw new Error(((_lastError = lastError) === null || _lastError === void 0 ? void 0 : _lastError.message) || "All providers failed to fulfill the request".concat(preferredProviders.length === 1 ? ' (no fallbacks were available)' : ''));
-            case 44:
+            case 48:
             case "end":
               return _context2.stop();
           }
-        }, _callee, this, [[6, 37, 40, 43], [10, 30]]);
+        }, _callee, this, [[8, 40, 43, 46], [12, 33]]);
       }));
       function pickProviderWithFallback(_x, _x2) {
         return _pickProviderWithFallback.apply(this, arguments);

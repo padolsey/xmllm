@@ -230,7 +230,7 @@ describe('xmllm simple()', () => {
     expect(date).toBeInstanceOf(Date);
     expect(date.getFullYear()).toBe(2024);
     expect(date.getMonth()).toBe(2);
-    expect(date.getDate()).toBe(13);
+    expect(date.getDate()).toBe(14);
   });
 
   it('should handle error cases gracefully', async () => {

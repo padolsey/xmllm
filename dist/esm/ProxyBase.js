@@ -415,8 +415,9 @@ export var ProxyBase = /*#__PURE__*/function () {
             case 10:
               // Check rate limits first
               limitCheck = this.checkRateLimits(data);
+              console.log('limitCheck', limitCheck);
               if (limitCheck.allowed) {
-                _context4.next = 16;
+                _context4.next = 17;
                 break;
               }
               rateLimitMessage =
@@ -434,28 +435,28 @@ export var ProxyBase = /*#__PURE__*/function () {
                 message: rateLimitMessage
               }));
               return _context4.abrupt("return");
-            case 16:
-              _context4.prev = 16;
+            case 17:
+              _context4.prev = 17;
               ValidationService.validateMessages(data.messages);
               ValidationService.validateModel(data.model, PROVIDERS);
               if (!(data.temperature !== undefined)) {
-                _context4.next = 22;
+                _context4.next = 23;
                 break;
               }
               if (!(typeof data.temperature !== 'number' || data.temperature < 0 || data.temperature > 1)) {
-                _context4.next = 22;
+                _context4.next = 23;
                 break;
               }
               throw {
                 message: 'Temperature must be between 0 and 1',
                 code: 'INVALID_TEMPERATURE'
               };
-            case 22:
-              _context4.next = 29;
+            case 23:
+              _context4.next = 30;
               break;
-            case 24:
-              _context4.prev = 24;
-              _context4.t0 = _context4["catch"](16);
+            case 25:
+              _context4.prev = 25;
+              _context4.t0 = _context4["catch"](17);
               res.writeHead(400, {
                 'Content-Type': 'application/json'
               });
@@ -464,7 +465,7 @@ export var ProxyBase = /*#__PURE__*/function () {
                 code: _context4.t0.code || 'VALIDATION_ERROR'
               }));
               return _context4.abrupt("return");
-            case 29:
+            case 30:
               // Consume the rate limits
               this.globalLimiter.consume({
                 rpm: 1,
@@ -476,20 +477,20 @@ export var ProxyBase = /*#__PURE__*/function () {
                 }, 0)) || 0,
                 rph: 1
               });
-              _context4.next = 32;
+              _context4.next = 33;
               return this.handleStreaming(data, res);
-            case 32:
-              _context4.next = 37;
+            case 33:
+              _context4.next = 38;
               break;
-            case 34:
-              _context4.prev = 34;
+            case 35:
+              _context4.prev = 35;
               _context4.t1 = _context4["catch"](4);
               this.handleError(_context4.t1, res);
-            case 37:
+            case 38:
             case "end":
               return _context4.stop();
           }
-        }, _callee4, this, [[4, 34], [16, 24]]);
+        }, _callee4, this, [[4, 35], [17, 25]]);
       }));
       function handleStreamRequest(_x7, _x8) {
         return _handleStreamRequest.apply(this, arguments);

@@ -98,14 +98,20 @@ class ProviderManager {
         : [payload.model]
       : DEFAULT_PREFERRED_PROVIDERS;
 
+    logger.log('Preferred providers:', preferredProviders); // Debug
+
     let lastError = null;
-    const MAX_RETRIES_PER_PROVIDER = payload.retryMax || 3;
+    const MAX_RETRIES_PER_PROVIDER = payload.retryMax !== undefined 
+      ? payload.retryMax 
+      : 3;
     let retryDelay = process.env.NODE_ENV === 'test'
       ? 100  // Much shorter in tests
       : (payload.retryStartDelay || 1000);
     const backoffMultiplier = process.env.NODE_ENV === 'test'
       ? 1.5  // Slower growth in tests
       : (payload.retryBackoffMultiplier || 2);
+
+    logger.log('Max retries:', MAX_RETRIES_PER_PROVIDER); // Debug
 
     for (const preference of preferredProviders) {
       try {
@@ -115,12 +121,16 @@ class ProviderManager {
         let consecutiveServerErrors = 0;
         const isOnlyProvider = preferredProviders.length === 1;
         
-        for (let retry = 0; retry < MAX_RETRIES_PER_PROVIDER; retry++) {
+        for (let retry = 0; retry <= MAX_RETRIES_PER_PROVIDER; retry++) {
           try {
-            return await action(provider, { ...payload, model: modelType });
+            logger.log(`Attempt ${retry + 1} for ${provider.name}`); // Debug
+            const result = await action(provider, { ...payload, model: modelType });
+            logger.log('Provider succeeded:', provider.name); // Debug
+            return result;
           } catch (error) {
             logger.error(`Error from provider ${provider.name} (attempt ${retry + 1}):`, error);
             lastError = error;
+            logger.log('Moving to next retry or provider'); // Debug
 
             // Don't retry auth errors regardless of fallback availability
             if (error instanceof ProviderAuthenticationError) {
@@ -162,6 +172,8 @@ class ProviderManager {
           }
         }
         
+        logger.log('All retries failed for provider:', provider.name); // Debug
+        
         if (isOnlyProvider) {
           logger.error(`All retries failed for ${provider.name} with no fallback options available`);
         } else {
@@ -172,6 +184,7 @@ class ProviderManager {
       }
     }
 
+    logger.log('All providers failed'); // Debug
     throw new Error(
       lastError?.message || 
       `All providers failed to fulfill the request${preferredProviders.length === 1 ? ' (no fallbacks were available)' : ''}`

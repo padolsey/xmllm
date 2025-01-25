@@ -1,10 +1,62 @@
 import { LRUCache } from 'lru-cache';
-import * as fs from 'fs/promises';
-import path from 'path';
+import { promises as fsPromises, path as fsPath } from './fs.mjs';
 
-let CACHE_DIR = path.join(process.cwd(), '.cache');
+// Provides filesystem operations with error handling and logging
+export const defaultFileOps = {
+  promises: {
+    mkdir: async (dirPath, options) => {
+      try {
+        await fsPromises.mkdir(dirPath, options);
+        return true;
+      } catch (err) {
+        logger.error('Failed to create directory:', err);
+        return false;
+      }
+    },
+    writeFile: async (filePath, data) => {
+      try {
+        await fsPromises.writeFile(filePath, data);
+        return true;
+      } catch (err) {
+        logger.error('Failed to write file:', err);
+        return false;
+      }
+    },
+    readFile: async (filePath) => {
+      try {
+        return await fsPromises.readFile(filePath, 'utf8');
+      } catch (err) {
+        logger.dev('Failed to read file:', err);
+        return null;
+      }
+    },
+    rename: async (oldPath, newPath) => {
+      try {
+        await fsPromises.rename(oldPath, newPath);
+        return true;
+      } catch (err) {
+        logger.error('Failed to rename file:', err);
+        return false;
+      }
+    }
+  },
+  path: fsPath
+};
+
+// Use default implementation initially
+let fileOps = defaultFileOps;
+
+// Export method to override fileOps (for testing)
+export function setFileOps(mockFileOps) {
+  fileOps = mockFileOps;
+  // Update CACHE_FILE when fileOps changes
+  updateCachePath(CACHE_DIR, CACHE_FILENAME);
+}
+
+// Use fileOps.path instead of direct path import
+let CACHE_DIR = fileOps.path.join(process.cwd(), '.cache');
 let CACHE_FILENAME = 'llm-cache.json';
-let CACHE_FILE = path.join(CACHE_DIR, CACHE_FILENAME);
+let CACHE_FILE = fileOps.path.join(CACHE_DIR, CACHE_FILENAME);
 
 const getDefaultConfig = () => ({
   maxSize: 5000000,
@@ -47,10 +99,10 @@ export function setLogger(logger) {
 }
 
 // Add internal file operation methods that can be mocked in tests
-export const fileOps = {
+export const fileOperations = {
   async ensureDir(dirPath) {
     try {
-      await fs.mkdir(dirPath, { recursive: true });
+      await fileOps.promises.mkdir(dirPath, { recursive: true });
       return true;
     } catch (err) {
       logger.error('Failed to create directory:', err);
@@ -60,7 +112,7 @@ export const fileOps = {
 
   async writeFile(filePath, data) {
     try {
-      await fs.writeFile(filePath, data);
+      await fileOps.promises.writeFile(filePath, data);
       return true;
     } catch (err) {
       logger.error('Failed to write file:', err);
@@ -70,7 +122,7 @@ export const fileOps = {
 
   async readFile(filePath) {
     try {
-      return await fs.readFile(filePath, 'utf8');
+      return await fileOps.promises.readFile(filePath);
     } catch (err) {
       logger.dev('Failed to read file:', err);
       return null;
@@ -79,7 +131,7 @@ export const fileOps = {
 
   async rename(oldPath, newPath) {
     try {
-      await fs.rename(oldPath, newPath);
+      await fileOps.promises.rename(oldPath, newPath);
       return true;
     } catch (err) {
       logger.error('Failed to rename file:', err);
@@ -149,7 +201,7 @@ async function reinitializeCache() {
 function updateCachePath(dir, filename) {
   if (dir) CACHE_DIR = dir;
   if (filename) CACHE_FILENAME = filename;
-  CACHE_FILE = path.join(CACHE_DIR, CACHE_FILENAME);
+  CACHE_FILE = fileOps.path.join(CACHE_DIR, CACHE_FILENAME);
 }
 
 // Update configure function to handle new options
@@ -171,11 +223,11 @@ function configure(options = {}) {
 }
 
 async function ensureCacheDir() {
-  return fileOps.ensureDir(path.dirname(CACHE_FILE));
+  return fileOperations.ensureDir(fileOps.path.dirname(CACHE_FILE));
 }
 
 async function loadPersistedCache() {
-  const data = await fileOps.readFile(CACHE_FILE);
+  const data = await fileOperations.readFile(CACHE_FILE);
   if (!data) return {};
   try {
     return JSON.parse(data);
@@ -198,8 +250,8 @@ async function persistCache(cache) {
     const serialized = JSON.stringify(Object.fromEntries(entries));
     
     const tempFile = `${CACHE_FILE}.tmp`;
-    await fileOps.writeFile(tempFile, serialized);
-    await fileOps.rename(tempFile, CACHE_FILE);
+    await fileOperations.writeFile(tempFile, serialized);
+    await fileOperations.rename(tempFile, CACHE_FILE);
     
     cacheModified = false;
     logger.dev('Cache persisted to disk');
@@ -218,13 +270,23 @@ async function initializeCache() {
     }
     
     const persistedData = await loadPersistedCache();
-    cache = new LRUCache({
-      max: CONFIG.maxEntries,
-      maxSize: CONFIG.maxSize,
-      sizeCalculation: (entry) => entry.size,  // Use pre-calculated size
+    const cacheOptions = {
+      // Ensure we always have at least one limiting option
+      max: CONFIG.maxEntries || 100000,  // Use default if not set
+      ttl: CONFIG.ttl,  // Include TTL from config
       dispose: function (value, key) {
         logger.dev('Disposed old cache entry', key);
       }
+    };
+
+    // Only add size-related options if maxSize is set
+    if (CONFIG.maxSize) {
+      cacheOptions.maxSize = CONFIG.maxSize;
+      cacheOptions.sizeCalculation = (entry) => entry.size;
+    }
+
+    cache = new LRUCache({
+      ...cacheOptions
     });
 
     // Restore persisted data
@@ -247,32 +309,20 @@ async function initializeCache() {
   return cache;
 }
 
-async function getCacheInstance() {
+export async function getCacheInstance() {
   if (!cachePromise) {
     cachePromise = initializeCache();
   }
   return cachePromise;
 }
 
-// Lock mechanism for concurrent operations
-const locks = new Map();
-
-async function acquireLock(key) {
-  while (locks.has(key)) {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  }
-  locks.set(key, true);
-}
-
-async function releaseLock(key) {
-  locks.delete(key);
-}
-
 async function get(key) {
+  console.log('get', key);
   const cacheInstance = await getCacheInstance();
   if (!cacheInstance) return null;
 
   const entry = cacheInstance.get(key);
+  console.log('entry', entry);
   if (!entry) {
     stats.misses++;
     return null;
@@ -471,4 +521,9 @@ export {
 
 export function resetConfig() {
   CONFIG = getDefaultConfig();
+  // Recalculate CACHE_DIR and CACHE_FILE
+  CACHE_DIR = fileOps.path.join(process.cwd(), '.cache');
+  CACHE_FILENAME = 'llm-cache.json';
+  CACHE_FILE = fileOps.path.join(CACHE_DIR, CACHE_FILENAME);
+  cacheModified = true;
 }

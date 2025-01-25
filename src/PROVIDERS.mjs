@@ -12,32 +12,50 @@ const standardHeaderGen = function() {
   };
 };
 
-const standardPayloader = ({
-  messages = [],
-  max_tokens = 300,
-  stop = null,
-  temperature = 0.52,
-  top_p = 1,
-  presence_penalty = 0,
-  system = ''
-}) => {
+// Export standardPayloader for testing
+export const standardPayloader = function(o) {
+  const {
+    messages = [],
+    max_tokens = 300,
+    stop = null,
+    temperature = 0.52,
+    top_p = 1,
+    presence_penalty = 0,
+    system = ''
+  } = o;
+
+  console.log('standardPayloader called with:', o, 't', this);
+
+  const isO1Model = this.name === 'openai_custom' && (
+    /^o1/.test(this.models.custom.name)
+  );
+
+  // Process messages based on model type
+  let processedMessages = isO1Model
+    ? [
+        ...(system ? [{ role: 'user', content: system }] : []),
+        ...messages.map(msg => msg.role === 'system' ? { ...msg, role: 'user' } : msg)
+      ]
+    : [
+        { role: 'system', content: system || '' },
+        ...messages
+      ];
 
   const payload = {
-    messages: [{
-      role: 'system',
-      content: system || ''
-    }].concat(messages)
+    messages: processedMessages
   };
 
+  // Handle max tokens - different property name for O1 models
   if (max_tokens != null) {
-    payload.max_tokens = max_tokens;
+    payload[isO1Model ? 'max_completion_tokens' : 'max_tokens'] = max_tokens;
   }
 
   if (stop != null) {
     payload.stop = stop;
   }
 
-  if (temperature != null) {
+  // Only add temperature for non-O1 models
+  if (temperature != null && !isO1Model) {
     payload.temperature = temperature;
   }
 
@@ -52,10 +70,10 @@ const standardPayloader = ({
   return payload;
 };
 
-const taiStylePayloader = ({
+export const taiStylePayloader = ({
   messages = [],
   max_tokens = 300,
-  stop = ['',''],
+  stop = ['',''],
   temperature = 0.52,
   top_p = 1,
   frequency_penalty = 0.01,
@@ -223,6 +241,8 @@ export const PROVIDER_ALIASES = {
 export default providers;
 
 export function createCustomModel(baseProvider, config) {
+
+  console.log('createCustomModel called with:', baseProvider, config);
   // Required fields
   if (!config.name) {
     throw new ModelValidationError(
@@ -381,3 +401,6 @@ export function registerProvider(name, config) {
 
   return providers[name];
 }
+
+// Export providers for testing
+export const testProviders = providers;

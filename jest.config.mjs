@@ -10,6 +10,7 @@ export default {
   testRegex: 'tests/.*\\.mjs$',
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^./fs.mjs$': '<rootDir>/src/fs-node.mjs'
   },
   setupFilesAfterEnv: ['./jest.setup.mjs'],
   testTimeout: 30000

@@ -15,11 +15,133 @@ function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyri
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 import { LRUCache } from 'lru-cache';
-import * as fs from 'fs/promises';
-import path from 'path';
-var CACHE_DIR = path.join(process.cwd(), '.cache');
+import { promises as fsPromises, path as fsPath } from './fs.mjs';
+
+// Provides filesystem operations with error handling and logging
+export var defaultFileOps = {
+  promises: {
+    mkdir: function () {
+      var _mkdir = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee(dirPath, options) {
+        return _regeneratorRuntime().wrap(function _callee$(_context) {
+          while (1) switch (_context.prev = _context.next) {
+            case 0:
+              _context.prev = 0;
+              _context.next = 3;
+              return fsPromises.mkdir(dirPath, options);
+            case 3:
+              return _context.abrupt("return", true);
+            case 6:
+              _context.prev = 6;
+              _context.t0 = _context["catch"](0);
+              logger.error('Failed to create directory:', _context.t0);
+              return _context.abrupt("return", false);
+            case 10:
+            case "end":
+              return _context.stop();
+          }
+        }, _callee, null, [[0, 6]]);
+      }));
+      function mkdir(_x, _x2) {
+        return _mkdir.apply(this, arguments);
+      }
+      return mkdir;
+    }(),
+    writeFile: function () {
+      var _writeFile = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(filePath, data) {
+        return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+          while (1) switch (_context2.prev = _context2.next) {
+            case 0:
+              _context2.prev = 0;
+              _context2.next = 3;
+              return fsPromises.writeFile(filePath, data);
+            case 3:
+              return _context2.abrupt("return", true);
+            case 6:
+              _context2.prev = 6;
+              _context2.t0 = _context2["catch"](0);
+              logger.error('Failed to write file:', _context2.t0);
+              return _context2.abrupt("return", false);
+            case 10:
+            case "end":
+              return _context2.stop();
+          }
+        }, _callee2, null, [[0, 6]]);
+      }));
+      function writeFile(_x3, _x4) {
+        return _writeFile.apply(this, arguments);
+      }
+      return writeFile;
+    }(),
+    readFile: function () {
+      var _readFile = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(filePath) {
+        return _regeneratorRuntime().wrap(function _callee3$(_context3) {
+          while (1) switch (_context3.prev = _context3.next) {
+            case 0:
+              _context3.prev = 0;
+              _context3.next = 3;
+              return fsPromises.readFile(filePath, 'utf8');
+            case 3:
+              return _context3.abrupt("return", _context3.sent);
+            case 6:
+              _context3.prev = 6;
+              _context3.t0 = _context3["catch"](0);
+              logger.dev('Failed to read file:', _context3.t0);
+              return _context3.abrupt("return", null);
+            case 10:
+            case "end":
+              return _context3.stop();
+          }
+        }, _callee3, null, [[0, 6]]);
+      }));
+      function readFile(_x5) {
+        return _readFile.apply(this, arguments);
+      }
+      return readFile;
+    }(),
+    rename: function () {
+      var _rename = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4(oldPath, newPath) {
+        return _regeneratorRuntime().wrap(function _callee4$(_context4) {
+          while (1) switch (_context4.prev = _context4.next) {
+            case 0:
+              _context4.prev = 0;
+              _context4.next = 3;
+              return fsPromises.rename(oldPath, newPath);
+            case 3:
+              return _context4.abrupt("return", true);
+            case 6:
+              _context4.prev = 6;
+              _context4.t0 = _context4["catch"](0);
+              logger.error('Failed to rename file:', _context4.t0);
+              return _context4.abrupt("return", false);
+            case 10:
+            case "end":
+              return _context4.stop();
+          }
+        }, _callee4, null, [[0, 6]]);
+      }));
+      function rename(_x6, _x7) {
+        return _rename.apply(this, arguments);
+      }
+      return rename;
+    }()
+  },
+  path: fsPath
+};
+
+// Use default implementation initially
+var fileOps = defaultFileOps;
+
+// Export method to override fileOps (for testing)
+export function setFileOps(mockFileOps) {
+  fileOps = mockFileOps;
+  // Update CACHE_FILE when fileOps changes
+  updateCachePath(CACHE_DIR, CACHE_FILENAME);
+}
+
+// Use fileOps.path instead of direct path import
+var CACHE_DIR = fileOps.path.join(process.cwd(), '.cache');
 var CACHE_FILENAME = 'llm-cache.json';
-var CACHE_FILE = path.join(CACHE_DIR, CACHE_FILENAME);
+var CACHE_FILE = fileOps.path.join(CACHE_DIR, CACHE_FILENAME);
 var getDefaultConfig = function getDefaultConfig() {
   return {
     maxSize: 5000000,
@@ -61,95 +183,95 @@ export function setLogger(logger) {
 }
 
 // Add internal file operation methods that can be mocked in tests
-export var fileOps = {
+export var fileOperations = {
   ensureDir: function ensureDir(dirPath) {
-    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-      return _regeneratorRuntime().wrap(function _callee$(_context) {
-        while (1) switch (_context.prev = _context.next) {
+    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
+      return _regeneratorRuntime().wrap(function _callee5$(_context5) {
+        while (1) switch (_context5.prev = _context5.next) {
           case 0:
-            _context.prev = 0;
-            _context.next = 3;
-            return fs.mkdir(dirPath, {
+            _context5.prev = 0;
+            _context5.next = 3;
+            return fileOps.promises.mkdir(dirPath, {
               recursive: true
             });
           case 3:
-            return _context.abrupt("return", true);
+            return _context5.abrupt("return", true);
           case 6:
-            _context.prev = 6;
-            _context.t0 = _context["catch"](0);
-            logger.error('Failed to create directory:', _context.t0);
-            return _context.abrupt("return", false);
+            _context5.prev = 6;
+            _context5.t0 = _context5["catch"](0);
+            logger.error('Failed to create directory:', _context5.t0);
+            return _context5.abrupt("return", false);
           case 10:
           case "end":
-            return _context.stop();
+            return _context5.stop();
         }
-      }, _callee, null, [[0, 6]]);
+      }, _callee5, null, [[0, 6]]);
     }))();
   },
   writeFile: function writeFile(filePath, data) {
-    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-      return _regeneratorRuntime().wrap(function _callee2$(_context2) {
-        while (1) switch (_context2.prev = _context2.next) {
+    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee6() {
+      return _regeneratorRuntime().wrap(function _callee6$(_context6) {
+        while (1) switch (_context6.prev = _context6.next) {
           case 0:
-            _context2.prev = 0;
-            _context2.next = 3;
-            return fs.writeFile(filePath, data);
+            _context6.prev = 0;
+            _context6.next = 3;
+            return fileOps.promises.writeFile(filePath, data);
           case 3:
-            return _context2.abrupt("return", true);
+            return _context6.abrupt("return", true);
           case 6:
-            _context2.prev = 6;
-            _context2.t0 = _context2["catch"](0);
-            logger.error('Failed to write file:', _context2.t0);
-            return _context2.abrupt("return", false);
+            _context6.prev = 6;
+            _context6.t0 = _context6["catch"](0);
+            logger.error('Failed to write file:', _context6.t0);
+            return _context6.abrupt("return", false);
           case 10:
           case "end":
-            return _context2.stop();
+            return _context6.stop();
         }
-      }, _callee2, null, [[0, 6]]);
+      }, _callee6, null, [[0, 6]]);
     }))();
   },
   readFile: function readFile(filePath) {
-    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
-      return _regeneratorRuntime().wrap(function _callee3$(_context3) {
-        while (1) switch (_context3.prev = _context3.next) {
+    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7() {
+      return _regeneratorRuntime().wrap(function _callee7$(_context7) {
+        while (1) switch (_context7.prev = _context7.next) {
           case 0:
-            _context3.prev = 0;
-            _context3.next = 3;
-            return fs.readFile(filePath, 'utf8');
+            _context7.prev = 0;
+            _context7.next = 3;
+            return fileOps.promises.readFile(filePath);
           case 3:
-            return _context3.abrupt("return", _context3.sent);
+            return _context7.abrupt("return", _context7.sent);
           case 6:
-            _context3.prev = 6;
-            _context3.t0 = _context3["catch"](0);
-            logger.dev('Failed to read file:', _context3.t0);
-            return _context3.abrupt("return", null);
+            _context7.prev = 6;
+            _context7.t0 = _context7["catch"](0);
+            logger.dev('Failed to read file:', _context7.t0);
+            return _context7.abrupt("return", null);
           case 10:
           case "end":
-            return _context3.stop();
+            return _context7.stop();
         }
-      }, _callee3, null, [[0, 6]]);
+      }, _callee7, null, [[0, 6]]);
     }))();
   },
   rename: function rename(oldPath, newPath) {
-    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee4() {
-      return _regeneratorRuntime().wrap(function _callee4$(_context4) {
-        while (1) switch (_context4.prev = _context4.next) {
+    return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8() {
+      return _regeneratorRuntime().wrap(function _callee8$(_context8) {
+        while (1) switch (_context8.prev = _context8.next) {
           case 0:
-            _context4.prev = 0;
-            _context4.next = 3;
-            return fs.rename(oldPath, newPath);
+            _context8.prev = 0;
+            _context8.next = 3;
+            return fileOps.promises.rename(oldPath, newPath);
           case 3:
-            return _context4.abrupt("return", true);
+            return _context8.abrupt("return", true);
           case 6:
-            _context4.prev = 6;
-            _context4.t0 = _context4["catch"](0);
-            logger.error('Failed to rename file:', _context4.t0);
-            return _context4.abrupt("return", false);
+            _context8.prev = 6;
+            _context8.t0 = _context8["catch"](0);
+            logger.error('Failed to rename file:', _context8.t0);
+            return _context8.abrupt("return", false);
           case 10:
           case "end":
-            return _context4.stop();
+            return _context8.stop();
         }
-      }, _callee4, null, [[0, 6]]);
+      }, _callee8, null, [[0, 6]]);
     }))();
   }
 };
@@ -184,10 +306,10 @@ function reinitializeCache() {
   return _reinitializeCache.apply(this, arguments);
 } // Add function to update cache file path
 function _reinitializeCache() {
-  _reinitializeCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee5() {
+  _reinitializeCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9() {
     var entries, newCache, validEntries, _iterator2, _step2, _step2$value, key, value;
-    return _regeneratorRuntime().wrap(function _callee5$(_context5) {
-      while (1) switch (_context5.prev = _context5.next) {
+    return _regeneratorRuntime().wrap(function _callee9$(_context9) {
+      while (1) switch (_context9.prev = _context9.next) {
         case 0:
           if (cache) {
             entries = Array.from(cache.entries());
@@ -228,16 +350,16 @@ function _reinitializeCache() {
           }
         case 1:
         case "end":
-          return _context5.stop();
+          return _context9.stop();
       }
-    }, _callee5);
+    }, _callee9);
   }));
   return _reinitializeCache.apply(this, arguments);
 }
 function updateCachePath(dir, filename) {
   if (dir) CACHE_DIR = dir;
   if (filename) CACHE_FILENAME = filename;
-  CACHE_FILE = path.join(CACHE_DIR, CACHE_FILENAME);
+  CACHE_FILE = fileOps.path.join(CACHE_DIR, CACHE_FILENAME);
 }
 
 // Update configure function to handle new options
@@ -262,16 +384,16 @@ function ensureCacheDir() {
   return _ensureCacheDir.apply(this, arguments);
 }
 function _ensureCacheDir() {
-  _ensureCacheDir = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee6() {
-    return _regeneratorRuntime().wrap(function _callee6$(_context6) {
-      while (1) switch (_context6.prev = _context6.next) {
+  _ensureCacheDir = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee10() {
+    return _regeneratorRuntime().wrap(function _callee10$(_context10) {
+      while (1) switch (_context10.prev = _context10.next) {
         case 0:
-          return _context6.abrupt("return", fileOps.ensureDir(path.dirname(CACHE_FILE)));
+          return _context10.abrupt("return", fileOperations.ensureDir(fileOps.path.dirname(CACHE_FILE)));
         case 1:
         case "end":
-          return _context6.stop();
+          return _context10.stop();
       }
-    }, _callee6);
+    }, _callee10);
   }));
   return _ensureCacheDir.apply(this, arguments);
 }
@@ -279,53 +401,53 @@ function loadPersistedCache() {
   return _loadPersistedCache.apply(this, arguments);
 }
 function _loadPersistedCache() {
-  _loadPersistedCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7() {
+  _loadPersistedCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee11() {
     var data;
-    return _regeneratorRuntime().wrap(function _callee7$(_context7) {
-      while (1) switch (_context7.prev = _context7.next) {
+    return _regeneratorRuntime().wrap(function _callee11$(_context11) {
+      while (1) switch (_context11.prev = _context11.next) {
         case 0:
-          _context7.next = 2;
-          return fileOps.readFile(CACHE_FILE);
+          _context11.next = 2;
+          return fileOperations.readFile(CACHE_FILE);
         case 2:
-          data = _context7.sent;
+          data = _context11.sent;
           if (data) {
-            _context7.next = 5;
+            _context11.next = 5;
             break;
           }
-          return _context7.abrupt("return", {});
+          return _context11.abrupt("return", {});
         case 5:
-          _context7.prev = 5;
-          return _context7.abrupt("return", JSON.parse(data));
+          _context11.prev = 5;
+          return _context11.abrupt("return", JSON.parse(data));
         case 9:
-          _context7.prev = 9;
-          _context7.t0 = _context7["catch"](5);
-          logger.dev('Failed to parse cache file:', _context7.t0);
-          return _context7.abrupt("return", {});
+          _context11.prev = 9;
+          _context11.t0 = _context11["catch"](5);
+          logger.dev('Failed to parse cache file:', _context11.t0);
+          return _context11.abrupt("return", {});
         case 13:
         case "end":
-          return _context7.stop();
+          return _context11.stop();
       }
-    }, _callee7, null, [[5, 9]]);
+    }, _callee11, null, [[5, 9]]);
   }));
   return _loadPersistedCache.apply(this, arguments);
 }
-function persistCache(_x) {
+function persistCache(_x8) {
   return _persistCache.apply(this, arguments);
 }
 function _persistCache() {
-  _persistCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(cache) {
+  _persistCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee12(cache) {
     var entries, serialized, tempFile;
-    return _regeneratorRuntime().wrap(function _callee8$(_context8) {
-      while (1) switch (_context8.prev = _context8.next) {
+    return _regeneratorRuntime().wrap(function _callee12$(_context12) {
+      while (1) switch (_context12.prev = _context12.next) {
         case 0:
           if (!(!cache || !cacheModified)) {
-            _context8.next = 3;
+            _context12.next = 3;
             break;
           }
           logger.dev('Skip persisting cache - no changes');
-          return _context8.abrupt("return");
+          return _context12.abrupt("return");
         case 3:
-          _context8.prev = 3;
+          _context12.prev = 3;
           entries = Array.from(cache.entries()).filter(function (_ref3) {
             var _ref4 = _slicedToArray(_ref3, 2),
               _ = _ref4[0],
@@ -334,25 +456,25 @@ function _persistCache() {
           });
           serialized = JSON.stringify(Object.fromEntries(entries));
           tempFile = "".concat(CACHE_FILE, ".tmp");
-          _context8.next = 9;
-          return fileOps.writeFile(tempFile, serialized);
+          _context12.next = 9;
+          return fileOperations.writeFile(tempFile, serialized);
         case 9:
-          _context8.next = 11;
-          return fileOps.rename(tempFile, CACHE_FILE);
+          _context12.next = 11;
+          return fileOperations.rename(tempFile, CACHE_FILE);
         case 11:
           cacheModified = false;
           logger.dev('Cache persisted to disk');
-          _context8.next = 18;
+          _context12.next = 18;
           break;
         case 15:
-          _context8.prev = 15;
-          _context8.t0 = _context8["catch"](3);
-          logger.error('Failed to persist cache:', _context8.t0);
+          _context12.prev = 15;
+          _context12.t0 = _context12["catch"](3);
+          logger.error('Failed to persist cache:', _context12.t0);
         case 18:
         case "end":
-          return _context8.stop();
+          return _context12.stop();
       }
-    }, _callee8, null, [[3, 15]]);
+    }, _callee12, null, [[3, 15]]);
   }));
   return _persistCache.apply(this, arguments);
 }
@@ -360,41 +482,47 @@ function initializeCache() {
   return _initializeCache.apply(this, arguments);
 }
 function _initializeCache() {
-  _initializeCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee10() {
-    var dirCreated, persistedData, _i, _Object$entries, _Object$entries$_i, key, value;
-    return _regeneratorRuntime().wrap(function _callee10$(_context10) {
-      while (1) switch (_context10.prev = _context10.next) {
+  _initializeCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee14() {
+    var dirCreated, persistedData, cacheOptions, _i, _Object$entries, _Object$entries$_i, key, value;
+    return _regeneratorRuntime().wrap(function _callee14$(_context14) {
+      while (1) switch (_context14.prev = _context14.next) {
         case 0:
           if (cache) {
-            _context10.next = 14;
+            _context14.next = 16;
             break;
           }
-          _context10.next = 3;
+          _context14.next = 3;
           return ensureCacheDir();
         case 3:
-          dirCreated = _context10.sent;
+          dirCreated = _context14.sent;
           if (dirCreated) {
-            _context10.next = 7;
+            _context14.next = 7;
             break;
           }
           logger.error('Failed to create cache directory');
-          return _context10.abrupt("return", null);
+          return _context14.abrupt("return", null);
         case 7:
-          _context10.next = 9;
+          _context14.next = 9;
           return loadPersistedCache();
         case 9:
-          persistedData = _context10.sent;
-          cache = new LRUCache({
-            max: CONFIG.maxEntries,
-            maxSize: CONFIG.maxSize,
-            sizeCalculation: function sizeCalculation(entry) {
-              return entry.size;
-            },
-            // Use pre-calculated size
+          persistedData = _context14.sent;
+          cacheOptions = {
+            // Ensure we always have at least one limiting option
+            max: CONFIG.maxEntries || 100000,
+            // Use default if not set
+            ttl: CONFIG.ttl,
+            // Include TTL from config
             dispose: function dispose(value, key) {
               logger.dev('Disposed old cache entry', key);
             }
-          });
+          }; // Only add size-related options if maxSize is set
+          if (CONFIG.maxSize) {
+            cacheOptions.maxSize = CONFIG.maxSize;
+            cacheOptions.sizeCalculation = function (entry) {
+              return entry.size;
+            };
+          }
+          cache = new LRUCache(_objectSpread({}, cacheOptions));
 
           // Restore persisted data
           for (_i = 0, _Object$entries = Object.entries(persistedData); _i < _Object$entries.length; _i++) {
@@ -406,178 +534,133 @@ function _initializeCache() {
 
           // Set up intervals
           if (!persistInterval) {
-            persistInterval = setInterval(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9() {
-              return _regeneratorRuntime().wrap(function _callee9$(_context9) {
-                while (1) switch (_context9.prev = _context9.next) {
+            persistInterval = setInterval(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee13() {
+              return _regeneratorRuntime().wrap(function _callee13$(_context13) {
+                while (1) switch (_context13.prev = _context13.next) {
                   case 0:
-                    _context9.next = 2;
+                    _context13.next = 2;
                     return persistCache(cache);
                   case 2:
                   case "end":
-                    return _context9.stop();
+                    return _context13.stop();
                 }
-              }, _callee9);
+              }, _callee13);
             })), CONFIG.persistInterval);
           }
 
           // Mark as modified to ensure first persistence
           cacheModified = true;
-        case 14:
-          return _context10.abrupt("return", cache);
-        case 15:
-        case "end":
-          return _context10.stop();
-      }
-    }, _callee10);
-  }));
-  return _initializeCache.apply(this, arguments);
-}
-function getCacheInstance() {
-  return _getCacheInstance.apply(this, arguments);
-} // Lock mechanism for concurrent operations
-function _getCacheInstance() {
-  _getCacheInstance = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee11() {
-    return _regeneratorRuntime().wrap(function _callee11$(_context11) {
-      while (1) switch (_context11.prev = _context11.next) {
-        case 0:
-          if (!cachePromise) {
-            cachePromise = initializeCache();
-          }
-          return _context11.abrupt("return", cachePromise);
-        case 2:
-        case "end":
-          return _context11.stop();
-      }
-    }, _callee11);
-  }));
-  return _getCacheInstance.apply(this, arguments);
-}
-var locks = new Map();
-function acquireLock(_x2) {
-  return _acquireLock.apply(this, arguments);
-}
-function _acquireLock() {
-  _acquireLock = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee12(key) {
-    return _regeneratorRuntime().wrap(function _callee12$(_context12) {
-      while (1) switch (_context12.prev = _context12.next) {
-        case 0:
-          if (!locks.has(key)) {
-            _context12.next = 5;
-            break;
-          }
-          _context12.next = 3;
-          return new Promise(function (resolve) {
-            return setTimeout(resolve, 10);
-          });
-        case 3:
-          _context12.next = 0;
-          break;
-        case 5:
-          locks.set(key, true);
-        case 6:
-        case "end":
-          return _context12.stop();
-      }
-    }, _callee12);
-  }));
-  return _acquireLock.apply(this, arguments);
-}
-function releaseLock(_x3) {
-  return _releaseLock.apply(this, arguments);
-}
-function _releaseLock() {
-  _releaseLock = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee13(key) {
-    return _regeneratorRuntime().wrap(function _callee13$(_context13) {
-      while (1) switch (_context13.prev = _context13.next) {
-        case 0:
-          locks["delete"](key);
-        case 1:
-        case "end":
-          return _context13.stop();
-      }
-    }, _callee13);
-  }));
-  return _releaseLock.apply(this, arguments);
-}
-function get(_x4) {
-  return _get.apply(this, arguments);
-} // Update set function to use calculateExpiry
-function _get() {
-  _get = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee14(key) {
-    var cacheInstance, entry;
-    return _regeneratorRuntime().wrap(function _callee14$(_context14) {
-      while (1) switch (_context14.prev = _context14.next) {
-        case 0:
-          _context14.next = 2;
-          return getCacheInstance();
-        case 2:
-          cacheInstance = _context14.sent;
-          if (cacheInstance) {
-            _context14.next = 5;
-            break;
-          }
-          return _context14.abrupt("return", null);
-        case 5:
-          entry = cacheInstance.get(key);
-          if (entry) {
-            _context14.next = 9;
-            break;
-          }
-          stats.misses++;
-          return _context14.abrupt("return", null);
-        case 9:
-          if (!(entry.expires && entry.expires < Date.now())) {
-            _context14.next = 13;
-            break;
-          }
-          cacheInstance["delete"](key);
-          stats.misses++;
-          return _context14.abrupt("return", null);
-        case 13:
-          stats.hits++;
-          return _context14.abrupt("return", entry);
-        case 15:
+        case 16:
+          return _context14.abrupt("return", cache);
+        case 17:
         case "end":
           return _context14.stop();
       }
     }, _callee14);
   }));
-  return _get.apply(this, arguments);
+  return _initializeCache.apply(this, arguments);
 }
-function set(_x5, _x6, _x7) {
-  return _set.apply(this, arguments);
+export function getCacheInstance() {
+  return _getCacheInstance.apply(this, arguments);
 }
-function _set() {
-  _set = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee15(key, value, ttl) {
-    var cacheInstance, size, entry;
+function _getCacheInstance() {
+  _getCacheInstance = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee15() {
     return _regeneratorRuntime().wrap(function _callee15$(_context15) {
       while (1) switch (_context15.prev = _context15.next) {
         case 0:
-          _context15.next = 2;
-          return getCacheInstance();
+          if (!cachePromise) {
+            cachePromise = initializeCache();
+          }
+          return _context15.abrupt("return", cachePromise);
         case 2:
-          cacheInstance = _context15.sent;
+        case "end":
+          return _context15.stop();
+      }
+    }, _callee15);
+  }));
+  return _getCacheInstance.apply(this, arguments);
+}
+function get(_x9) {
+  return _get.apply(this, arguments);
+} // Update set function to use calculateExpiry
+function _get() {
+  _get = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee16(key) {
+    var cacheInstance, entry;
+    return _regeneratorRuntime().wrap(function _callee16$(_context16) {
+      while (1) switch (_context16.prev = _context16.next) {
+        case 0:
+          console.log('get', key);
+          _context16.next = 3;
+          return getCacheInstance();
+        case 3:
+          cacheInstance = _context16.sent;
           if (cacheInstance) {
-            _context15.next = 5;
+            _context16.next = 6;
             break;
           }
-          return _context15.abrupt("return", null);
+          return _context16.abrupt("return", null);
+        case 6:
+          entry = cacheInstance.get(key);
+          console.log('entry', entry);
+          if (entry) {
+            _context16.next = 11;
+            break;
+          }
+          stats.misses++;
+          return _context16.abrupt("return", null);
+        case 11:
+          if (!(entry.expires && entry.expires < Date.now())) {
+            _context16.next = 15;
+            break;
+          }
+          cacheInstance["delete"](key);
+          stats.misses++;
+          return _context16.abrupt("return", null);
+        case 15:
+          stats.hits++;
+          return _context16.abrupt("return", entry);
+        case 17:
+        case "end":
+          return _context16.stop();
+      }
+    }, _callee16);
+  }));
+  return _get.apply(this, arguments);
+}
+function set(_x10, _x11, _x12) {
+  return _set.apply(this, arguments);
+}
+function _set() {
+  _set = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee17(key, value, ttl) {
+    var cacheInstance, size, entry;
+    return _regeneratorRuntime().wrap(function _callee17$(_context17) {
+      while (1) switch (_context17.prev = _context17.next) {
+        case 0:
+          _context17.next = 2;
+          return getCacheInstance();
+        case 2:
+          cacheInstance = _context17.sent;
+          if (cacheInstance) {
+            _context17.next = 5;
+            break;
+          }
+          return _context17.abrupt("return", null);
         case 5:
           if (!(value === undefined || value === null)) {
-            _context15.next = 8;
+            _context17.next = 8;
             break;
           }
           logger.dev('Skipping null/undefined value');
-          return _context15.abrupt("return", null);
+          return _context17.abrupt("return", null);
         case 8:
-          _context15.prev = 8;
+          _context17.prev = 8;
           size = calculateSize(value); // Check size limit before storing
           if (!(size > CONFIG.maxEntrySize)) {
-            _context15.next = 13;
+            _context17.next = 13;
             break;
           }
           logger.dev("Value exceeds maxEntrySize (".concat(size, " > ").concat(CONFIG.maxEntrySize, ")"));
-          return _context15.abrupt("return", null);
+          return _context17.abrupt("return", null);
         case 13:
           entry = {
             value: value,
@@ -587,39 +670,39 @@ function _set() {
           };
           cacheInstance.set(key, entry);
           cacheModified = true;
-          return _context15.abrupt("return", entry);
+          return _context17.abrupt("return", entry);
         case 19:
-          _context15.prev = 19;
-          _context15.t0 = _context15["catch"](8);
-          logger.error('Failed to set cache entry', key, _context15.t0);
-          return _context15.abrupt("return", null);
+          _context17.prev = 19;
+          _context17.t0 = _context17["catch"](8);
+          logger.error('Failed to set cache entry', key, _context17.t0);
+          return _context17.abrupt("return", null);
         case 23:
         case "end":
-          return _context15.stop();
+          return _context17.stop();
       }
-    }, _callee15, null, [[8, 19]]);
+    }, _callee17, null, [[8, 19]]);
   }));
   return _set.apply(this, arguments);
 }
-function del(_x8) {
+function del(_x13) {
   return _del.apply(this, arguments);
 }
 function _del() {
-  _del = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee16(key) {
+  _del = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee18(key) {
     var cacheInstance;
-    return _regeneratorRuntime().wrap(function _callee16$(_context16) {
-      while (1) switch (_context16.prev = _context16.next) {
+    return _regeneratorRuntime().wrap(function _callee18$(_context18) {
+      while (1) switch (_context18.prev = _context18.next) {
         case 0:
-          _context16.next = 2;
+          _context18.next = 2;
           return getCacheInstance();
         case 2:
-          cacheInstance = _context16.sent;
+          cacheInstance = _context18.sent;
           if (cacheInstance.has(key)) {
-            _context16.next = 6;
+            _context18.next = 6;
             break;
           }
           logger.error('Attempted to delete a non-existent cache entry', key);
-          return _context16.abrupt("return");
+          return _context18.abrupt("return");
         case 6:
           try {
             cacheInstance["delete"](key);
@@ -630,9 +713,9 @@ function _del() {
           }
         case 7:
         case "end":
-          return _context16.stop();
+          return _context18.stop();
       }
-    }, _callee16);
+    }, _callee18);
   }));
   return _del.apply(this, arguments);
 }
@@ -665,46 +748,46 @@ function checkMemoryPressure() {
   return _checkMemoryPressure.apply(this, arguments);
 }
 function _checkMemoryPressure() {
-  _checkMemoryPressure = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee17() {
+  _checkMemoryPressure = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee19() {
     var used, heapUsedPercent;
-    return _regeneratorRuntime().wrap(function _callee17$(_context17) {
-      while (1) switch (_context17.prev = _context17.next) {
+    return _regeneratorRuntime().wrap(function _callee19$(_context19) {
+      while (1) switch (_context19.prev = _context19.next) {
         case 0:
           used = process.memoryUsage();
           heapUsedPercent = used.heapUsed / used.heapTotal * 100;
           if (!(heapUsedPercent > 85)) {
-            _context17.next = 8;
+            _context19.next = 8;
             break;
           }
           memoryPressure = true;
-          _context17.next = 6;
+          _context19.next = 6;
           return clearLeastRecentlyUsed(20);
         case 6:
-          _context17.next = 9;
+          _context19.next = 9;
           break;
         case 8:
           memoryPressure = false;
         case 9:
         case "end":
-          return _context17.stop();
+          return _context19.stop();
       }
-    }, _callee17);
+    }, _callee19);
   }));
   return _checkMemoryPressure.apply(this, arguments);
 }
-function clearLeastRecentlyUsed(_x9) {
+function clearLeastRecentlyUsed(_x14) {
   return _clearLeastRecentlyUsed.apply(this, arguments);
 }
 function _clearLeastRecentlyUsed() {
-  _clearLeastRecentlyUsed = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee18(percentage) {
+  _clearLeastRecentlyUsed = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee20(percentage) {
     var cacheInstance, entriesToRemove, entries, _iterator3, _step3, _step3$value, key;
-    return _regeneratorRuntime().wrap(function _callee18$(_context18) {
-      while (1) switch (_context18.prev = _context18.next) {
+    return _regeneratorRuntime().wrap(function _callee20$(_context20) {
+      while (1) switch (_context20.prev = _context20.next) {
         case 0:
-          _context18.next = 2;
+          _context20.next = 2;
           return getCacheInstance();
         case 2:
-          cacheInstance = _context18.sent;
+          cacheInstance = _context20.sent;
           entriesToRemove = Math.floor(cacheInstance.size * (percentage / 100));
           entries = Array.from(cacheInstance.entries()).sort(function (a, b) {
             return a[1].time - b[1].time;
@@ -722,9 +805,9 @@ function _clearLeastRecentlyUsed() {
           }
         case 7:
         case "end":
-          return _context18.stop();
+          return _context20.stop();
       }
-    }, _callee18);
+    }, _callee20);
   }));
   return _clearLeastRecentlyUsed.apply(this, arguments);
 }
@@ -732,9 +815,9 @@ function _reset() {
   return _reset2.apply(this, arguments);
 }
 function _reset2() {
-  _reset2 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee19() {
-    return _regeneratorRuntime().wrap(function _callee19$(_context19) {
-      while (1) switch (_context19.prev = _context19.next) {
+  _reset2 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee21() {
+    return _regeneratorRuntime().wrap(function _callee21$(_context21) {
+      while (1) switch (_context21.prev = _context21.next) {
         case 0:
           if (persistInterval) {
             clearInterval(persistInterval);
@@ -753,9 +836,9 @@ function _reset2() {
           cacheModified = false;
         case 6:
         case "end":
-          return _context19.stop();
+          return _context21.stop();
       }
-    }, _callee19);
+    }, _callee21);
   }));
   return _reset2.apply(this, arguments);
 }
@@ -763,36 +846,36 @@ function cleanup() {
   return _cleanup.apply(this, arguments);
 }
 function _cleanup() {
-  _cleanup = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee20() {
-    return _regeneratorRuntime().wrap(function _callee20$(_context20) {
-      while (1) switch (_context20.prev = _context20.next) {
+  _cleanup = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee22() {
+    return _regeneratorRuntime().wrap(function _callee22$(_context22) {
+      while (1) switch (_context22.prev = _context22.next) {
         case 0:
-          _context20.prev = 0;
+          _context22.prev = 0;
           if (!cache) {
-            _context20.next = 5;
+            _context22.next = 5;
             break;
           }
           cacheModified = true; // Force final persistence
-          _context20.next = 5;
+          _context22.next = 5;
           return persistCache(cache);
         case 5:
-          _context20.next = 10;
+          _context22.next = 10;
           break;
         case 7:
-          _context20.prev = 7;
-          _context20.t0 = _context20["catch"](0);
-          logger.error('Error during cleanup:', _context20.t0);
+          _context22.prev = 7;
+          _context22.t0 = _context22["catch"](0);
+          logger.error('Error during cleanup:', _context22.t0);
         case 10:
-          _context20.prev = 10;
-          _context20.next = 13;
+          _context22.prev = 10;
+          _context22.next = 13;
           return _reset();
         case 13:
-          return _context20.finish(10);
+          return _context22.finish(10);
         case 14:
         case "end":
-          return _context20.stop();
+          return _context22.stop();
       }
-    }, _callee20, null, [[0, 7, 10, 14]]);
+    }, _callee22, null, [[0, 7, 10, 14]]);
   }));
   return _cleanup.apply(this, arguments);
 }
@@ -800,20 +883,20 @@ function getStats() {
   return _getStats.apply(this, arguments);
 }
 function _getStats() {
-  _getStats = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee21() {
+  _getStats = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee23() {
     var cacheInstance, entries, totalSize, largestEntry;
-    return _regeneratorRuntime().wrap(function _callee21$(_context21) {
-      while (1) switch (_context21.prev = _context21.next) {
+    return _regeneratorRuntime().wrap(function _callee23$(_context23) {
+      while (1) switch (_context23.prev = _context23.next) {
         case 0:
-          _context21.next = 2;
+          _context23.next = 2;
           return getCacheInstance();
         case 2:
-          cacheInstance = _context21.sent;
+          cacheInstance = _context23.sent;
           if (cacheInstance) {
-            _context21.next = 5;
+            _context23.next = 5;
             break;
           }
-          return _context21.abrupt("return", null);
+          return _context23.abrupt("return", null);
         case 5:
           entries = Array.from(cacheInstance.entries());
           totalSize = entries.reduce(function (acc, _ref6) {
@@ -833,7 +916,7 @@ function _getStats() {
           }, {
             size: 0
           });
-          return _context21.abrupt("return", _objectSpread(_objectSpread({}, stats), {}, {
+          return _context23.abrupt("return", _objectSpread(_objectSpread({}, stats), {}, {
             entryCount: cacheInstance.size,
             totalSize: totalSize,
             largestEntry: largestEntry,
@@ -842,9 +925,9 @@ function _getStats() {
           }));
         case 9:
         case "end":
-          return _context21.stop();
+          return _context23.stop();
       }
-    }, _callee21);
+    }, _callee23);
   }));
   return _getStats.apply(this, arguments);
 }
@@ -852,20 +935,20 @@ function clearExpired() {
   return _clearExpired.apply(this, arguments);
 } // Add function to force cache modification (for testing)
 function _clearExpired() {
-  _clearExpired = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee22() {
+  _clearExpired = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee24() {
     var cacheInstance, now, cleared, _iterator4, _step4, _step4$value, key, value;
-    return _regeneratorRuntime().wrap(function _callee22$(_context22) {
-      while (1) switch (_context22.prev = _context22.next) {
+    return _regeneratorRuntime().wrap(function _callee24$(_context24) {
+      while (1) switch (_context24.prev = _context24.next) {
         case 0:
-          _context22.next = 2;
+          _context24.next = 2;
           return getCacheInstance();
         case 2:
-          cacheInstance = _context22.sent;
+          cacheInstance = _context24.sent;
           if (cacheInstance) {
-            _context22.next = 5;
+            _context24.next = 5;
             break;
           }
-          return _context22.abrupt("return");
+          return _context24.abrupt("return");
         case 5:
           now = Date.now();
           cleared = 0;
@@ -883,12 +966,12 @@ function _clearExpired() {
           } finally {
             _iterator4.f();
           }
-          return _context22.abrupt("return", cleared);
+          return _context24.abrupt("return", cleared);
         case 10:
         case "end":
-          return _context22.stop();
+          return _context24.stop();
       }
-    }, _callee22);
+    }, _callee24);
   }));
   return _clearExpired.apply(this, arguments);
 }
@@ -901,4 +984,9 @@ export function getConfig() {
 export { get, set, del, stats, getStats, clearExpired, configure, cleanup, checkMemoryPressure, _reset };
 export function resetConfig() {
   CONFIG = getDefaultConfig();
+  // Recalculate CACHE_DIR and CACHE_FILE
+  CACHE_DIR = fileOps.path.join(process.cwd(), '.cache');
+  CACHE_FILENAME = 'llm-cache.json';
+  CACHE_FILE = fileOps.path.join(CACHE_DIR, CACHE_FILENAME);
+  cacheModified = true;
 }

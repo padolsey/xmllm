@@ -28,7 +28,7 @@ const createMockReader = (responses) => {
 };
 
 describe('Common xmllm Scenarios', () => {
-  
+
   describe('1. Raw Text Streaming', () => {
     it('should stream raw LLM output as it arrives', async () => {
       const TestStream = jest.fn().mockImplementation(() => ({

@@ -1,15 +1,20 @@
 import { jest } from '@jest/globals';
 import { createRequire } from 'module';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DIST_PATH = path.resolve(__dirname, '../../dist/cjs');
 
 describe('CommonJS Imports', () => {
   let xmllm, xmllmClient, xmllmProxy;
 
   beforeAll(() => {
-    xmllm = require('xmllm');
-    xmllmClient = require('xmllm/client');
-    xmllmProxy = require('xmllm/proxy');
+    // Use the compiled CJS versions from dist
+    xmllm = require(path.join(DIST_PATH, 'xmllm-main.js'));
+    xmllmClient = require(path.join(DIST_PATH, 'xmllm-client.js'));
+    xmllmProxy = require(path.join(DIST_PATH, 'proxies/default.js'));
   });
 
   test('Main module can be required', () => {
@@ -39,14 +44,13 @@ describe('CommonJS Imports', () => {
   });
 
   test('Named exports are available via require', () => {
-    const { simple, stream, configure } = require('xmllm');
+    const { simple, stream, configure } = xmllm;
     expect(typeof simple).toBe('function');
     expect(typeof stream).toBe('function');
     expect(typeof configure).toBe('function');
   });
 
   test('Named exports are available via destructuring', () => {
-    const xmllm = require('xmllm');
     const { simple, stream, configure } = xmllm;
     expect(typeof simple).toBe('function');
     expect(typeof stream).toBe('function');

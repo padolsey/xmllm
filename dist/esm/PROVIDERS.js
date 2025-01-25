@@ -1,15 +1,19 @@
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
-function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 import { config } from 'dotenv';
 import { ModelValidationError } from './errors/ProviderErrors.mjs';
 config({
@@ -21,34 +25,52 @@ var standardHeaderGen = function standardHeaderGen() {
     'Content-Type': 'application/json'
   };
 };
-var standardPayloader = function standardPayloader(_ref) {
-  var _ref$messages = _ref.messages,
-    messages = _ref$messages === void 0 ? [] : _ref$messages,
-    _ref$max_tokens = _ref.max_tokens,
-    max_tokens = _ref$max_tokens === void 0 ? 300 : _ref$max_tokens,
-    _ref$stop = _ref.stop,
-    stop = _ref$stop === void 0 ? null : _ref$stop,
-    _ref$temperature = _ref.temperature,
-    temperature = _ref$temperature === void 0 ? 0.52 : _ref$temperature,
-    _ref$top_p = _ref.top_p,
-    top_p = _ref$top_p === void 0 ? 1 : _ref$top_p,
-    _ref$presence_penalty = _ref.presence_penalty,
-    presence_penalty = _ref$presence_penalty === void 0 ? 0 : _ref$presence_penalty,
-    _ref$system = _ref.system,
-    system = _ref$system === void 0 ? '' : _ref$system;
+
+// Export standardPayloader for testing
+export var standardPayloader = function standardPayloader(o) {
+  var _o$messages = o.messages,
+    messages = _o$messages === void 0 ? [] : _o$messages,
+    _o$max_tokens = o.max_tokens,
+    max_tokens = _o$max_tokens === void 0 ? 300 : _o$max_tokens,
+    _o$stop = o.stop,
+    stop = _o$stop === void 0 ? null : _o$stop,
+    _o$temperature = o.temperature,
+    temperature = _o$temperature === void 0 ? 0.52 : _o$temperature,
+    _o$top_p = o.top_p,
+    top_p = _o$top_p === void 0 ? 1 : _o$top_p,
+    _o$presence_penalty = o.presence_penalty,
+    presence_penalty = _o$presence_penalty === void 0 ? 0 : _o$presence_penalty,
+    _o$system = o.system,
+    system = _o$system === void 0 ? '' : _o$system;
+  console.log('standardPayloader called with:', o, 't', this);
+  var isO1Model = this.name === 'openai_custom' && /^o1/.test(this.models.custom.name);
+
+  // Process messages based on model type
+  var processedMessages = isO1Model ? [].concat(_toConsumableArray(system ? [{
+    role: 'user',
+    content: system
+  }] : []), _toConsumableArray(messages.map(function (msg) {
+    return msg.role === 'system' ? _objectSpread(_objectSpread({}, msg), {}, {
+      role: 'user'
+    }) : msg;
+  }))) : [{
+    role: 'system',
+    content: system || ''
+  }].concat(_toConsumableArray(messages));
   var payload = {
-    messages: [{
-      role: 'system',
-      content: system || ''
-    }].concat(messages)
+    messages: processedMessages
   };
+
+  // Handle max tokens - different property name for O1 models
   if (max_tokens != null) {
-    payload.max_tokens = max_tokens;
+    payload[isO1Model ? 'max_completion_tokens' : 'max_tokens'] = max_tokens;
   }
   if (stop != null) {
     payload.stop = stop;
   }
-  if (temperature != null) {
+
+  // Only add temperature for non-O1 models
+  if (temperature != null && !isO1Model) {
     payload.temperature = temperature;
   }
   if (top_p != null) {
@@ -59,23 +81,23 @@ var standardPayloader = function standardPayloader(_ref) {
   }
   return payload;
 };
-var taiStylePayloader = function taiStylePayloader(_ref2) {
-  var _ref2$messages = _ref2.messages,
-    messages = _ref2$messages === void 0 ? [] : _ref2$messages,
-    _ref2$max_tokens = _ref2.max_tokens,
-    max_tokens = _ref2$max_tokens === void 0 ? 300 : _ref2$max_tokens,
-    _ref2$stop = _ref2.stop,
-    stop = _ref2$stop === void 0 ? ['', ''] : _ref2$stop,
-    _ref2$temperature = _ref2.temperature,
-    temperature = _ref2$temperature === void 0 ? 0.52 : _ref2$temperature,
-    _ref2$top_p = _ref2.top_p,
-    top_p = _ref2$top_p === void 0 ? 1 : _ref2$top_p,
-    _ref2$frequency_penal = _ref2.frequency_penalty,
-    frequency_penalty = _ref2$frequency_penal === void 0 ? 0.01 : _ref2$frequency_penal,
-    _ref2$presence_penalt = _ref2.presence_penalty,
-    presence_penalty = _ref2$presence_penalt === void 0 ? 0 : _ref2$presence_penalt,
-    _ref2$system = _ref2.system,
-    system = _ref2$system === void 0 ? '' : _ref2$system;
+export var taiStylePayloader = function taiStylePayloader(_ref) {
+  var _ref$messages = _ref.messages,
+    messages = _ref$messages === void 0 ? [] : _ref$messages,
+    _ref$max_tokens = _ref.max_tokens,
+    max_tokens = _ref$max_tokens === void 0 ? 300 : _ref$max_tokens,
+    _ref$stop = _ref.stop,
+    stop = _ref$stop === void 0 ? ['', ''] : _ref$stop,
+    _ref$temperature = _ref.temperature,
+    temperature = _ref$temperature === void 0 ? 0.52 : _ref$temperature,
+    _ref$top_p = _ref.top_p,
+    top_p = _ref$top_p === void 0 ? 1 : _ref$top_p,
+    _ref$frequency_penalt = _ref.frequency_penalty,
+    frequency_penalty = _ref$frequency_penalt === void 0 ? 0.01 : _ref$frequency_penalt,
+    _ref$presence_penalty = _ref.presence_penalty,
+    presence_penalty = _ref$presence_penalty === void 0 ? 0 : _ref$presence_penalty,
+    _ref$system = _ref.system,
+    system = _ref$system === void 0 ? '' : _ref$system;
   return {
     messages: [{
       role: 'system',
@@ -117,20 +139,20 @@ var providers = {
         'Content-Type': 'application/json'
       };
     },
-    payloader: function payloader(_ref3) {
-      var _ref3$messages = _ref3.messages,
-        messages = _ref3$messages === void 0 ? [] : _ref3$messages,
-        system = _ref3.system,
-        _ref3$max_tokens = _ref3.max_tokens,
-        max_tokens = _ref3$max_tokens === void 0 ? 300 : _ref3$max_tokens,
-        _ref3$stop = _ref3.stop,
-        stop = _ref3$stop === void 0 ? null : _ref3$stop,
-        _ref3$temperature = _ref3.temperature,
-        temperature = _ref3$temperature === void 0 ? 0.52 : _ref3$temperature,
-        _ref3$top_p = _ref3.top_p,
-        top_p = _ref3$top_p === void 0 ? 1 : _ref3$top_p,
-        _ref3$presence_penalt = _ref3.presence_penalty,
-        presence_penalty = _ref3$presence_penalt === void 0 ? 0 : _ref3$presence_penalt;
+    payloader: function payloader(_ref2) {
+      var _ref2$messages = _ref2.messages,
+        messages = _ref2$messages === void 0 ? [] : _ref2$messages,
+        system = _ref2.system,
+        _ref2$max_tokens = _ref2.max_tokens,
+        max_tokens = _ref2$max_tokens === void 0 ? 300 : _ref2$max_tokens,
+        _ref2$stop = _ref2.stop,
+        stop = _ref2$stop === void 0 ? null : _ref2$stop,
+        _ref2$temperature = _ref2.temperature,
+        temperature = _ref2$temperature === void 0 ? 0.52 : _ref2$temperature,
+        _ref2$top_p = _ref2.top_p,
+        top_p = _ref2$top_p === void 0 ? 1 : _ref2$top_p,
+        _ref2$presence_penalt = _ref2.presence_penalty,
+        presence_penalty = _ref2$presence_penalt === void 0 ? 0 : _ref2$presence_penalt;
       return {
         system: system,
         messages: messages,
@@ -243,6 +265,7 @@ export var PROVIDER_ALIASES = {
 export default providers;
 export function createCustomModel(baseProvider, config) {
   var _baseProvider$models;
+  console.log('createCustomModel called with:', baseProvider, config);
   // Required fields
   if (!config.name) {
     throw new ModelValidationError('Model name is required', {
@@ -347,10 +370,10 @@ export function registerProvider(name, config) {
   }
 
   // Validate model names
-  Object.entries(config.models).forEach(function (_ref4) {
-    var _ref5 = _slicedToArray(_ref4, 2),
-      alias = _ref5[0],
-      model = _ref5[1];
+  Object.entries(config.models).forEach(function (_ref3) {
+    var _ref4 = _slicedToArray(_ref3, 2),
+      alias = _ref4[0],
+      model = _ref4[1];
     if (!model.name) {
       throw new ModelValidationError('Each model must have a name', {
         provider: name,
@@ -381,3 +404,6 @@ export function registerProvider(name, config) {
   }
   return providers[name];
 }
+
+// Export providers for testing
+export var testProviders = providers;

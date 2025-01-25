@@ -1,6 +1,6 @@
 {
   "name": "xmllm",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "main": "./dist/cjs/xmllm-main.js",
   "module": "./dist/esm/xmllm-main.mjs",
   "types": "index.d.ts",
@@ -30,14 +30,25 @@
   },
   "exports": {
     ".": {
-      "import": "./src/xmllm-main.mjs",
+      "browser": "./src/xmllm-client.mjs",
+      "default": "./src/xmllm-main.mjs",
       "require": "./dist/cjs/xmllm-main.js",
       "types": "./index.d.ts"
     },
     "./client": {
-      "import": "./src/xmllm-client.mjs",
+      "browser": "./src/xmllm-client.mjs",
+      "default": "./src/xmllm-client.mjs",
       "require": "./dist/cjs/xmllm-client.js",
       "types": "./client.d.ts"
+    },
+    "./fs": {
+      "browser": "./src/fs-shim.mjs",
+      "node": "./src/fs-node.mjs",
+      "default": "./src/fs-node.mjs"
+    },
+    "./mainCache": {
+      "browser": "./src/mainCache.browser.mjs",
+      "default": "./src/mainCache.mjs"
     },
     "./proxy": {
       "import": "./src/proxies/default.mjs",
@@ -75,5 +86,13 @@
   },
   "bin": {
     "xmllm-proxy": "./dist/cjs/xmllm-run-proxy.js"
+  },
+  "browser": {
+    "./src/mainCache.mjs": "./src/mainCache.browser.mjs",
+    "./dist/cjs/mainCache.js": "./dist/cjs/mainCache.browser.js",
+    "./dist/esm/mainCache.mjs": "./dist/esm/mainCache.browser.mjs",
+    "./src/fs.mjs": "./src/fs-shim.mjs",
+    "fs/promises": false,
+    "path": false
   }
 }
