@@ -203,11 +203,30 @@ class ValidationService {
       );
     }
 
-    if (cache !== undefined && typeof cache !== 'boolean') {
-      throw new PayloadValidationError(
-        'cache must be a boolean',
-        { cache }
-      );
+    if (cache !== undefined) {
+      if (typeof cache === 'boolean') {
+        // Boolean format is valid
+      } else if (typeof cache === 'object' && cache !== null) {
+        // Object format validation
+        const { read, write } = cache;
+        if (read !== undefined && typeof read !== 'boolean') {
+          throw new PayloadValidationError(
+            'cache.read must be a boolean',
+            { read }
+          );
+        }
+        if (write !== undefined && typeof write !== 'boolean') {
+          throw new PayloadValidationError(
+            'cache.write must be a boolean',
+            { write }
+          );
+        }
+      } else {
+        throw new PayloadValidationError(
+          'cache must be a boolean or an object with read/write boolean properties',
+          { cache }
+        );
+      }
     }
 
     // Validate constraints if present

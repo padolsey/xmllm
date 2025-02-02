@@ -56,6 +56,20 @@ export default async function APIStream(payload, injectedProviderManager) {
       payload.model = [payload.model];
     }
 
+    // Extract cache control parameters with more granular control
+    const {
+      cache,          // boolean | { read?: boolean, write?: boolean }
+      cacheRead,      // boolean (alternative to cache.read)
+      cacheWrite      // boolean (alternative to cache.write)
+    } = payload;
+
+    // Normalize cache settings
+    const shouldReadCache = cache === true ? true : 
+      (typeof cache === 'object' ? cache.read : cacheRead);
+
+    const shouldWriteCache = cache === true ? true :
+      (typeof cache === 'object' ? cache.write : cacheWrite);
+
     // Extract relevant parameters for cache key
     const cacheKeyParams = {
       _v: CACHE_VERSION,
@@ -70,8 +84,8 @@ export default async function APIStream(payload, injectedProviderManager) {
 
     let hash = createHash('md5').update(JSON.stringify(cacheKeyParams)).digest('hex');
 
-    // Only check cache if caching is explicitly enabled
-    if (payload.cache === true) {
+    // Only check cache if cache reading is enabled
+    if (shouldReadCache) {
       let cachedData = await getCache(hash);
       if (cachedData) {
         cachedData = cachedData.value;
@@ -138,8 +152,8 @@ export default async function APIStream(payload, injectedProviderManager) {
             controller.enqueue(value);
           }
 
-          // Set cache if caching is enabled and content isn't too large
-          if (payload.cache === true) {
+          // Set cache if cache writing is enabled
+          if (shouldWriteCache) {
             const contentSize = content.length;
             const cacheConfig = getCacheConfig();
             if (contentSize <= cacheConfig.maxEntrySize) {
