@@ -37,7 +37,8 @@ import xmllm, {
   // Main functions
   stream,
   simple,
-  configure
+  configure,
+  SchemaType
 } from '../index';
 
 import {
@@ -48,6 +49,9 @@ import {
   ClientConfigureOptions,
   configure as clientConfigure
 } from '../client';
+
+import { types } from '../index';
+import { SchemaItemsType } from '../index';
 
 // Positive test - should compile
 const validMessage: Message = {
@@ -614,3 +618,67 @@ expectError<XMLElement>({
   $$tagkey: 1,
   $$tagclosed: true
 });
+
+// Test complex nested schemas with items()
+const complexSchema = {
+  analysis: {
+    topics: types.items({
+      name: types.string("Topic name"),
+      stats: {
+        average_agreement: types.number("Agreement score")
+          .withTransform((n: number) => Math.min(1, Math.max(0, n))),
+        controversy_score: types.number("Controversy score"),
+        observations: types.items(
+          types.string("Key observation")
+        )
+      }
+    })
+  }
+} as const;
+expectAssignable<Schema>(complexSchema);
+
+// Test that items() accepts any valid Schema
+const itemsSchemas = {
+  tags: types.items(types.string()),
+  users: types.items({
+    name: types.string(),
+    age: types.number()
+  }),
+  categories: types.items({
+    name: types.string(),
+    subcategories: types.items({
+      name: types.string(),
+      items: types.items(types.string())
+    })
+  }),
+  scores: types.items(
+    types.number("Score 0-100")
+      .withDefault(0)
+      .withTransform((n: number) => Math.min(100, Math.max(0, n)))
+  )
+} as const;
+expectAssignable<Schema>(itemsSchemas);
+
+// Test invalid items() usage
+expectError<Schema>({
+  invalid: types.items(123)  // Pass number directly to trigger type error
+});
+
+expectError<Schema>({
+  invalid: types.items({
+    field: true  // Pass boolean directly to trigger type error
+  })
+});
+
+// Test against SchemaType directly with definitely invalid values
+expectError<SchemaType>(types.items(null));  // Should error - null is not a valid schema
+expectError<SchemaType>(types.items(new Date()));  // Should error - Date is not a valid schema
+
+// Test that items() schema matches root schema capabilities
+const rootSchema = {
+  name: types.string(),
+  age: types.number()
+} as const;
+
+const itemsWithSameCapabilities = types.items(rootSchema);
+expectAssignable<SchemaItemsType>(itemsWithSameCapabilities);

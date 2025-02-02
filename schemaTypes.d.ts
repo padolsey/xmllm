@@ -1,3 +1,5 @@
+import { Schema } from './index';
+
 export interface SchemaType {
   hint: string | undefined;
   default: any;
@@ -32,7 +34,7 @@ export interface SchemaEnumType extends SchemaType {
 }
 
 export interface SchemaItemsType extends SchemaType {
-  itemType: SchemaType | { [key: string]: SchemaType };
+  itemType: Schema;
   parse(value: string | undefined): any[];
 }
 
@@ -45,8 +47,8 @@ export interface SchemaTypeCreators {
   bool(hint?: string): SchemaBooleanType;
   raw(hint?: string): SchemaRawType;
   enum(hint: string | string[], values?: string[]): SchemaEnumType;
-  items<T extends SchemaType | { [key: string]: SchemaType }>(
-    itemType: T,
+  items(
+    itemType: Schema,
     hint?: string
   ): SchemaItemsType;
 }
