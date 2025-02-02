@@ -254,23 +254,36 @@ stream('Query', {
 });
 ```
 
-### Cache Configuration
+## Cache Configuration
 
-The proxy server supports caching to improve performance and reduce API calls. Caching is disabled by default but can be enabled per-request via the `cache: true` option, or configured globally:
+The cache can be controlled in two ways:
 
-```javascript
-// Enable caching per-request
-stream('Query', {
-  cache: true  // Defaults to false
-});
+### Boolean Control
+```js
+// Enable caching (both read and write)
+stream('prompt', { cache: true })
 
-// Or configure globally
-configure({
-  defaults: {
-    cache: true
-  }
-});
+// Disable caching completely
+stream('prompt', { cache: false })
 ```
+
+### Granular Control
+```js
+// Write to cache but don't read from it
+stream('prompt', { 
+  cache: { read: false, write: true }
+})
+
+// Read from cache but don't write new entries
+stream('prompt', {
+  cache: { read: true, write: false }
+})
+```
+
+This granular control is useful for:
+- Forcing fresh responses while still caching them
+- Reading cached responses without updating them
+- Building up cache entries without reading stale ones
 
 For proxy server cache settings:
 
