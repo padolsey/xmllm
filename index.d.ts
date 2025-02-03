@@ -20,7 +20,10 @@ export interface BaseConfig extends BaseLLMParams {
   system?: string;
   prompt?: string;
   model?: ModelPreference;
-  cache?: boolean;
+  cache?: boolean | {
+    read?: boolean;
+    write?: boolean;
+  };
   onChunk?: (chunk: string) => void;
   autoTruncateMessages?: boolean | number;
   errorMessages?: ErrorMessages;
@@ -30,6 +33,10 @@ export interface BaseConfig extends BaseLLMParams {
   retryMax?: number;
   retryStartDelay?: number;
   retryBackoffMultiplier?: number;
+  buffer?: boolean | {
+    timeout?: number;
+    maxSize?: number;
+  };
 }
 
 export interface BaseStreamConfig extends BaseConfig {

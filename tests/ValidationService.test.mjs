@@ -331,4 +331,113 @@ describe('ValidationService', () => {
       });
     });
   });
+
+  describe('Buffering Configuration', () => {
+    test('accepts valid buffering options', () => {
+      const validConfigs = [
+        { enableBuffering: true, bufferTime: 50, maxBufferSize: 1024 },
+        { enableBuffering: false },
+        { bufferTime: 100 },
+        { maxBufferSize: 2048 },
+        {} // No buffering config is valid
+      ];
+
+      validConfigs.forEach(config => {
+        expect(() => ValidationService.validateLLMPayload(config)).not.toThrow();
+      });
+    });
+
+  });
+
+  describe('Buffer Configuration', () => {
+    test('accepts valid buffer configurations', () => {
+      const validConfigs = [
+        { buffer: true },
+        { buffer: false },
+        { buffer: { timeout: 50, maxSize: 1024 } },
+        { buffer: { timeout: 0, maxSize: 0 } },
+        { buffer: { timeout: 100 } }, // Just timeout
+        { buffer: { maxSize: 2048 } }, // Just maxSize
+        {} // No buffer config is valid
+      ];
+
+      validConfigs.forEach(config => {
+        expect(() => ValidationService.validateLLMPayload(config)).not.toThrow();
+      });
+    });
+
+    test('rejects invalid buffer values', () => {
+      const invalidConfigs = [
+        { buffer: 'yes' },
+        { buffer: 1 },
+        { buffer: [] },
+        { buffer: null }
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(() => ValidationService.validateLLMPayload(config))
+          .toThrow(PayloadValidationError);
+        
+        try {
+          ValidationService.validateLLMPayload(config);
+        } catch (error) {
+          expect(error.message).toBe('buffer must be a boolean or an object with timeout/maxSize properties');
+        }
+      });
+    });
+
+    test('rejects invalid timeout values', () => {
+      const invalidConfigs = [
+        { buffer: { timeout: -1 } },
+        { buffer: { timeout: 1.5 } },
+        { buffer: { timeout: '50' } },
+        { buffer: { timeout: true } },
+        { buffer: { timeout: Infinity } }
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(() => ValidationService.validateLLMPayload(config))
+          .toThrow(PayloadValidationError);
+        
+        try {
+          ValidationService.validateLLMPayload(config);
+        } catch (error) {
+          expect(error.message).toBe('buffer.timeout must be a non-negative integer (milliseconds)');
+        }
+      });
+    });
+
+    test('rejects invalid maxSize values', () => {
+      const invalidConfigs = [
+        { buffer: { maxSize: -1024 } },
+        { buffer: { maxSize: 1.5 } },
+        { buffer: { maxSize: '1024' } },
+        { buffer: { maxSize: true } },
+        { buffer: { maxSize: Infinity } }
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(() => ValidationService.validateLLMPayload(config))
+          .toThrow(PayloadValidationError);
+        
+        try {
+          ValidationService.validateLLMPayload(config);
+        } catch (error) {
+          expect(error.message).toBe('buffer.maxSize must be a non-negative integer (bytes)');
+        }
+      });
+    });
+
+    test('accepts partial buffer configurations', () => {
+      const partialConfigs = [
+        { buffer: { timeout: 100 } }, // Only timeout
+        { buffer: { maxSize: 2048 } }, // Only maxSize
+      ];
+
+      partialConfigs.forEach(config => {
+        expect(() => ValidationService.validateLLMPayload(config)).not.toThrow();
+      });
+    });
+
+  });
 }); 

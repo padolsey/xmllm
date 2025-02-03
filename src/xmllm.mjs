@@ -5,6 +5,7 @@ import Logger from './Logger.mjs';
 import { getConfig, configure } from './config.mjs';
 import { getStrategy } from './strategies/index.mjs';
 import { types } from './types.mjs';
+import BufferedParserWrapper from './parsers/BufferedParserWrapper.mjs';
 
 const logger = new Logger('xmllm');
 
@@ -93,16 +94,31 @@ async function* xmllmGen(pipelineFn, {
     return stack[stack.length - 1];
   }
 
-  function pushNewParser() {
+  function pushNewParser(options = {}) {
+
     const config = getConfig();
+    
+    // Create base parser
     const parser = config.globalParser === 'idio'
       ? new IncomingIdioParserSelectorEngine()
       : new IncomingXMLParserSelectorEngine();
-      
+
     const stack = parserStack.get(context);
+
     stack.push(parser);
-    
-    return parser;
+
+    // Apply buffering based on config
+    const bufferConfig = options.buffer ?? config.defaults?.buffer;
+    if (bufferConfig !== false) {  // Enable buffering by default
+      const proxyParser = new BufferedParserWrapper(parser, {
+        buffer: bufferConfig
+      });
+      stack.push(proxyParser);
+      return proxyParser;
+    } else {
+      stack.push(parser);
+      return parser;
+    }
   }
 
   function req(config) {
@@ -182,9 +198,18 @@ async function* xmllmGen(pipelineFn, {
       try {
         while (true) {
           const { done, value } = await reader.read();
-          if (cancelled || done) break;
+          if (cancelled || done) {
+            if (parser instanceof BufferedParserWrapper) {
+              const content = parser.flush();
+              if (content) {
+                yield content;
+              }
+            }
+            break;
+          }
 
           const text = new TextDecoder().decode(value);
+
           if (onChunk) {
             try {
               onChunk(text);
@@ -192,14 +217,35 @@ async function* xmllmGen(pipelineFn, {
               logger.error('onChunk err', err);
             }
           }
-          parser.add(text);
-          accrued += text;
-
-          yield text;
+          // If it's a buffered parser, only yield when it flushes
+          if (parser instanceof BufferedParserWrapper) {
+            const flushedContent = parser.add(text);
+            if (flushedContent) {
+              accrued += text;
+              yield flushedContent;
+            }
+          } else {
+            // Regular parser, yield as normal
+            parser.add(text);
+            accrued += text;
+            yield text;
+          }
         }
       } catch (e) {
         logger.error(`Error reading stream:`, e);
+        if (parser instanceof BufferedParserWrapper) {
+          const content = parser.flush();
+          if (content) {
+            yield content;
+          }
+        }
       } finally {
+        if (parser instanceof BufferedParserWrapper) {
+          const content = parser.flush();
+          if (content) {
+            yield content;
+          }
+        }
         reader.releaseLock();
       }
     };
@@ -227,6 +273,7 @@ async function* xmllmGen(pipelineFn, {
     retryStartDelay,
     retryBackoffMultiplier,
     onChunk,
+    buffer,
     genSystemPrompt,
     genUserPrompt,
     errorMessages,
@@ -256,13 +303,13 @@ async function* xmllmGen(pipelineFn, {
     const useUserPrompt = genUserPrompt || selectedStrategy.genUserPrompt;
 
     return async function*(thing) {
-      const parser = pushNewParser();
+      const parser = pushNewParser({buffer});
 
       let transformedPrompt = prompt;
 
       const mapSelectionSchemaScaffold =
         schema &&
-        parser.constructor
+        parser
           .makeMapSelectScaffold(schema, hints);
 
       if (typeof transformedPrompt == 'function') {
@@ -316,6 +363,7 @@ async function* xmllmGen(pipelineFn, {
         retryBackoffMultiplier,
         autoTruncateMessages,
         cache,
+        buffer,
         keys
       });
 
@@ -330,9 +378,18 @@ async function* xmllmGen(pipelineFn, {
       try {
         while (true) {
           const { done, value } = await reader.read();
-          if (cancelled || done) break;
+          if (cancelled || done) {
+            if (parser instanceof BufferedParserWrapper) {
+              const content = parser.flush();
+              if (content) {
+                yield content;
+              }
+            }
+            break;
+          }
 
           const text = new TextDecoder().decode(value);
+
           if (onChunk) {
             try {
               onChunk(text);
@@ -340,15 +397,30 @@ async function* xmllmGen(pipelineFn, {
               logger.error('onChunk err', err);
             }
           }
-          parser.add(text);
-          accrued += text;
-
-          yield text;
+          // If it's a buffered parser, only yield when it flushes
+          if (parser instanceof BufferedParserWrapper) {
+            const flushedContent = parser.add(text);
+            if (flushedContent) {
+              accrued += text;
+              yield flushedContent;
+            }
+          } else {
+            // Regular parser, yield as normal
+            parser.add(text);
+            accrued += text;
+            yield text;
+          }
         }
 
       } catch (e) {
         logger.error(`Error reading stream:`, e);
+        if (typeof parser.flush === 'function') {
+          parser.flush();
+        }
       } finally {
+        if (typeof parser.flush === 'function') {
+          parser.flush();
+        }
         reader.releaseLock();
       }
     };
@@ -472,7 +544,8 @@ async function* xmllmGen(pipelineFn, {
         genSystemPrompt,
         genUserPrompt,
         autoTruncateMessages,
-        errorMessages
+        errorMessages,
+        buffer
       } = config;
 
       if (
@@ -528,7 +601,8 @@ async function* xmllmGen(pipelineFn, {
             genSystemPrompt,
             genUserPrompt,
             autoTruncateMessages,
-            errorMessages
+            errorMessages,
+            buffer
           }),
 
         schema ? 

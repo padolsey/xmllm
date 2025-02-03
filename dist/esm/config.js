@@ -33,6 +33,7 @@ var DEFAULT_CONFIG = {
     topP: 1,
     mode: 'state_open',
     strategy: 'default',
+    buffer: false,
     model: ['anthropic:good', 'openai:good', 'anthropic:fast', 'openai:fast'],
     keys: {},
     errorMessages: {

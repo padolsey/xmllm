@@ -217,6 +217,35 @@ configure({
 });
 ```
 
+## Buffer Configuration
+
+Control how incoming content is buffered before parsing:
+
+```javascript
+// Enable buffering with defaults (10ms timeout, 1KB max size)
+stream('Query', { buffer: true });
+
+// Disable buffering completely
+stream('Query', { buffer: false });
+
+// Custom buffer settings
+stream('Query', {
+  buffer: {
+    timeout: 50,    // Buffer for 50ms
+    maxSize: 2048   // Flush at 2KB
+  }
+});
+```
+
+The buffer helps reduce parser overhead by combining small chunks:
+- `timeout`: How long to wait before flushing (milliseconds)
+- `maxSize`: Maximum buffer size before forcing flush (bytes)
+
+This is particularly useful for:
+- Streaming responses with rapid small updates
+- Handling fragmented XML content
+- Optimizing parser performance, esp. on client-side
+
 ## Logging Configuration
 
 Configure logging behavior:

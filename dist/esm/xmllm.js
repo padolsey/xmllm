@@ -31,6 +31,7 @@ import Logger from './Logger.mjs';
 import { getConfig, configure } from './config.mjs';
 import { getStrategy } from './strategies/index.mjs';
 import { types } from './types.mjs';
+import BufferedParserWrapper from './parsers/BufferedParserWrapper.mjs';
 var logger = new Logger('xmllm');
 var text = function text(fn) {
   return function (_ref5) {
@@ -156,7 +157,7 @@ function _xmllmGen() {
               var additionalOverrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
               return /*#__PURE__*/function () {
                 var _ref3 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9(input) {
-                  var _config, messages, schema, hints, strategy, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, keys, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, genSystemPrompt, genUserPrompt, autoTruncateMessages, errorMessages, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
+                  var _config, messages, schema, hints, strategy, mapper, system, max_tokens, maxTokens, top_p, topP, stop, presence_penalty, presencePenalty, temperature, fakeResponse, _config$doMapSelectCl, doMapSelectClosed, _config$includeOpenTa, includeOpenTags, _config$doDedupe, doDedupe, model, keys, fakeDelay, waitMessageString, waitMessageDelay, retryMax, onChunk, retryStartDelay, retryBackoffMultiplier, cache, genSystemPrompt, genUserPrompt, autoTruncateMessages, errorMessages, buffer, reqPipeline, pipeline, _iteratorAbruptCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, item;
                   return _regeneratorRuntime().wrap(function _callee9$(_context9) {
                     while (1) switch (_context9.prev = _context9.next) {
                       case 0:
@@ -172,7 +173,7 @@ function _xmllmGen() {
                             }]
                           };
                         }
-                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, strategy = _config.strategy, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, keys = _config.keys, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, genSystemPrompt = _config.genSystemPrompt, genUserPrompt = _config.genUserPrompt, autoTruncateMessages = _config.autoTruncateMessages, errorMessages = _config.errorMessages;
+                        _config = config, messages = _config.messages, schema = _config.schema, hints = _config.hints, strategy = _config.strategy, mapper = _config.mapper, system = _config.system, max_tokens = _config.max_tokens, maxTokens = _config.maxTokens, top_p = _config.top_p, topP = _config.topP, stop = _config.stop, presence_penalty = _config.presence_penalty, presencePenalty = _config.presencePenalty, temperature = _config.temperature, fakeResponse = _config.fakeResponse, _config$doMapSelectCl = _config.doMapSelectClosed, doMapSelectClosed = _config$doMapSelectCl === void 0 ? false : _config$doMapSelectCl, _config$includeOpenTa = _config.includeOpenTags, includeOpenTags = _config$includeOpenTa === void 0 ? true : _config$includeOpenTa, _config$doDedupe = _config.doDedupe, doDedupe = _config$doDedupe === void 0 ? false : _config$doDedupe, model = _config.model, keys = _config.keys, fakeDelay = _config.fakeDelay, waitMessageString = _config.waitMessageString, waitMessageDelay = _config.waitMessageDelay, retryMax = _config.retryMax, onChunk = _config.onChunk, retryStartDelay = _config.retryStartDelay, retryBackoffMultiplier = _config.retryBackoffMultiplier, cache = _config.cache, genSystemPrompt = _config.genSystemPrompt, genUserPrompt = _config.genUserPrompt, autoTruncateMessages = _config.autoTruncateMessages, errorMessages = _config.errorMessages, buffer = _config.buffer;
                         if (!(mapper && !schema)) {
                           _context9.next = 5;
                           break;
@@ -250,7 +251,8 @@ function _xmllmGen() {
                           genSystemPrompt: genSystemPrompt,
                           genUserPrompt: genUserPrompt,
                           autoTruncateMessages: autoTruncateMessages,
-                          errorMessages: errorMessages
+                          errorMessages: errorMessages,
+                          buffer: buffer
                         }), schema ?
                         // If it's a schema, we need to map the output
                         doMapSelectClosed ? mapSelectClosed(schema) : mapSelect(schema, includeOpenTags, doDedupe) :
@@ -594,6 +596,7 @@ function _xmllmGen() {
                 retryStartDelay = _ref8.retryStartDelay,
                 retryBackoffMultiplier = _ref8.retryBackoffMultiplier,
                 onChunk = _ref8.onChunk,
+                buffer = _ref8.buffer,
                 genSystemPrompt = _ref8.genSystemPrompt,
                 genUserPrompt = _ref8.genUserPrompt,
                 errorMessages = _ref8.errorMessages,
@@ -620,13 +623,15 @@ function _xmllmGen() {
               return /*#__PURE__*/function () {
                 var _ref2 = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(thing) {
                   var _messages3;
-                  var parser, transformedPrompt, mapSelectionSchemaScaffold, userMessages, result, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, _text2;
+                  var parser, transformedPrompt, mapSelectionSchemaScaffold, userMessages, result, systemPrompt, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen2, done, value, content, _text2, flushedContent;
                   return _regeneratorRuntime().wrap(function _callee3$(_context3) {
                     while (1) switch (_context3.prev = _context3.next) {
                       case 0:
-                        parser = pushNewParser();
+                        parser = pushNewParser({
+                          buffer: buffer
+                        });
                         transformedPrompt = prompt;
-                        mapSelectionSchemaScaffold = schema && parser.constructor.makeMapSelectScaffold(schema, hints);
+                        mapSelectionSchemaScaffold = schema && parser.makeMapSelectScaffold(schema, hints);
                         if (typeof transformedPrompt == 'function') {
                           transformedPrompt = transformedPrompt(thing);
                         }
@@ -680,6 +685,7 @@ function _xmllmGen() {
                           retryBackoffMultiplier: retryBackoffMultiplier,
                           autoTruncateMessages: autoTruncateMessages,
                           cache: cache,
+                          buffer: buffer,
                           keys: keys
                         }));
                       case 12:
@@ -693,7 +699,7 @@ function _xmllmGen() {
                         _context3.prev = 18;
                       case 19:
                         if (!true) {
-                          _context3.next = 35;
+                          _context3.next = 48;
                           break;
                         }
                         _context3.next = 22;
@@ -703,11 +709,23 @@ function _xmllmGen() {
                         done = _yield$_awaitAsyncGen2.done;
                         value = _yield$_awaitAsyncGen2.value;
                         if (!(cancelled || done)) {
-                          _context3.next = 27;
+                          _context3.next = 32;
                           break;
                         }
-                        return _context3.abrupt("break", 35);
-                      case 27:
+                        if (!(parser instanceof BufferedParserWrapper)) {
+                          _context3.next = 31;
+                          break;
+                        }
+                        content = parser.flush();
+                        if (!content) {
+                          _context3.next = 31;
+                          break;
+                        }
+                        _context3.next = 31;
+                        return content;
+                      case 31:
+                        return _context3.abrupt("break", 48);
+                      case 32:
                         _text2 = new TextDecoder().decode(value);
                         if (onChunk) {
                           try {
@@ -716,29 +734,53 @@ function _xmllmGen() {
                             logger.error('onChunk err', err);
                           }
                         }
+                        // If it's a buffered parser, only yield when it flushes
+                        if (!(parser instanceof BufferedParserWrapper)) {
+                          _context3.next = 42;
+                          break;
+                        }
+                        flushedContent = parser.add(_text2);
+                        if (!flushedContent) {
+                          _context3.next = 40;
+                          break;
+                        }
+                        accrued += _text2;
+                        _context3.next = 40;
+                        return flushedContent;
+                      case 40:
+                        _context3.next = 46;
+                        break;
+                      case 42:
+                        // Regular parser, yield as normal
                         parser.add(_text2);
                         accrued += _text2;
-                        _context3.next = 33;
+                        _context3.next = 46;
                         return _text2;
-                      case 33:
+                      case 46:
                         _context3.next = 19;
                         break;
-                      case 35:
-                        _context3.next = 40;
+                      case 48:
+                        _context3.next = 54;
                         break;
-                      case 37:
-                        _context3.prev = 37;
+                      case 50:
+                        _context3.prev = 50;
                         _context3.t0 = _context3["catch"](18);
                         logger.error("Error reading stream:", _context3.t0);
-                      case 40:
-                        _context3.prev = 40;
+                        if (typeof parser.flush === 'function') {
+                          parser.flush();
+                        }
+                      case 54:
+                        _context3.prev = 54;
+                        if (typeof parser.flush === 'function') {
+                          parser.flush();
+                        }
                         reader.releaseLock();
-                        return _context3.finish(40);
-                      case 43:
+                        return _context3.finish(54);
+                      case 58:
                       case "end":
                         return _context3.stop();
                     }
-                  }, _callee3, null, [[18, 37, 40, 43]]);
+                  }, _callee3, null, [[18, 50, 54, 58]]);
                 }));
                 return function (_x3) {
                   return _ref2.apply(this, arguments);
@@ -748,7 +790,7 @@ function _xmllmGen() {
             req = function _req(config) {
               return /*#__PURE__*/function () {
                 var _ref = _wrapAsyncGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(thing) {
-                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, autoTruncateMessages, stop, messages, keys, onChunk, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, _text;
+                  var parser, globalConfig, transformedConfig, _transformedConfig, system, _transformedConfig$mo, model, cache, max_tokens, maxTokens, temperature, top_p, topP, presence_penalty, presencePenalty, errorMessages, autoTruncateMessages, stop, messages, keys, onChunk, stream, reader, accrued, cancelled, _yield$_awaitAsyncGen, done, value, content, _text, flushedContent, _content, _content2;
                   return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                     while (1) switch (_context2.prev = _context2.next) {
                       case 0:
@@ -807,7 +849,7 @@ function _xmllmGen() {
                         _context2.prev = 17;
                       case 18:
                         if (!true) {
-                          _context2.next = 34;
+                          _context2.next = 47;
                           break;
                         }
                         _context2.next = 21;
@@ -817,11 +859,23 @@ function _xmllmGen() {
                         done = _yield$_awaitAsyncGen.done;
                         value = _yield$_awaitAsyncGen.value;
                         if (!(cancelled || done)) {
-                          _context2.next = 26;
+                          _context2.next = 31;
                           break;
                         }
-                        return _context2.abrupt("break", 34);
-                      case 26:
+                        if (!(parser instanceof BufferedParserWrapper)) {
+                          _context2.next = 30;
+                          break;
+                        }
+                        content = parser.flush();
+                        if (!content) {
+                          _context2.next = 30;
+                          break;
+                        }
+                        _context2.next = 30;
+                        return content;
+                      case 30:
+                        return _context2.abrupt("break", 47);
+                      case 31:
                         _text = new TextDecoder().decode(value);
                         if (onChunk) {
                           try {
@@ -830,29 +884,70 @@ function _xmllmGen() {
                             logger.error('onChunk err', err);
                           }
                         }
+                        // If it's a buffered parser, only yield when it flushes
+                        if (!(parser instanceof BufferedParserWrapper)) {
+                          _context2.next = 41;
+                          break;
+                        }
+                        flushedContent = parser.add(_text);
+                        if (!flushedContent) {
+                          _context2.next = 39;
+                          break;
+                        }
+                        accrued += _text;
+                        _context2.next = 39;
+                        return flushedContent;
+                      case 39:
+                        _context2.next = 45;
+                        break;
+                      case 41:
+                        // Regular parser, yield as normal
                         parser.add(_text);
                         accrued += _text;
-                        _context2.next = 32;
+                        _context2.next = 45;
                         return _text;
-                      case 32:
+                      case 45:
                         _context2.next = 18;
                         break;
-                      case 34:
-                        _context2.next = 39;
+                      case 47:
+                        _context2.next = 57;
                         break;
-                      case 36:
-                        _context2.prev = 36;
+                      case 49:
+                        _context2.prev = 49;
                         _context2.t0 = _context2["catch"](17);
                         logger.error("Error reading stream:", _context2.t0);
-                      case 39:
-                        _context2.prev = 39;
+                        if (!(parser instanceof BufferedParserWrapper)) {
+                          _context2.next = 57;
+                          break;
+                        }
+                        _content = parser.flush();
+                        if (!_content) {
+                          _context2.next = 57;
+                          break;
+                        }
+                        _context2.next = 57;
+                        return _content;
+                      case 57:
+                        _context2.prev = 57;
+                        if (!(parser instanceof BufferedParserWrapper)) {
+                          _context2.next = 63;
+                          break;
+                        }
+                        _content2 = parser.flush();
+                        if (!_content2) {
+                          _context2.next = 63;
+                          break;
+                        }
+                        _context2.next = 63;
+                        return _content2;
+                      case 63:
                         reader.releaseLock();
-                        return _context2.finish(39);
-                      case 42:
+                        return _context2.finish(57);
+                      case 65:
                       case "end":
                         return _context2.stop();
                     }
-                  }, _callee2, null, [[17, 36, 39, 42]]);
+                  }, _callee2, null, [[17, 49, 57, 65]]);
                 }));
                 return function (_x2) {
                   return _ref.apply(this, arguments);
@@ -860,11 +955,28 @@ function _xmllmGen() {
               }();
             };
             pushNewParser = function _pushNewParser() {
+              var _options$buffer, _config$defaults;
+              var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
               var config = getConfig();
+
+              // Create base parser
               var parser = config.globalParser === 'idio' ? new IncomingIdioParserSelectorEngine() : new IncomingXMLParserSelectorEngine();
               var stack = parserStack.get(context);
               stack.push(parser);
-              return parser;
+
+              // Apply buffering based on config
+              var bufferConfig = (_options$buffer = options.buffer) !== null && _options$buffer !== void 0 ? _options$buffer : (_config$defaults = config.defaults) === null || _config$defaults === void 0 ? void 0 : _config$defaults.buffer;
+              if (bufferConfig !== false) {
+                // Enable buffering by default
+                var proxyParser = new BufferedParserWrapper(parser, {
+                  buffer: bufferConfig
+                });
+                stack.push(proxyParser);
+                return proxyParser;
+              } else {
+                stack.push(parser);
+                return parser;
+              }
             };
             getCurrentParser = function _getCurrentParser() {
               var stack = parserStack.get(context);

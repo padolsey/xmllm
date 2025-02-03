@@ -1,3 +1,6 @@
+var _excluded = ["timeout", "maxSize"];
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -160,7 +163,8 @@ var ValidationService = /*#__PURE__*/function () {
         schema = payload.schema,
         strategy = payload.strategy,
         constraints = payload.constraints,
-        autoTruncateMessages = payload.autoTruncateMessages;
+        autoTruncateMessages = payload.autoTruncateMessages,
+        buffer = payload.buffer;
 
       // Strategy requires schema
       if (strategy && !schema) {
@@ -236,6 +240,38 @@ var ValidationService = /*#__PURE__*/function () {
           throw new PayloadValidationError('autoTruncateMessages must be either boolean or a positive integer', {
             autoTruncateMessages: autoTruncateMessages
           });
+        }
+      }
+
+      // Validate buffer options if provided
+      if (buffer !== undefined) {
+        if (typeof buffer === 'boolean') {
+          // Boolean format is valid
+        } else if (buffer === null || _typeof(buffer) !== 'object' || Array.isArray(buffer)) {
+          throw new PayloadValidationError('buffer must be a boolean or an object with timeout/maxSize properties', {
+            buffer: buffer
+          });
+        } else {
+          var timeout = buffer.timeout,
+            maxSize = buffer.maxSize,
+            extraProps = _objectWithoutProperties(buffer, _excluded);
+
+          // Check for invalid properties
+          if (Object.keys(extraProps).length > 0) {
+            throw new PayloadValidationError('buffer must be a boolean or an object with timeout/maxSize properties', {
+              invalidProps: Object.keys(extraProps)
+            });
+          }
+          if (timeout !== undefined && (typeof timeout !== 'number' || timeout < 0 || !Number.isInteger(timeout))) {
+            throw new PayloadValidationError('buffer.timeout must be a non-negative integer (milliseconds)', {
+              timeout: timeout
+            });
+          }
+          if (maxSize !== undefined && (typeof maxSize !== 'number' || maxSize < 0 || !Number.isInteger(maxSize))) {
+            throw new PayloadValidationError('buffer.maxSize must be a non-negative integer (bytes)', {
+              maxSize: maxSize
+            });
+          }
         }
       }
 

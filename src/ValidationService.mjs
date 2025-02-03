@@ -151,7 +151,8 @@ class ValidationService {
       schema,
       strategy,
       constraints,
-      autoTruncateMessages
+      autoTruncateMessages,
+      buffer
     } = payload;
 
     // Strategy requires schema
@@ -244,6 +245,50 @@ class ValidationService {
           'autoTruncateMessages must be either boolean or a positive integer',
           { autoTruncateMessages }
         );
+      }
+    }
+
+    // Validate buffer options if provided
+    if (buffer !== undefined) {
+      if (typeof buffer === 'boolean') {
+        // Boolean format is valid
+      } else if (buffer === null || typeof buffer !== 'object' || Array.isArray(buffer)) {
+        throw new PayloadValidationError(
+          'buffer must be a boolean or an object with timeout/maxSize properties',
+          { buffer }
+        );
+      } else {
+        const { timeout, maxSize, ...extraProps } = buffer;
+        
+        // Check for invalid properties
+        if (Object.keys(extraProps).length > 0) {
+          throw new PayloadValidationError(
+            'buffer must be a boolean or an object with timeout/maxSize properties',
+            { invalidProps: Object.keys(extraProps) }
+          );
+        }
+
+        if (timeout !== undefined && (
+          typeof timeout !== 'number' || 
+          timeout < 0 || 
+          !Number.isInteger(timeout)
+        )) {
+          throw new PayloadValidationError(
+            'buffer.timeout must be a non-negative integer (milliseconds)',
+            { timeout }
+          );
+        }
+
+        if (maxSize !== undefined && (
+          typeof maxSize !== 'number' || 
+          maxSize < 0 || 
+          !Number.isInteger(maxSize)
+        )) {
+          throw new PayloadValidationError(
+            'buffer.maxSize must be a non-negative integer (bytes)',
+            { maxSize }
+          );
+        }
       }
     }
 
