@@ -49,11 +49,11 @@ var ValidationService = /*#__PURE__*/function () {
             message: message
           });
         }
-        if (!['user', 'assistant'].includes(message.role)) {
+        if (!['user', 'assistant', 'developer'].includes(message.role)) {
           throw new MessageValidationError('Invalid message role', {
             index: index,
             role: message.role,
-            validRoles: ['user', 'assistant']
+            validRoles: ['user', 'assistant', 'developer']
           });
         }
         if (typeof message.content !== 'string') {

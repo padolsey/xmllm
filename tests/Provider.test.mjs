@@ -10,6 +10,7 @@ import {
   estimateTokens, 
   estimateMessageTokens 
 } from '../src/utils/estimateTokens.mjs';
+import { o1Payloader, standardPayloader, openaiPayloader } from '../src/PROVIDERS.mjs';
 
 describe('Provider Error Handling', () => {
   let provider;
@@ -1053,5 +1054,71 @@ describe('autoTruncateMessages', () => {
   
     // Verify that the latest message is not truncated
     expect(payload.messages[payload.messages.length - 1].content).toEqual(messages[messages.length - 1].content);
+  });
+});
+
+describe('Provider Payload Preparation for o1 Models', () => {
+  let provider;
+
+  beforeEach(() => {
+    provider = new Provider('openai', {
+      endpoint: 'https://api.openai.com/v1/chat/completions',
+      key: 'test-key',
+      models: {
+        fast: { name: 'o1-preview' },
+        mini: { name: 'o1-mini' },
+      },
+      payloader: openaiPayloader,
+    });
+  });
+
+  test('prepares payload correctly for o1 models with developer role', () => {
+    const payload = provider.preparePayload({
+      messages: [{ role: 'user', content: 'Test message' }],
+      system: 'You are a vvvv helpful assistant',
+      model: 'fast',
+      reasoning_effort: 'high',
+    });
+
+    expect(payload).toEqual({
+      messages: [
+        { role: 'developer', content: 'You are a vvvv helpful assistant' },
+        { role: 'user', content: 'Test message' },
+      ],
+      max_completion_tokens: 300,
+      reasoning_effort: 'high',
+      model: 'o1-preview',
+      stream: false,
+    });
+  });
+
+  test('prepares payload correctly for o1 models without developer role', () => {
+    const payload = provider.preparePayload({
+      messages: [{ role: 'user', content: 'Test message' }],
+      system: 'You are a super helpful assistant',
+      model: 'mini',
+    });
+
+    expect(payload).toEqual({
+      messages: [
+        { role: 'assistant', content: '<system>You are a super helpful assistant</system>' },
+        { role: 'user', content: 'Test message' },
+      ],
+      max_completion_tokens: 300,
+      model: 'o1-mini',
+      stream: false,
+    });
+  });
+
+  test('omits unsupported parameters for o1 models', () => {
+    const payload = provider.preparePayload({
+      messages: [{ role: 'user', content: 'Test message' }],
+      temperature: 0.7,
+      presence_penalty: 0.5,
+      model: 'fast',
+    });
+
+    expect(payload).not.toHaveProperty('temperature');
+    expect(payload).not.toHaveProperty('presence_penalty');
   });
 }); 

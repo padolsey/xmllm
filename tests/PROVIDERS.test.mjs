@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { standardPayloader, createCustomModel, taiStylePayloader, testProviders } from '../src/PROVIDERS.mjs';
+import { standardPayloader, o1Payloader, createCustomModel, taiStylePayloader, testProviders } from '../src/PROVIDERS.mjs';
 
 describe('standardPayloader', () => {
   let mockProvider;
@@ -30,70 +30,6 @@ describe('standardPayloader', () => {
       top_p: 1,
       presence_penalty: 0,
       temperature: 0.52
-    });
-  });
-
-  test('handles O1 model message transformations', () => {
-    mockProvider.name = 'openai_custom';
-    mockProvider.models.custom.name = 'o1-mini';
-
-    const payload = standardPayloader.call(mockProvider, {
-      messages: [
-        { role: 'system', content: 'Be direct' },
-        { role: 'user', content: 'hello' }
-      ],
-      system: 'Be helpful',
-      temperature: 0.7
-    });
-
-    expect(payload).toEqual({
-      messages: [
-        { role: 'user', content: 'Be helpful' },
-        { role: 'user', content: 'Be direct' },
-        { role: 'user', content: 'hello' }
-      ],
-      max_completion_tokens: 300,  // Default value
-      top_p: 1,                   // Default value
-      presence_penalty: 0         // Default value
-    });
-    // Temperature should not be included for O1 models
-    expect(payload.temperature).toBeUndefined();
-  });
-
-  test('handles max_tokens correctly for different models', () => {
-    // Regular model
-    let payload = standardPayloader.call(mockProvider, {
-      messages: [],
-      max_tokens: 100
-    });
-    expect(payload.max_tokens).toBe(100);
-
-    // O1 model
-    mockProvider.name = 'openai_custom';
-    mockProvider.models.custom.name = 'o1-mini';
-    
-    payload = standardPayloader.call(mockProvider, {
-      messages: [],
-      max_tokens: 100
-    });
-    expect(payload.max_completion_tokens).toBe(100);
-    expect(payload.max_tokens).toBeUndefined();
-  });
-
-  test('handles all O1 model variants', () => {
-    const o1Variants = ['o1-mini', 'o1-preview', 'o1-preview-2024-01-18'];
-    
-    o1Variants.forEach(variant => {
-      mockProvider.name = 'openai_custom';
-      mockProvider.models.custom.name = variant;
-
-      const payload = standardPayloader.call(mockProvider, {
-        messages: [{ role: 'system', content: 'test' }],
-        temperature: 0.7
-      });
-
-      expect(payload.messages[0].role).toBe('user');
-      expect(payload.temperature).toBeUndefined();
     });
   });
 });
@@ -294,5 +230,76 @@ describe('anthropic payloader', () => {
       temperature: 0.52,
       top_p: 1
     });
+  });
+});
+
+describe('o1Payloader', () => {
+  let mockProvider;
+
+  beforeEach(() => {
+    mockProvider = {
+      currentModelName: 'o1-preview',
+    };
+  });
+
+  test('handles o1 models supporting developer role', () => {
+    const payload = o1Payloader.call(mockProvider, {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      max_completion_tokens: 300,
+      reasoning_effort: 'high',
+    });
+
+    expect(payload).toEqual({
+      messages: [
+        { role: 'developer', content: 'Be helpful' },
+        { role: 'user', content: 'hello' },
+      ],
+      max_completion_tokens: 300,
+      reasoning_effort: 'high',
+    });
+  });
+
+  test('handles o1-mini model without developer role support or reasoning_effort', () => {
+    mockProvider.currentModelName = 'o1-mini';
+
+    const payload = o1Payloader.call(mockProvider, {
+      messages: [
+        { role: 'system', content: 'Be direct' },
+        { role: 'user', content: 'hello' },
+      ],
+      system: 'Be helpful',
+    });
+
+    expect(payload).toEqual({
+      messages: [
+        { role: 'assistant', content: '<system>Be helpful</system>' },
+        { role: 'assistant', content: '<system>Be direct</system>' },
+        { role: 'user', content: 'hello' },
+      ],
+      max_completion_tokens: 300
+    });
+  });
+
+  test('omits unsupported parameters', () => {
+    const payload = o1Payloader.call(mockProvider, {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7, // Unsupported parameter
+      presence_penalty: 0.1, // Unsupported parameter
+    });
+
+    expect(payload).toEqual({
+      messages: [
+        { role: 'developer', content: 'Be helpful' },
+        { role: 'user', content: 'hello' },
+      ],
+      max_completion_tokens: 300,
+      reasoning_effort: 'medium',
+    });
+
+    // Ensure unsupported parameters are not included
+    expect(payload).not.toHaveProperty('temperature');
+    expect(payload).not.toHaveProperty('presence_penalty');
   });
 }); 

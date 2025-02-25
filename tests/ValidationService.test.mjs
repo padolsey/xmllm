@@ -1,7 +1,6 @@
 import { jest } from '@jest/globals';
 import ValidationService from '../src/ValidationService.mjs';
 import {
-  ValidationError,
   MessageValidationError,
   ModelValidationError,
   PayloadValidationError
@@ -72,7 +71,7 @@ describe('ValidationService', () => {
         expect(error.details).toEqual({
           index: 0,
           role: 'invalid',
-          validRoles: ['user', 'assistant']
+          validRoles: ['user', 'assistant', 'developer']
         });
       }
     });

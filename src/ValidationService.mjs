@@ -37,10 +37,10 @@ class ValidationService {
         );
       }
 
-      if (!['user', 'assistant'].includes(message.role)) {
+      if (!['user', 'assistant', 'developer'].includes(message.role)) {
         throw new MessageValidationError(
           'Invalid message role',
-          { index, role: message.role, validRoles: ['user', 'assistant'] }
+          { index, role: message.role, validRoles: ['user', 'assistant', 'developer'] }
         );
       }
 

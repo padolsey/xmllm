@@ -12,7 +12,95 @@ const standardHeaderGen = function() {
   };
 };
 
-// Export standardPayloader for testing
+// Add the o1Payloader function
+export const o1Payloader = function(o) {
+  const {
+    messages = [],
+    max_completion_tokens = 300,
+    max_tokens,
+    stop = null,
+    reasoning_effort = 'medium',
+    system = '',
+    // Capture all parameters, even unsupported ones
+    ...otherParams
+  } = o;
+
+  // Store model name for reference
+  this.currentModelName = this.currentModelName || '';
+  const modelName = this.currentModelName;
+
+  // Check if the model does not support the 'developer' role
+  const modelsWithoutDeveloperRole = ['o1-mini'];
+  const doesNotSupportDeveloper = modelsWithoutDeveloperRole.includes(modelName);
+
+  // Process messages
+  let processedMessages;
+
+  if (doesNotSupportDeveloper) {
+    // Map 'system' and 'developer' roles to 'assistant' with specialist tags
+    // (these are just an _attempt_ at creating more prompt adherance)
+    // (eventually deprecated when o1-mini dissappears)
+    processedMessages = [
+      ...(system ? [{ role: 'assistant', content: '<system>' + system + '</system>' }] : []),
+      ...messages.map((msg) =>
+        ['system', 'developer'].includes(msg.role)
+          ? { ...msg, role: 'assistant', content: `<${msg.role}>${msg.content}</${msg.role}>` }
+          : msg
+      ),
+    ];
+  } else {
+    // Use 'developer' role for system messages
+    processedMessages = [
+      ...(system ? [{ role: 'developer', content: system }] : []),
+      ...messages.map((msg) =>
+        msg.role === 'system' ? { ...msg, role: 'developer' } : msg
+      ),
+    ];
+  }
+
+  // Use max_completion_tokens, falling back to max_tokens if provided
+  const finalMaxTokens = max_completion_tokens || max_tokens || 300;
+
+  const payload = {
+    messages: processedMessages,
+    max_completion_tokens: finalMaxTokens,
+    ...otherParams
+  };
+
+  // Explitly omit presence_penalty, top_p and temperature from the payload
+  // as they are not supported by O1 models
+  delete payload.presence_penalty;
+  delete payload.top_p;
+  delete payload.temperature;
+
+  if (modelName !== 'o1-mini') {
+    // o1-mini does not support reasoning_effort
+    payload.reasoning_effort = reasoning_effort;
+  }
+
+  if (stop != null) {
+    payload.stop = stop;
+  }
+
+  // Note: We intentionally ignore temperature, top_p, presence_penalty, etc.
+  // as they are not supported by O1 models
+
+  return payload;
+};
+
+// Update the OpenAI payloader to handle all model-specific logic
+export const openaiPayloader = function(o) {
+  const modelName = this.models[o.model]?.name || o.model;
+  this.currentModelName = modelName;
+  const isO1Model = /^(?:o1|o3)/.test(modelName);
+
+  if (isO1Model) {
+    return o1Payloader.call(this, o);
+  } else {
+    return standardPayloader.call(this, o);
+  }
+};
+
 export const standardPayloader = function(o) {
   const {
     messages = [],
@@ -21,50 +109,42 @@ export const standardPayloader = function(o) {
     temperature = 0.52,
     top_p = 1,
     presence_penalty = 0,
-    system = ''
+    system = '',
+    // Handle aliases
+    maxTokens,
+    topP,
+    presencePenalty,
+    // Capture other parameters
+    ...otherParams
   } = o;
 
-  console.log('standardPayloader called with:', o, 't', this);
-
-  const isO1Model = this.name === 'openai_custom' && (
-    /^o1/.test(this.models.custom.name)
-  );
-
-  // Process messages based on model type
-  let processedMessages = isO1Model
-    ? [
-        ...(system ? [{ role: 'user', content: system }] : []),
-        ...messages.map(msg => msg.role === 'system' ? { ...msg, role: 'user' } : msg)
-      ]
-    : [
-        { role: 'system', content: system || '' },
-        ...messages
-      ];
+  // Process messages
+  const processedMessages = [
+    { role: 'system', content: system || '' },
+    ...messages,
+  ];
 
   const payload = {
-    messages: processedMessages
+    messages: processedMessages,
+    temperature,
+    ...otherParams
   };
 
-  // Handle max tokens - different property name for O1 models
-  if (max_tokens != null) {
-    payload[isO1Model ? 'max_completion_tokens' : 'max_tokens'] = max_tokens;
+  if (maxTokens || max_tokens) {
+    payload.max_tokens = maxTokens || max_tokens;
+  }
+
+  // only add params that were specified:
+  if (top_p != null || topP != null) {
+    payload.top_p = top_p != null ? top_p : topP;
+  }
+
+  if (presence_penalty != null || presencePenalty != null) {
+    payload.presence_penalty = presence_penalty != null ? presence_penalty : presencePenalty;
   }
 
   if (stop != null) {
     payload.stop = stop;
-  }
-
-  // Only add temperature for non-O1 models
-  if (temperature != null && !isO1Model) {
-    payload.temperature = temperature;
-  }
-
-  if (top_p != null) {
-    payload.top_p = top_p;
-  }
-
-  if (presence_penalty != null) {
-    payload.presence_penalty = presence_penalty;
   }
 
   return payload;
@@ -156,7 +236,7 @@ const providers = {
         maxContextSize: 128_000
       }
     },
-    payloader: standardPayloader
+    payloader: openaiPayloader
   },
   openrouter: {
     constraints: {
@@ -176,6 +256,30 @@ const providers = {
       good: {
         name: 'mistralai/mistral-large-2411',
         maxContextSize: 128000
+      }
+    },
+    headerGen() {
+      return {
+        Authorization: `Bearer ${this.key || process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json'
+      };
+    },
+    payloader: standardPayloader
+  },
+  x: {
+    constraints: {
+      rpmLimit: 100
+    },
+    endpoint: 'https://api.x.ai/v1/chat/completions',
+    key: process.env.X_API_KEY,
+    models: {
+      fast: {
+        name: 'grok-2-latest',
+        maxContextSize: 131000
+      },
+      good: {
+        name: 'grok-2-latest',
+        maxContextSize: 131000
       }
     },
     headerGen() {

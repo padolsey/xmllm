@@ -64,7 +64,7 @@ export interface XMLElement {
 }
 
 export interface Message {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'developer';
   content: string;
 }
 
@@ -332,7 +332,7 @@ export interface PromptStrategy {
   name: string;
   description: string;
   genSystemPrompt: (subSystemPrompt?: string) => string | Array<{role: string, content: string}>;
-  genUserPrompt: (scaffold: string, originalPrompt: string) => string | Array<{role: 'user' | 'assistant', content: string}>;
+  genUserPrompt: (scaffold: string, originalPrompt: string) => string | Array<{role: 'user' | 'assistant' | 'developer', content: string}>;
 }
 
 // Export strategy-related functions

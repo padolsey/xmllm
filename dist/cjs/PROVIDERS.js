@@ -5,11 +5,13 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.PROVIDER_ALIASES = void 0;
 exports.createCustomModel = createCustomModel;
-exports["default"] = void 0;
+exports.openaiPayloader = exports.o1Payloader = exports["default"] = void 0;
 exports.registerProvider = registerProvider;
 exports.testProviders = exports.taiStylePayloader = exports.standardPayloader = void 0;
 var _dotenv = require("dotenv");
 var _ProviderErrors = require("./errors/ProviderErrors.js");
+var _excluded = ["messages", "max_completion_tokens", "max_tokens", "stop", "reasoning_effort", "system"],
+  _excluded2 = ["messages", "max_tokens", "stop", "temperature", "top_p", "presence_penalty", "system", "maxTokens", "topP", "presencePenalty"];
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
@@ -26,6 +28,8 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 (0, _dotenv.config)({
   path: '.env'
 });
@@ -36,58 +40,136 @@ var standardHeaderGen = function standardHeaderGen() {
   };
 };
 
-// Export standardPayloader for testing
-var standardPayloader = exports.standardPayloader = function standardPayloader(o) {
+// Add the o1Payloader function
+var o1Payloader = exports.o1Payloader = function o1Payloader(o) {
   var _o$messages = o.messages,
     messages = _o$messages === void 0 ? [] : _o$messages,
-    _o$max_tokens = o.max_tokens,
-    max_tokens = _o$max_tokens === void 0 ? 300 : _o$max_tokens,
+    _o$max_completion_tok = o.max_completion_tokens,
+    max_completion_tokens = _o$max_completion_tok === void 0 ? 300 : _o$max_completion_tok,
+    max_tokens = o.max_tokens,
     _o$stop = o.stop,
     stop = _o$stop === void 0 ? null : _o$stop,
+    _o$reasoning_effort = o.reasoning_effort,
+    reasoning_effort = _o$reasoning_effort === void 0 ? 'medium' : _o$reasoning_effort,
+    _o$system = o.system,
+    system = _o$system === void 0 ? '' : _o$system,
+    otherParams = _objectWithoutProperties(o, _excluded);
+
+  // Store model name for reference
+  this.currentModelName = this.currentModelName || '';
+  var modelName = this.currentModelName;
+
+  // Check if the model does not support the 'developer' role
+  var modelsWithoutDeveloperRole = ['o1-mini'];
+  var doesNotSupportDeveloper = modelsWithoutDeveloperRole.includes(modelName);
+
+  // Process messages
+  var processedMessages;
+  if (doesNotSupportDeveloper) {
+    // Map 'system' and 'developer' roles to 'assistant' with specialist tags
+    // (these are just an _attempt_ at creating more prompt adherance)
+    // (eventually deprecated when o1-mini dissappears)
+    processedMessages = [].concat(_toConsumableArray(system ? [{
+      role: 'assistant',
+      content: '<system>' + system + '</system>'
+    }] : []), _toConsumableArray(messages.map(function (msg) {
+      return ['system', 'developer'].includes(msg.role) ? _objectSpread(_objectSpread({}, msg), {}, {
+        role: 'assistant',
+        content: "<".concat(msg.role, ">").concat(msg.content, "</").concat(msg.role, ">")
+      }) : msg;
+    })));
+  } else {
+    // Use 'developer' role for system messages
+    processedMessages = [].concat(_toConsumableArray(system ? [{
+      role: 'developer',
+      content: system
+    }] : []), _toConsumableArray(messages.map(function (msg) {
+      return msg.role === 'system' ? _objectSpread(_objectSpread({}, msg), {}, {
+        role: 'developer'
+      }) : msg;
+    })));
+  }
+
+  // Use max_completion_tokens, falling back to max_tokens if provided
+  var finalMaxTokens = max_completion_tokens || max_tokens || 300;
+  var payload = _objectSpread({
+    messages: processedMessages,
+    max_completion_tokens: finalMaxTokens
+  }, otherParams);
+
+  // Explitly omit presence_penalty, top_p and temperature from the payload
+  // as they are not supported by O1 models
+  delete payload.presence_penalty;
+  delete payload.top_p;
+  delete payload.temperature;
+  if (modelName !== 'o1-mini') {
+    // o1-mini does not support reasoning_effort
+    payload.reasoning_effort = reasoning_effort;
+  }
+  if (stop != null) {
+    payload.stop = stop;
+  }
+
+  // Note: We intentionally ignore temperature, top_p, presence_penalty, etc.
+  // as they are not supported by O1 models
+
+  return payload;
+};
+
+// Update the OpenAI payloader to handle all model-specific logic
+var openaiPayloader = exports.openaiPayloader = function openaiPayloader(o) {
+  var _this$models$o$model;
+  var modelName = ((_this$models$o$model = this.models[o.model]) === null || _this$models$o$model === void 0 ? void 0 : _this$models$o$model.name) || o.model;
+  this.currentModelName = modelName;
+  var isO1Model = /^(?:o1|o3)/.test(modelName);
+  if (isO1Model) {
+    return o1Payloader.call(this, o);
+  } else {
+    return standardPayloader.call(this, o);
+  }
+};
+var standardPayloader = exports.standardPayloader = function standardPayloader(o) {
+  var _o$messages2 = o.messages,
+    messages = _o$messages2 === void 0 ? [] : _o$messages2,
+    _o$max_tokens = o.max_tokens,
+    max_tokens = _o$max_tokens === void 0 ? 300 : _o$max_tokens,
+    _o$stop2 = o.stop,
+    stop = _o$stop2 === void 0 ? null : _o$stop2,
     _o$temperature = o.temperature,
     temperature = _o$temperature === void 0 ? 0.52 : _o$temperature,
     _o$top_p = o.top_p,
     top_p = _o$top_p === void 0 ? 1 : _o$top_p,
     _o$presence_penalty = o.presence_penalty,
     presence_penalty = _o$presence_penalty === void 0 ? 0 : _o$presence_penalty,
-    _o$system = o.system,
-    system = _o$system === void 0 ? '' : _o$system;
-  console.log('standardPayloader called with:', o, 't', this);
-  var isO1Model = this.name === 'openai_custom' && /^o1/.test(this.models.custom.name);
+    _o$system2 = o.system,
+    system = _o$system2 === void 0 ? '' : _o$system2,
+    maxTokens = o.maxTokens,
+    topP = o.topP,
+    presencePenalty = o.presencePenalty,
+    otherParams = _objectWithoutProperties(o, _excluded2);
 
-  // Process messages based on model type
-  var processedMessages = isO1Model ? [].concat(_toConsumableArray(system ? [{
-    role: 'user',
-    content: system
-  }] : []), _toConsumableArray(messages.map(function (msg) {
-    return msg.role === 'system' ? _objectSpread(_objectSpread({}, msg), {}, {
-      role: 'user'
-    }) : msg;
-  }))) : [{
+  // Process messages
+  var processedMessages = [{
     role: 'system',
     content: system || ''
   }].concat(_toConsumableArray(messages));
-  var payload = {
-    messages: processedMessages
-  };
+  var payload = _objectSpread({
+    messages: processedMessages,
+    temperature: temperature
+  }, otherParams);
+  if (maxTokens || max_tokens) {
+    payload.max_tokens = maxTokens || max_tokens;
+  }
 
-  // Handle max tokens - different property name for O1 models
-  if (max_tokens != null) {
-    payload[isO1Model ? 'max_completion_tokens' : 'max_tokens'] = max_tokens;
+  // only add params that were specified:
+  if (top_p != null || topP != null) {
+    payload.top_p = top_p != null ? top_p : topP;
+  }
+  if (presence_penalty != null || presencePenalty != null) {
+    payload.presence_penalty = presence_penalty != null ? presence_penalty : presencePenalty;
   }
   if (stop != null) {
     payload.stop = stop;
-  }
-
-  // Only add temperature for non-O1 models
-  if (temperature != null && !isO1Model) {
-    payload.temperature = temperature;
-  }
-  if (top_p != null) {
-    payload.top_p = top_p;
-  }
-  if (presence_penalty != null) {
-    payload.presence_penalty = presence_penalty;
   }
   return payload;
 };
@@ -193,7 +275,7 @@ var providers = {
         maxContextSize: 128000
       }
     },
-    payloader: standardPayloader
+    payloader: openaiPayloader
   },
   openrouter: {
     constraints: {
@@ -213,6 +295,30 @@ var providers = {
       good: {
         name: 'mistralai/mistral-large-2411',
         maxContextSize: 128000
+      }
+    },
+    headerGen: function headerGen() {
+      return {
+        Authorization: "Bearer ".concat(this.key || process.env.OPENROUTER_API_KEY),
+        'Content-Type': 'application/json'
+      };
+    },
+    payloader: standardPayloader
+  },
+  x: {
+    constraints: {
+      rpmLimit: 100
+    },
+    endpoint: 'https://api.x.ai/v1/chat/completions',
+    key: process.env.X_API_KEY,
+    models: {
+      fast: {
+        name: 'grok-2-latest',
+        maxContextSize: 131000
+      },
+      good: {
+        name: 'grok-2-latest',
+        maxContextSize: 131000
       }
     },
     headerGen: function headerGen() {

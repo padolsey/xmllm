@@ -771,6 +771,17 @@ var Provider = /*#__PURE__*/function () {
         });
       }
 
+      // Set current model name for use in payloader
+      this.currentModelName = model.name;
+
+      // Detect if the model is an 'o1' model
+      var isO1Model = /^(?:o1|o3)/.test(model.name);
+
+      // We have to go this here in order to manage our truncation logic 
+      // (but _knowing_ about o1 here in Provider is not ideal as it should really be a per-provider/payloader thing to handle) (TODO!)
+      var maxTokensParam = isO1Model ? 'max_completion_tokens' : 'max_tokens';
+      var maxTokensValue = customPayload[maxTokensParam] || customPayload.max_tokens || customPayload.maxTokens || DEFAULT_RESPONSE_TOKEN_LENGTH;
+
       // Calculate system message and latest user message token counts
       var systemTokens = estimateTokens(system);
       var latestUserMessage = ((_messages = messages[messages.length - 1]) === null || _messages === void 0 ? void 0 : _messages.content) || '';
@@ -880,10 +891,9 @@ var Provider = /*#__PURE__*/function () {
       }
 
       // Prepare model specific payload
-      var modelSpecificPayload = this.payloader(_objectSpread(_objectSpread({
-        system: system,
-        max_tokens: customPayload.max_tokens || customPayload.maxTokens || DEFAULT_RESPONSE_TOKEN_LENGTH
-      }, customPayload), {}, {
+      var modelSpecificPayload = this.payloader(_objectSpread(_objectSpread(_defineProperty({
+        system: system
+      }, maxTokensParam, maxTokensValue), customPayload), {}, {
         messages: truncatedMessages
       }));
       return _objectSpread(_objectSpread({}, modelSpecificPayload), {}, {
