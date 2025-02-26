@@ -1,5 +1,3 @@
-var _excluded = ["messages", "max_completion_tokens", "max_tokens", "stop", "reasoning_effort", "system"],
-  _excluded2 = ["messages", "max_tokens", "stop", "temperature", "top_p", "presence_penalty", "system", "maxTokens", "topP", "presencePenalty"];
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
@@ -16,8 +14,6 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
-function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
-function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 import { config } from 'dotenv';
 import { ModelValidationError } from './errors/ProviderErrors.mjs';
 config({
@@ -37,13 +33,13 @@ export var o1Payloader = function o1Payloader(o) {
     _o$max_completion_tok = o.max_completion_tokens,
     max_completion_tokens = _o$max_completion_tok === void 0 ? 300 : _o$max_completion_tok,
     max_tokens = o.max_tokens,
+    maxTokens = o.maxTokens,
     _o$stop = o.stop,
     stop = _o$stop === void 0 ? null : _o$stop,
     _o$reasoning_effort = o.reasoning_effort,
     reasoning_effort = _o$reasoning_effort === void 0 ? 'medium' : _o$reasoning_effort,
     _o$system = o.system,
-    system = _o$system === void 0 ? '' : _o$system,
-    otherParams = _objectWithoutProperties(o, _excluded);
+    system = _o$system === void 0 ? '' : _o$system;
 
   // Store model name for reference
   this.currentModelName = this.currentModelName || '';
@@ -81,17 +77,11 @@ export var o1Payloader = function o1Payloader(o) {
   }
 
   // Use max_completion_tokens, falling back to max_tokens if provided
-  var finalMaxTokens = max_completion_tokens || max_tokens || 300;
-  var payload = _objectSpread({
+  var finalMaxTokens = max_completion_tokens || max_tokens || maxTokens || 300;
+  var payload = {
     messages: processedMessages,
     max_completion_tokens: finalMaxTokens
-  }, otherParams);
-
-  // Explitly omit presence_penalty, top_p and temperature from the payload
-  // as they are not supported by O1 models
-  delete payload.presence_penalty;
-  delete payload.top_p;
-  delete payload.temperature;
+  };
   if (modelName !== 'o1-mini') {
     // o1-mini does not support reasoning_effort
     payload.reasoning_effort = reasoning_effort;
@@ -135,18 +125,17 @@ export var standardPayloader = function standardPayloader(o) {
     system = _o$system2 === void 0 ? '' : _o$system2,
     maxTokens = o.maxTokens,
     topP = o.topP,
-    presencePenalty = o.presencePenalty,
-    otherParams = _objectWithoutProperties(o, _excluded2);
+    presencePenalty = o.presencePenalty;
 
   // Process messages
   var processedMessages = [{
     role: 'system',
     content: system || ''
   }].concat(_toConsumableArray(messages));
-  var payload = _objectSpread({
+  var payload = {
     messages: processedMessages,
     temperature: temperature
-  }, otherParams);
+  };
   if (maxTokens || max_tokens) {
     payload.max_tokens = maxTokens || max_tokens;
   }

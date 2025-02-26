@@ -18,11 +18,10 @@ export const o1Payloader = function(o) {
     messages = [],
     max_completion_tokens = 300,
     max_tokens,
+    maxTokens,
     stop = null,
     reasoning_effort = 'medium',
-    system = '',
-    // Capture all parameters, even unsupported ones
-    ...otherParams
+    system = ''
   } = o;
 
   // Store model name for reference
@@ -59,19 +58,12 @@ export const o1Payloader = function(o) {
   }
 
   // Use max_completion_tokens, falling back to max_tokens if provided
-  const finalMaxTokens = max_completion_tokens || max_tokens || 300;
+  const finalMaxTokens = max_completion_tokens || max_tokens || maxTokens || 300;
 
   const payload = {
     messages: processedMessages,
-    max_completion_tokens: finalMaxTokens,
-    ...otherParams
+    max_completion_tokens: finalMaxTokens
   };
-
-  // Explitly omit presence_penalty, top_p and temperature from the payload
-  // as they are not supported by O1 models
-  delete payload.presence_penalty;
-  delete payload.top_p;
-  delete payload.temperature;
 
   if (modelName !== 'o1-mini') {
     // o1-mini does not support reasoning_effort
@@ -113,9 +105,7 @@ export const standardPayloader = function(o) {
     // Handle aliases
     maxTokens,
     topP,
-    presencePenalty,
-    // Capture other parameters
-    ...otherParams
+    presencePenalty
   } = o;
 
   // Process messages
@@ -126,8 +116,7 @@ export const standardPayloader = function(o) {
 
   const payload = {
     messages: processedMessages,
-    temperature,
-    ...otherParams
+    temperature
   };
 
   if (maxTokens || max_tokens) {
