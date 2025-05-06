@@ -246,10 +246,36 @@ class Provider {
     const errorBody = await response.text();
     logger.log('Error body:', errorBody);
     
-    switch (response.status) {
-      case 401:
-      case 403:
+    // Try to parse JSON response if possible
+    let errorJson = null;
+    try {
+      errorJson = JSON.parse(errorBody);
+    } catch (e) {
+      // Not JSON, continue with text body
+    }
+    
+    // Check for standard HTTP auth error codes
+    if (response.status === 401 || response.status === 403) {
+      throw new ProviderAuthenticationError(this.name, errorBody);
+    }
+    
+    // Check for auth errors in response body (even with 200 status)
+    if (errorJson) {
+      const errorType = errorJson.error?.type || errorJson.type || '';
+      const errorMessage = errorJson.error?.message || errorJson.message || '';
+      
+      const authErrorKeywords = ['auth', 'unauthorized', 'unauthenticated', 'invalid key', 'invalid api key'];
+      
+      if (authErrorKeywords.some(keyword => 
+          errorType.toLowerCase().includes(keyword) || 
+          errorMessage.toLowerCase().includes(keyword))) {
         throw new ProviderAuthenticationError(this.name, errorBody);
+      }
+    }
+    
+    // Continue with other error types...
+
+    switch (response.status) {
       case 429:
         logger.log('Detected 429 rate limit response');
         const retryAfter = response.headers.get('Retry-After');
@@ -603,6 +629,8 @@ class Provider {
 
     // First, try to use the model specified in the preference
     const modelType = customPayload.model || 'fast';
+    
+    // Handle the case where modelType is a string like 'fast', 'good', or 'custom'
     const model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
 
     if (!model) {
@@ -611,9 +639,6 @@ class Provider {
         { provider: this.name, availableModels: Object.keys(this.models) }
       );
     }
-
-    // Set current model name for use in payloader
-    this.currentModelName = model.name;
 
     // Detect if the model is an 'o1' model
     const isO1Model = /^(?:o1|o3)/.test(model.name);
@@ -745,11 +770,16 @@ class Provider {
       [maxTokensParam]: maxTokensValue,
       ...customPayload,
       messages: truncatedMessages,
+      model: model.name
     });
+
+    // If the payloader didn't set a model, use the one from our configuration
+    if (!modelSpecificPayload.model) {
+      modelSpecificPayload.model = model.name;
+    }
 
     return {
       ...modelSpecificPayload,
-      model: model.name,
       stream: customPayload.stream || false
     };
   }

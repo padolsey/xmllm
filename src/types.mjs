@@ -330,7 +330,12 @@ const types = {
   enum: (hint, values) => new EnumType(hint, values),
   
   // New items type
-  items: (itemType, hint) => new ItemsType(itemType, hint)
+  items: (itemType, hint) => new ItemsType(itemType, hint),
+
+  // Useful aliases
+  array: (itemType, hint) => new ItemsType(itemType, hint),
+  list: (itemType, hint) => new ItemsType(itemType, hint)
+
 };
 
 export { types };

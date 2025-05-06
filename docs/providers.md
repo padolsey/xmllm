@@ -75,12 +75,17 @@ The format is either:
 
 Current predefined model mappings (as of 2024):
 
-| Provider | Alias | Actual Model | Context Size | Notes |
-|----------|-------|--------------|--------------|-------|
-| Claude (Anthropic) | `anthropic:superfast`<br>`anthropic:fast`<br>`anthropic:good` | claude-3-haiku<br>claude-3-haiku<br>claude-3-sonnet | 100k tokens | Best for structured responses |
-| OpenAI | `openai:superfast`<br>`openai:fast`<br>`openai:good` | gpt-4o-mini<br>gpt-4o-mini<br>gpt-4o | 128k tokens | Good all-around performance |
-| Together.ai | `togetherai:superfast`<br>`togetherai:fast`<br>`togetherai:good` | Qwen 7B<br>Qwen 7B<br>Qwen 72B | Varies | Cost-effective alternative |
-| Perplexity | `perplexityai:superfast`<br>`perplexityai:fast`<br>`perplexityai:good` | sonar-small<br>sonar-small<br>sonar-large | 128k tokens | Newer provider |
+| Provider | Alias | Actual Model | Context Size | Notes | API Key Env Variable |
+|----------|-------|--------------|--------------|-------|---------------------|
+| Claude (Anthropic) | `anthropic:superfast`<br>`anthropic:fast`<br>`anthropic:good` | claude-3-haiku<br>claude-3-haiku<br>claude-3-5-sonnet | 200k tokens | Best for structured responses | `ANTHROPIC_API_KEY` |
+| OpenAI | `openai:superfast`<br>`openai:fast`<br>`openai:good` | gpt-4o-mini<br>gpt-4o-mini<br>gpt-4o | 128k tokens | Good all-around performance | `OPENAI_API_KEY` |
+| Together.ai | `togetherai:fast`<br>`togetherai:good`<br>`togetherai:best` | meta-llama/Llama-3-8b-instruct<br>meta-llama/Llama-3-70b-instruct<br>meta-llama/Meta-Llama-3.1-70B-Instruct | 8k tokens | Access to open models | `TOGETHER_API_KEY` |
+| Perplexity | `perplexityai:superfast`<br>`perplexityai:fast`<br>`perplexityai:good` | sonar-small<br>sonar-small<br>sonar-large | 128k tokens | Newer provider with web search | `PERPLEXITYAI_API_KEY` |
+| Mistral AI | `mistralai:superfast`<br>`mistralai:fast`<br>`mistralai:good`<br>`mistralai:best` | mistral-tiny<br>mistral-small<br>mistral-medium<br>mistral-large-latest | 32k tokens | Strong open-source models | `MISTRAL_API_KEY` |
+| DeepSeek | `deepseek:fast`<br>`deepseek:best` | deepseek-chat<br>deepseek-reasoner | 64k tokens | Specialized for reasoning tasks | `DEEPSEEK_API_KEY` |
+| AI21 | `ai21:fast` | j2-grande-chat | 8k tokens | Jurassic models | `AI21_API_KEY` |
+| OpenRouter | `openrouter:fast`<br>`openrouter:good` | (varies)<br>(varies) | Varies | Gateway to multiple models | `OPENROUTER_API_KEY` |
+| xAI (Grok) | `x:fast`<br>`x:good` | grok-beta | 131k tokens | Conversational model with web access | `X_API_KEY` |
 
 ### Examples
 
@@ -683,7 +688,19 @@ registerProvider('mistral', {
     };
   },
   // Optional custom payload transformer
-  payloader: standardPayloader,
+  payloader: function(payload) {
+    // Standard OpenAI-compatible format
+    return {
+      messages: [
+        { role: 'system', content: payload.system || '' },
+        ...payload.messages
+      ],
+      model: this.models[payload.model].name,
+      max_tokens: payload.max_tokens || 300,
+      temperature: payload.temperature || 0.5,
+      stream: true
+    };
+  },
   // Optional aliases
   aliases: ['mistralai']
 });
@@ -700,23 +717,351 @@ registerProvider('mistral', {
 | `models.good` | object | No* | High-quality model config |
 | `constraints` | object | No | Provider limits |
 | `constraints.rpmLimit` | number | No | Requests per minute (default: 100) |
+| `constraints.tokensPerMinute` | number | No | Token rate limit per minute |
+| `constraints.requestsPerHour` | number | No | Request rate limit per hour |
 | `key` | string | No | API key (falls back to env var) |
 | `headerGen` | function | No | Custom header generator |
 | `payloader` | function | No | Custom payload transformer |
 | `aliases` | string[] | No | Alternative provider names |
 
-### Environment Variables
+*Note: You must define at least one model, but it doesn't have to use these specific aliases.
 
-The provider will look for an API key in the following environment variable:
-```
-{PROVIDER_NAME}_API_KEY=your_api_key
+### Understanding `this` Context in Custom Functions
+
+Both `headerGen` and `payloader` functions have access to the provider instance via `this`, giving you access to:
+
+- `this.key` - The API key for the provider
+- `this.endpoint` - The provider's endpoint URL
+- `this.models` - The provider's model configurations
+- `this.name` - The provider's name
+
+This is particularly useful for:
+
+1. **Dynamic Authorization Headers**:
+   ```javascript
+   headerGen() {
+     // Different auth formats based on key format
+     if (this.key.startsWith('sk-')) {
+       return { 'Authorization': `Bearer ${this.key}` };
+     } else {
+       return { 'x-api-key': this.key };
+     }
+   }
+   ```
+
+2. **Model-Specific Payload Transformations**:
+   ```javascript
+   payloader(payload) {
+     const modelName = this.models[payload.model].name;
+     
+     // Different handling for different model types
+     if (modelName.includes('instruct')) {
+       return { instruction: payload.messages[0].content };
+     } else {
+       return { messages: payload.messages };
+     }
+   }
+   ```
+
+### Custom Payloader Examples
+
+Here are examples of custom payloaders for different API formats:
+
+#### 1. OpenAI-Compatible API
+
+```javascript
+function openAIStylePayloader(payload) {
+  return {
+    messages: [
+      { role: 'system', content: payload.system || '' },
+      ...payload.messages
+    ],
+    model: this.models[payload.model].name,
+    max_tokens: payload.max_tokens || 300,
+    temperature: payload.temperature || 0.5,
+    top_p: payload.top_p || 1,
+    presence_penalty: payload.presence_penalty || 0,
+    stream: true
+  };
+}
 ```
 
-For example, for a provider named 'mistral', it would look for:
-```
-MISTRAL_API_KEY=your_mistral_key
+#### 2. Anthropic-Compatible API
+
+```javascript
+function anthropicStylePayloader(payload) {
+  return {
+    system: payload.system,
+    messages: payload.messages,
+    model: this.models[payload.model].name,
+    max_tokens: payload.max_tokens || 300,
+    temperature: payload.temperature || 0.5,
+    stream: true
+  };
+}
 ```
 
-### Examples
+#### 3. Simple Prompt-Based API
 
-See the [Provider Examples](./provider-examples.md) guide for more configuration examples.
+```javascript
+function promptBasedPayloader(payload) {
+  // Extract the last user message
+  const userMessage = payload.messages[payload.messages.length - 1].content;
+  
+  // Combine system prompt and user message
+  const fullPrompt = payload.system 
+    ? `${payload.system}\n\n${userMessage}`
+    : userMessage;
+    
+  return {
+    prompt: fullPrompt,
+    model: this.models[payload.model].name,
+    max_tokens: payload.max_tokens || 300,
+    temperature: payload.temperature || 0.5,
+    stream: true
+  };
+}
+```
+
+#### 4. Custom Parameter Mapping
+
+```javascript
+function customParameterPayloader(payload) {
+  return {
+    // Transform standard parameters to provider-specific format
+    input: payload.messages[payload.messages.length - 1].content,
+    context: payload.system || '',
+    settings: {
+      response_length: payload.max_tokens || 300,
+      creativity: payload.temperature * 100, // Scale 0-1 to 0-100
+      repetition_avoidance: payload.presence_penalty * 10
+    },
+    model_id: this.models[payload.model].name,
+    stream_response: true
+  };
+}
+```
+
+### Testing Custom Providers
+
+To test your custom provider without making actual API calls:
+
+```javascript
+import { stream, configure } from 'xmllm';
+import { registerProvider } from 'xmllm';
+
+// Register your custom provider
+registerProvider('test-provider', {
+  endpoint: 'https://api.test.com/v1/generate',
+  models: {
+    fast: { name: 'test-model' }
+  },
+  payloader: customPayloader
+});
+
+// Test with a mock response
+const result = await stream('Test query', {
+  model: 'test-provider:fast',
+  // Mock the response for testing
+  fakeResponse: '<answer>This is a test response</answer>',
+  // Optional delay to simulate network latency
+  fakeDelay: 500
+}).complete().value();
+
+console.log(result); // { answer: 'This is a test response' }
+```
+
+This approach lets you verify your custom provider configuration without making actual API calls, which is useful for:
+- Unit testing
+- Development and debugging
+- CI/CD environments
+
+### Schema Support in Custom Providers
+
+xmllm's schema functionality works seamlessly with custom providers. When using schemas with custom providers, there are a few important considerations:
+
+#### 1. Schema Handling in Payloaders
+
+The schema is not automatically passed to the payloader function, as it's primarily used for client-side parsing. However, you can detect if a schema is being used and adjust your payload accordingly:
+
+```javascript
+function schemaAwarePayloader(payload) {
+  // Check if a schema is being used
+  const hasSchema = payload.schema !== undefined;
+  
+  return {
+    messages: [
+      { role: 'system', content: payload.system || '' },
+      ...payload.messages
+    ],
+    model: this.models[payload.model].name,
+    // Some providers have special parameters for structured output
+    response_format: hasSchema ? { type: 'xml' } : undefined,
+    // You might want to adjust the system prompt for schema usage
+    system_instructions: hasSchema 
+      ? "Respond with well-formed XML matching the requested schema."
+      : undefined,
+    // Other standard parameters
+    max_tokens: payload.max_tokens || 300,
+    temperature: payload.temperature || 0.5
+  };
+}
+```
+
+#### 2. Testing Schema Support
+
+You can test schema support with mock responses:
+
+```javascript
+// Define a schema
+const scoreSchema = {
+  evaluation: {
+    score: Number,
+    feedback: String,
+    categories: [String]
+  }
+};
+
+// Test with a mock response matching the schema
+const result = await stream('Evaluate this submission', {
+  model: 'custom-provider:fast',
+  schema: scoreSchema,
+  fakeResponse: `
+    <evaluation>
+      <score>95</score>
+      <feedback>Excellent work with clear explanations.</feedback>
+      <categories>
+        <item>Clarity</item>
+        <item>Thoroughness</item>
+        <item>Accuracy</item>
+      </categories>
+    </evaluation>
+  `
+}).complete().value();
+
+console.log(result);
+// {
+//   evaluation: {
+//     score: 95,
+//     feedback: 'Excellent work with clear explanations.',
+//     categories: ['Clarity', 'Thoroughness', 'Accuracy']
+//   }
+// }
+```
+
+#### 3. Provider-Specific Schema Handling
+
+Different providers have different ways of handling structured output:
+
+- **OpenAI**: Supports `response_format: { type: "json_object" }` for JSON output
+- **Anthropic**: Supports XML output with appropriate system prompts
+- **Custom APIs**: May have specific parameters for structured output
+
+Your payloader can adapt to these differences:
+
+```javascript
+function adaptiveSchemaPayloader(payload) {
+  const hasSchema = payload.schema !== undefined;
+  const modelName = this.models[payload.model].name;
+  
+  // Base payload
+  const basePayload = {
+    messages: payload.messages,
+    max_tokens: payload.max_tokens || 300,
+    temperature: payload.temperature || 0.5
+  };
+  
+  // Add provider-specific schema handling
+  if (hasSchema) {
+    if (modelName.includes('gpt')) {
+      // OpenAI-style
+      return {
+        ...basePayload,
+        response_format: { type: "json_object" }
+      };
+    } else if (modelName.includes('claude')) {
+      // Anthropic-style (relies on system prompt)
+      return {
+        ...basePayload,
+        system: (payload.system || '') + 
+          '\nRespond with well-formed XML matching the requested schema.'
+      };
+    } else {
+      // Generic approach
+      return {
+        ...basePayload,
+        structured_output: true,
+        output_format: 'xml'
+      };
+    }
+  }
+  
+  return basePayload;
+}
+```
+
+Remember that xmllm handles the parsing of the structured response on the client side, so your provider only needs to ensure the model generates properly formatted XML or JSON that matches the schema structure.
+
+## Provider Compatibility Matrix
+
+Different providers support different parameters. Here's a compatibility matrix for common parameters:
+
+| Parameter | OpenAI | Anthropic | Mistral | DeepSeek | Together | Perplexity |
+|-----------|--------|-----------|---------|----------|----------|------------|
+| `temperature` | ✅ 0-2 | ✅ 0-1 | ✅ 0-1 | ✅ 0-1 | ✅ 0-2 | ✅ 0-1 |
+| `top_p` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `max_tokens` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `stop` | ✅ | ✅* | ✅ | ✅ | ✅ | ✅ |
+| `presence_penalty` | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| `frequency_penalty` | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| `response_format` | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
+| `random_seed` | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `safe_prompt` | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `search_domain_filter` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+*Anthropic uses `stop_sequences` instead of `stop` (xmllm handles this conversion automatically)
+
+## Random Provider-Specific Notes
+
+### OpenAI O1 Models
+
+OpenAI's O1 models have specific requirements:
+
+- They don't support `temperature`, `top_p`, `presence_penalty`, or `frequency_penalty`
+- They use `max_completion_tokens` instead of `max_tokens`
+- They support a `reasoning_effort` parameter (except for o1-mini)
+- System messages use the `developer` role instead of `system` (except for o1-mini)
+
+xmllm handles these differences automatically when you use an O1 model.
+
+### Anthropic Claude
+
+Anthropic's Claude models:
+
+- Have a maximum temperature of 1.0 (values above 1.0 are capped)
+- Use `stop_sequences` instead of `stop` (xmllm handles this conversion)
+- Don't support presence or frequency penalties
+
+### Mistral AI
+
+Mistral AI models support:
+
+- `random_seed` for reproducible outputs
+- `safe_prompt` for content filtering
+- `response_format` for structured output
+
+### DeepSeek
+
+DeepSeek's models:
+
+- Support very large context windows (64k tokens)
+- The "reasoner" model is specialized for complex reasoning tasks
+- Support `response_format` for structured output
+
+### Perplexity
+
+Perplexity models support unique features:
+
+- `search_domain_filter` to limit web searches to specific domains
+- `return_images` to include images in responses
+- `return_related_questions` to suggest follow-up questions

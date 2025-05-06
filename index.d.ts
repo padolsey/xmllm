@@ -48,7 +48,7 @@ export interface BaseSchemaConfig extends BaseStreamConfig {
   hints?: Hints;
   genSystemPrompt?: (system?: string) => string;
   genUserPrompt?: (scaffold: string, prompt: string) => string | Message[];
-  strategy?: string;
+  strategy?: StrategyType;
 }
 
 // Create combo of BaseSchemaConfig and BaseStreamConfig
@@ -336,8 +336,8 @@ export interface PromptStrategy {
 }
 
 // Export strategy-related functions
-export function getStrategy(id: string): PromptStrategy;
-export const STRATEGIES: Record<string, PromptStrategy>;
+export function getStrategy(id: StrategyType): PromptStrategy;
+export const STRATEGIES: Record<StrategyType, PromptStrategy>;
 
 // First, let's add the Provider type definition
 export interface Provider {
@@ -409,3 +409,6 @@ export interface ProviderPayload {
   stream?: boolean;
   model?: string;
 }
+
+// Core types
+export type StrategyType = 'default' | 'minimal' | 'seed' | 'structured' | 'assertive' | 'exemplar';

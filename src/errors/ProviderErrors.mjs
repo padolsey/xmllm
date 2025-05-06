@@ -1,6 +1,7 @@
 class ProviderError extends Error {
   constructor(message, code, provider) {
     super(message);
+    console.log('err debug', message, code, provider)
     this.name = 'ProviderError';
     this.code = code;
     this.provider = provider;

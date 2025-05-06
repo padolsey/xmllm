@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { stream, simple } from '../src/xmllm-main.mjs';
+import { stream, simple, configure } from '../src/xmllm-main.mjs';
 import { getConfig, resetConfig } from '../src/config.mjs';
 import { estimateTokens } from '../src/utils/estimateTokens.mjs';
 import Provider from '../src/Provider.mjs';
@@ -7,6 +7,8 @@ import Provider from '../src/Provider.mjs';
 import {
   ProviderError,
   ProviderRateLimitError,
+  ProviderAuthenticationError,
+  ProviderNetworkError,
   ProviderTimeoutError
 } from '../src/errors/ProviderErrors.mjs';
 import ProviderManager from '../src/ProviderManager.mjs';
@@ -873,5 +875,139 @@ describe('simple() with realistic chunking', () => {
         }
       }
     });
+  });
+});
+
+describe('Error Message Handling', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  it('should use appropriate error message for authentication errors', async () => {
+    // Make sure we're using the actual error class from the project
+    const authError = new ProviderAuthenticationError('test-provider', 'Invalid API key');
+    
+    // Mock ProviderManager to throw our specific error
+    jest.spyOn(ProviderManager.prototype, 'streamRequest').mockImplementation(() => {
+      throw authError;
+    });
+
+    const customAuthMessage = "Custom auth error: Please check your API key";
+    
+    // Configure global defaults first to ensure our test environment is consistent
+    configure({
+      defaults: {
+        errorMessages: {
+          authenticationFailed: "Default auth error message"
+        }
+      }
+    });
+    
+    const updates = [];
+    const stream1 = stream('Test query', {
+      errorMessages: {
+        authenticationFailed: customAuthMessage
+      }
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    // Should use the authentication-specific error message
+    expect(updates).toEqual([customAuthMessage]);
+
+    // Clean up
+    jest.restoreAllMocks();
+  });
+
+  it('should use appropriate error message for network errors', async () => {
+    // Create a specific network error instance
+    const networkError = new ProviderNetworkError('test-provider', 500, 'Server error');
+    
+    // Mock ProviderManager to throw our specific error
+    jest.spyOn(ProviderManager.prototype, 'streamRequest').mockImplementation(() => {
+      throw networkError;
+    });
+
+    const customNetworkMessage = "Custom network error: Please try again later";
+    
+    // Configure global defaults first
+    configure({
+      defaults: {
+        errorMessages: {
+          networkError: "Default network error message"
+        }
+      }
+    });
+    
+    const updates = [];
+    const stream1 = stream('Test query', {
+      errorMessages: {
+        networkError: customNetworkMessage
+      }
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    // Should use the network-specific error message
+    expect(updates).toEqual([customNetworkMessage]);
+
+    // Clean up
+    jest.restoreAllMocks();
+  });
+
+  it('should use appropriate error message for timeout errors', async () => {
+    // Mock ProviderManager to throw a timeout error
+    jest.spyOn(ProviderManager.prototype, 'streamRequest').mockImplementation(() => {
+      throw new ProviderTimeoutError('test-provider', 30000);
+    });
+
+    const customTimeoutMessage = "Custom timeout error: Request timed out";
+    
+    const updates = [];
+    const stream1 = stream('Test query', {
+      errorMessages: {
+        serviceUnavailable: customTimeoutMessage
+      }
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    // Should use the timeout-specific error message
+    expect(updates).toEqual([customTimeoutMessage]);
+
+    // Clean up
+    jest.restoreAllMocks();
+  });
+
+  it('should fall back to generic error message for unknown errors', async () => {
+    // Mock ProviderManager to throw an unknown error
+    jest.spyOn(ProviderManager.prototype, 'streamRequest').mockImplementation(() => {
+      throw new Error('Unknown error');
+    });
+
+    const customGenericMessage = "Something went wrong";
+    
+    const updates = [];
+    const stream1 = stream('Test query', {
+      errorMessages: {
+        genericFailure: customGenericMessage
+      }
+    });
+
+    for await (const update of stream1) {
+      updates.push(update);
+    }
+
+    // Should use the generic error message
+    expect(updates).toEqual([customGenericMessage]);
+
+    // Clean up
+    jest.restoreAllMocks();
   });
 });

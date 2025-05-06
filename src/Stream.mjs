@@ -4,7 +4,7 @@ import { get as getCache, set as setCache, getConfig as getCacheConfig } from '.
 import Logger from './Logger.mjs';
 import ProviderManager from './ProviderManager.mjs';
 import { getConfig } from './config.mjs';
-import { ProviderRateLimitError } from './errors/ProviderErrors.mjs';
+import { ProviderRateLimitError, ProviderAuthenticationError, ProviderNetworkError, ProviderTimeoutError } from './errors/ProviderErrors.mjs';
 
 const logger = new Logger('APIStream');
 
@@ -168,11 +168,27 @@ export default async function APIStream(payload, injectedProviderManager) {
           if (!waitMessageSent) {
             const config = getConfig();
 
-            const errorMessage = error instanceof ProviderRateLimitError 
-              ? (payload?.errorMessages?.rateLimitExceeded || config.defaults.errorMessages.rateLimitExceeded)
-              : (payload?.errorMessages?.genericFailure || config.defaults.errorMessages.genericFailure);
-
+            if (error instanceof ProviderRateLimitError) {
+              const errorMessage = payload?.errorMessages?.rateLimitExceeded || 
+                config.defaults.errorMessages.rateLimitExceeded;
               controller.enqueue(encoder.encode(errorMessage));
+            } else if (error instanceof ProviderAuthenticationError) {
+              const errorMessage = payload?.errorMessages?.authenticationFailed || 
+                config.defaults.errorMessages.authenticationFailed;
+              controller.enqueue(encoder.encode(errorMessage));
+            } else if (error instanceof ProviderNetworkError) {
+              const errorMessage = payload?.errorMessages?.networkError || 
+                config.defaults.errorMessages.networkError;
+              controller.enqueue(encoder.encode(errorMessage));
+            } else if (error instanceof ProviderTimeoutError) {
+              const errorMessage = payload?.errorMessages?.serviceUnavailable || 
+                config.defaults.errorMessages.serviceUnavailable;
+              controller.enqueue(encoder.encode(errorMessage));
+            } else {
+              const errorMessage = payload?.errorMessages?.genericFailure || 
+                config.defaults.errorMessages.genericFailure;
+              controller.enqueue(encoder.encode(errorMessage));
+            }
           }
         } finally {
           controller.close();

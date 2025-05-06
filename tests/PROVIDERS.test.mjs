@@ -1,5 +1,13 @@
 import { jest } from '@jest/globals';
-import { standardPayloader, o1Payloader, createCustomModel, taiStylePayloader, testProviders } from '../src/PROVIDERS.mjs';
+import {
+  standardPayloader,
+  o1Payloader,
+  createCustomModel,
+  taiStylePayloader,
+  normalizeProviderParams,
+  providers,
+  openaiPayloader
+} from '../src/PROVIDERS.mjs';
 
 describe('standardPayloader', () => {
   let mockProvider;
@@ -231,19 +239,67 @@ describe('anthropic payloader', () => {
       top_p: 1
     });
   });
+
+  test('caps temperature at 1.0', () => {
+    const mockProvider = {
+      payloader: providers.anthropic.payloader
+    };
+    
+    const payload = mockProvider.payloader({
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 1.5 // Intentionally above Anthropic's max
+    });
+
+    // Should be capped at 1.0
+    expect(payload.temperature).toBe(1.0);
+    
+    // Test with valid temperature
+    const normalPayload = mockProvider.payloader({
+      messages: [{ role: 'user', content: 'hello' }],
+      temperature: 0.7
+    });
+    
+    // Should remain unchanged
+    expect(normalPayload.temperature).toBe(0.7);
+  });
+});
+
+describe('anthropic payloader with normalizeProviderParams', () => {
+  test('properly normalizes parameters for Anthropic', () => {
+    const mockProvider = {
+      payloader: providers.anthropic.payloader
+    };
+    
+    const payload = mockProvider.payloader({
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 1.5,  // Above Anthropic's max
+      stop: 'END',       // Should be converted to stop_sequences
+      presence_penalty: 0.1, // Should be removed (unsupported)
+      frequency_penalty: 0.2 // Should be removed (unsupported)
+    });
+
+    // Verify parameters are properly normalized
+    expect(payload.temperature).toBe(1.0); // Clamped to max
+    expect(payload).not.toHaveProperty('stop');
+    expect(payload.stop_sequences).toEqual(['END']);
+    expect(payload).not.toHaveProperty('presence_penalty');
+    expect(payload).not.toHaveProperty('frequency_penalty');
+    
+    // Verify other parameters are preserved
+    expect(payload.system).toBe('Be helpful');
+    expect(payload.messages).toEqual([{ role: 'user', content: 'hello' }]);
+    expect(payload.max_tokens).toBe(300);
+    expect(payload.top_p).toBe(1);
+  });
 });
 
 describe('o1Payloader', () => {
-  let mockProvider;
-
-  beforeEach(() => {
-    mockProvider = {
-      currentModelName: 'o1-preview',
-    };
-  });
 
   test('handles o1 models supporting developer role', () => {
-    const payload = o1Payloader.call(mockProvider, {
+    const payload = o1Payloader.call({}, {
+      model: 'o1-preview',
       messages: [{ role: 'user', content: 'hello' }],
       system: 'Be helpful',
       max_completion_tokens: 300,
@@ -261,9 +317,9 @@ describe('o1Payloader', () => {
   });
 
   test('handles o1-mini model without developer role support or reasoning_effort', () => {
-    mockProvider.currentModelName = 'o1-mini';
 
-    const payload = o1Payloader.call(mockProvider, {
+    const payload = o1Payloader.call({}, {
+      model: 'o1-mini',
       messages: [
         { role: 'system', content: 'Be direct' },
         { role: 'user', content: 'hello' },
@@ -282,7 +338,7 @@ describe('o1Payloader', () => {
   });
 
   test('omits unsupported parameters', () => {
-    const payload = o1Payloader.call(mockProvider, {
+    const payload = o1Payloader.call({}, {
       messages: [{ role: 'user', content: 'hello' }],
       system: 'Be helpful',
       temperature: 0.7, // Unsupported parameter
@@ -301,5 +357,322 @@ describe('o1Payloader', () => {
     // Ensure unsupported parameters are not included
     expect(payload).not.toHaveProperty('temperature');
     expect(payload).not.toHaveProperty('presence_penalty');
+  });
+});
+
+describe('openaiPayloader for O1 models', () => {
+  test('removes unsupported parameters for O1 models', () => {
+    // Mock the provider context
+    const mockProvider = {
+      models: {
+        fast: { name: 'o1-preview' }
+      }
+    };
+    
+    // Create a payload with parameters that O1 doesn't support
+    const originalPayload = {
+      model: 'fast',
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7,
+      top_p: 0.9,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.2
+    };
+    
+    // Call the payloader
+    const result = openaiPayloader.call(mockProvider, originalPayload);
+    
+    // Verify unsupported parameters are removed
+    expect(result).not.toHaveProperty('temperature');
+    expect(result).not.toHaveProperty('top_p');
+    expect(result).not.toHaveProperty('presence_penalty');
+    expect(result).not.toHaveProperty('frequency_penalty');
+    
+    // Verify other parameters are preserved
+    expect(result.messages).toBeDefined();
+    expect(result.max_completion_tokens).toBeDefined();
+    expect(result.reasoning_effort).toBeDefined();
+  });
+});
+
+describe('perplexityai payloader', () => {
+  test('handles Perplexity-specific parameters', () => {
+    // Mock the provider
+    const mockProvider = {
+      name: 'perplexityai',
+      payloader: providers.perplexityai.payloader
+    };
+    
+    // Create a payload with Perplexity-specific parameters
+    const payload = {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7,
+      search_domain_filter: ['wikipedia.org', '-twitter.com'],
+      return_images: true,
+      return_related_questions: true
+    };
+    
+    // Call the payloader
+    const result = mockProvider.payloader(payload);
+    
+    // Verify standard parameters are preserved
+    // Note: standardPayloader adds system as first message
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'Be helpful' },
+      { role: 'user', content: 'hello' }
+    ]);
+    expect(result.temperature).toBe(0.7);
+    
+    // Verify Perplexity-specific parameters are included
+    expect(result.search_domain_filter).toEqual(['wikipedia.org', '-twitter.com']);
+    expect(result.return_images).toBe(true);
+    expect(result.return_related_questions).toBe(true);
+  });
+  
+  test('works with standard parameters only', () => {
+    // Mock the provider
+    const mockProvider = {
+      name: 'perplexityai',
+      payloader: providers.perplexityai.payloader
+    };
+    
+    // Create a payload with only standard parameters
+    const payload = {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7
+    };
+    
+    // Call the payloader
+    const result = mockProvider.payloader(payload);
+    
+    // Verify standard parameters are preserved
+    // Note: standardPayloader adds system as first message
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'Be helpful' },
+      { role: 'user', content: 'hello' }
+    ]);
+    expect(result.temperature).toBe(0.7);
+    
+    // Verify Perplexity-specific parameters are not included
+    expect(result).not.toHaveProperty('search_domain_filter');
+    expect(result).not.toHaveProperty('return_images');
+    expect(result).not.toHaveProperty('return_related_questions');
+  });
+});
+
+describe('normalizeProviderParams utility', () => {
+  test('renames stop to stop_sequences when configured', () => {
+    const opts = {
+      messages: [{ role: 'user', content: 'hello' }],
+      stop: ['END', 'STOP']
+    };
+    
+    const result = normalizeProviderParams(opts, { useStopSequences: true });
+    
+    expect(result).not.toHaveProperty('stop');
+    expect(result.stop_sequences).toEqual(['END', 'STOP']);
+  });
+  
+  test('converts single stop string to array for stop_sequences', () => {
+    const opts = {
+      messages: [{ role: 'user', content: 'hello' }],
+      stop: 'END'
+    };
+    
+    const result = normalizeProviderParams(opts, { useStopSequences: true });
+    
+    expect(result).not.toHaveProperty('stop');
+    expect(result.stop_sequences).toEqual(['END']);
+  });
+  
+  test('clamps temperature to specified range', () => {
+    // Test clamping with default range (0.0 to 1.0)
+    expect(normalizeProviderParams(
+      { temperature: 1.5 }, 
+      { clampTemp: true }
+    ).temperature).toBe(1.0);
+    
+    expect(normalizeProviderParams(
+      { temperature: -0.5 }, 
+      { clampTemp: true }
+    ).temperature).toBe(0.0);
+    
+    // Test with custom range
+    expect(normalizeProviderParams(
+      { temperature: 3.0 }, 
+      { clampTemp: true, maxTemp: 2.0 }
+    ).temperature).toBe(2.0);
+    
+    // Test with value in range
+    expect(normalizeProviderParams(
+      { temperature: 0.7 }, 
+      { clampTemp: true }
+    ).temperature).toBe(0.7);
+  });
+  
+  test('removes specified parameters', () => {
+    const opts = {
+      messages: [{ role: 'user', content: 'hello' }],
+      temperature: 0.7,
+      top_p: 0.9,
+      presence_penalty: 0.1
+    };
+    
+    const result = normalizeProviderParams(opts, { 
+      removeParams: ['top_p', 'presence_penalty'] 
+    });
+    
+    expect(result.messages).toEqual([{ role: 'user', content: 'hello' }]);
+    expect(result.temperature).toBe(0.7);
+    expect(result).not.toHaveProperty('top_p');
+    expect(result).not.toHaveProperty('presence_penalty');
+  });
+  
+  test('does not modify original object', () => {
+    const opts = {
+      messages: [{ role: 'user', content: 'hello' }],
+      temperature: 1.5,
+      stop: 'END'
+    };
+    
+    const result = normalizeProviderParams(opts, { 
+      clampTemp: true,
+      useStopSequences: true
+    });
+    
+    // Original should be unchanged
+    expect(opts.temperature).toBe(1.5);
+    expect(opts.stop).toBe('END');
+    
+    // Result should be modified
+    expect(result.temperature).toBe(1.0);
+    expect(result).not.toHaveProperty('stop');
+    expect(result.stop_sequences).toEqual(['END']);
+  });
+});
+
+describe('mistralai payloader', () => {
+  test('handles Mistral-specific parameters', () => {
+    // Mock the provider
+    const mockProvider = {
+      name: 'mistralai',
+      payloader: providers.mistralai.payloader
+    };
+    
+    // Create a payload with Mistral-specific parameters
+    const payload = {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7,
+      random_seed: 42,
+      safe_prompt: true,
+      response_format: { type: 'json_object' }
+    };
+    
+    // Call the payloader
+    const result = mockProvider.payloader(payload);
+    
+    // Verify standard parameters are preserved
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'Be helpful' },
+      { role: 'user', content: 'hello' }
+    ]);
+    expect(result.temperature).toBe(0.7);
+    
+    // Verify Mistral-specific parameters are included
+    expect(result.random_seed).toBe(42);
+    expect(result.safe_prompt).toBe(true);
+    expect(result.response_format).toEqual({ type: 'json_object' });
+  });
+  
+  test('works with standard parameters only', () => {
+    // Mock the provider
+    const mockProvider = {
+      name: 'mistralai',
+      payloader: providers.mistralai.payloader
+    };
+    
+    // Create a payload with only standard parameters
+    const payload = {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7
+    };
+    
+    // Call the payloader
+    const result = mockProvider.payloader(payload);
+    
+    // Verify standard parameters are preserved
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'Be helpful' },
+      { role: 'user', content: 'hello' }
+    ]);
+    expect(result.temperature).toBe(0.7);
+    
+    // Verify Mistral-specific parameters are not included
+    expect(result).not.toHaveProperty('random_seed');
+    expect(result).not.toHaveProperty('safe_prompt');
+    expect(result).not.toHaveProperty('response_format');
+  });
+});
+
+describe('deepseek payloader', () => {
+  test('handles DeepSeek-specific parameters', () => {
+    // Mock the provider
+    const mockProvider = {
+      name: 'deepseek',
+      payloader: providers.deepseek.payloader
+    };
+    
+    // Create a payload with DeepSeek-specific parameters
+    const payload = {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7,
+      response_format: { type: 'json_object' }
+    };
+    
+    // Call the payloader
+    const result = mockProvider.payloader(payload);
+    
+    // Verify standard parameters are preserved
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'Be helpful' },
+      { role: 'user', content: 'hello' }
+    ]);
+    expect(result.temperature).toBe(0.7);
+    
+    // Verify DeepSeek-specific parameters are included
+    expect(result.response_format).toEqual({ type: 'json_object' });
+  });
+});
+
+describe('togetherai payloader', () => {
+  test('uses standard payloader for Together AI', () => {
+    // Mock the provider
+    const mockProvider = {
+      name: 'togetherai',
+      payloader: providers.togetherai.payloader
+    };
+    
+    // Create a standard payload
+    const payload = {
+      messages: [{ role: 'user', content: 'hello' }],
+      system: 'Be helpful',
+      temperature: 0.7
+    };
+    
+    // Call the payloader
+    const result = mockProvider.payloader(payload);
+    
+    // Verify standard parameters are preserved
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'Be helpful' },
+      { role: 'user', content: 'hello' }
+    ]);
+    expect(result.temperature).toBe(0.7);
   });
 }); 

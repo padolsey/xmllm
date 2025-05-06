@@ -51,6 +51,14 @@ export interface SchemaTypeCreators {
     itemType: Schema,
     hint?: string
   ): SchemaItemsType;
+  array(
+    itemType: Schema,
+    hint?: string
+  ): SchemaItemsType;
+  list(
+    itemType: Schema,
+    hint?: string
+  ): SchemaItemsType;
 }
 
 export const schemaTypes: SchemaTypeCreators; 

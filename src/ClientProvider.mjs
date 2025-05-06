@@ -102,6 +102,10 @@ export class ClientProvider {
           // Ignore JSON parsing errors
         }
 
+        if (this.logger) {
+          this.logger.log('Client createStream error', errorMessage);
+        }
+
         return this.createErrorStream(errorMessage);
       }
 
@@ -144,6 +148,9 @@ export class ClientProvider {
         ...config.defaults.errorMessages,
         ...payload.errorMessages
       };
+      if (this.logger) {
+        this.logger.log('Client createStream error', error, errorMessages.networkError);
+      }
       return this.createErrorStream(errorMessages.networkError);
     }
   }
