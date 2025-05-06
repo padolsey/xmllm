@@ -311,7 +311,7 @@ var Provider = /*#__PURE__*/function () {
     value: function () {
       var _handleErrorResponse = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3(response) {
         var _response$headers;
-        var errorBody, retryAfter;
+        var errorBody, errorJson, _errorJson$error, _errorJson$error2, errorType, errorMessage, authErrorKeywords, retryAfter;
         return _regeneratorRuntime().wrap(function _callee3$(_context3) {
           while (1) switch (_context3.prev = _context3.next) {
             case 0:
@@ -332,12 +332,41 @@ var Provider = /*#__PURE__*/function () {
             case 5:
               errorBody = _context3.sent;
               logger.log('Error body:', errorBody);
-              _context3.t0 = response.status;
-              _context3.next = _context3.t0 === 401 ? 10 : _context3.t0 === 403 ? 10 : _context3.t0 === 429 ? 11 : _context3.t0 === 408 ? 15 : _context3.t0 === 504 ? 15 : 16;
-              break;
-            case 10:
+
+              // Try to parse JSON response if possible
+              errorJson = null;
+              try {
+                errorJson = JSON.parse(errorBody);
+              } catch (e) {
+                // Not JSON, continue with text body
+              }
+
+              // Check for standard HTTP auth error codes
+              if (!(response.status === 401 || response.status === 403)) {
+                _context3.next = 11;
+                break;
+              }
               throw new ProviderAuthenticationError(this.name, errorBody);
             case 11:
+              if (!errorJson) {
+                _context3.next = 17;
+                break;
+              }
+              errorType = ((_errorJson$error = errorJson.error) === null || _errorJson$error === void 0 ? void 0 : _errorJson$error.type) || errorJson.type || '';
+              errorMessage = ((_errorJson$error2 = errorJson.error) === null || _errorJson$error2 === void 0 ? void 0 : _errorJson$error2.message) || errorJson.message || '';
+              authErrorKeywords = ['auth', 'unauthorized', 'unauthenticated', 'invalid key', 'invalid api key'];
+              if (!authErrorKeywords.some(function (keyword) {
+                return errorType.toLowerCase().includes(keyword) || errorMessage.toLowerCase().includes(keyword);
+              })) {
+                _context3.next = 17;
+                break;
+              }
+              throw new ProviderAuthenticationError(this.name, errorBody);
+            case 17:
+              _context3.t0 = response.status;
+              _context3.next = _context3.t0 === 429 ? 20 : _context3.t0 === 408 ? 24 : _context3.t0 === 504 ? 24 : 25;
+              break;
+            case 20:
               logger.log('Detected 429 rate limit response');
               retryAfter = response.headers.get('Retry-After');
               logger.log('Retry-After header:', retryAfter);
@@ -345,11 +374,11 @@ var Provider = /*#__PURE__*/function () {
                 type: 'rpm',
                 resetInMs: parseInt(retryAfter) * 1000
               }]);
-            case 15:
+            case 24:
               throw new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
-            case 16:
+            case 25:
               throw new ProviderNetworkError(this.name, response.status, errorBody);
-            case 17:
+            case 26:
             case "end":
               return _context3.stop();
           }
@@ -763,6 +792,8 @@ var Provider = /*#__PURE__*/function () {
 
       // First, try to use the model specified in the preference
       var modelType = customPayload.model || 'fast';
+
+      // Handle the case where modelType is a string like 'fast', 'good', or 'custom'
       var model = this.models[modelType] || this.models['fast'] || Object.values(this.models)[0];
       if (!model) {
         throw new ModelValidationError("No valid model found for provider: ".concat(this.name), {
@@ -770,9 +801,6 @@ var Provider = /*#__PURE__*/function () {
           availableModels: Object.keys(this.models)
         });
       }
-
-      // Set current model name for use in payloader
-      this.currentModelName = model.name;
 
       // Detect if the model is an 'o1' model
       var isO1Model = /^(?:o1|o3)/.test(model.name);
@@ -894,10 +922,15 @@ var Provider = /*#__PURE__*/function () {
       var modelSpecificPayload = this.payloader(_objectSpread(_objectSpread(_defineProperty({
         system: system
       }, maxTokensParam, maxTokensValue), customPayload), {}, {
-        messages: truncatedMessages
+        messages: truncatedMessages,
+        model: model.name
       }));
+
+      // If the payloader didn't set a model, use the one from our configuration
+      if (!modelSpecificPayload.model) {
+        modelSpecificPayload.model = model.name;
+      }
       return _objectSpread(_objectSpread({}, modelSpecificPayload), {}, {
-        model: model.name,
         stream: customPayload.stream || false
       });
     }

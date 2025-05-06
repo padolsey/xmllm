@@ -149,7 +149,7 @@ function _APIStream() {
                   return _context3.abrupt("return", new ReadableStream({
                     start: function start(controller) {
                       return _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize, cacheConfig, _payload$errorMessage, _payload$errorMessage2, config, errorMessage;
+                        var waitMessageSent, waitMessageTimer, stream, reader, _yield$reader$read, done, value, decodedValue, contentSize, cacheConfig, config, _payload$errorMessage, errorMessage, _payload$errorMessage2, _errorMessage, _payload$errorMessage3, _errorMessage2, _payload$errorMessage4, _errorMessage3, _payload$errorMessage5, _errorMessage4;
                         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
                           while (1) switch (_context2.prev = _context2.next) {
                             case 0:
@@ -238,8 +238,22 @@ function _APIStream() {
                               if (waitMessageTimer) clearTimeout(waitMessageTimer);
                               if (!waitMessageSent) {
                                 config = (0, _config.getConfig)();
-                                errorMessage = _context2.t0 instanceof _ProviderErrors.ProviderRateLimitError ? (payload === null || payload === void 0 || (_payload$errorMessage = payload.errorMessages) === null || _payload$errorMessage === void 0 ? void 0 : _payload$errorMessage.rateLimitExceeded) || config.defaults.errorMessages.rateLimitExceeded : (payload === null || payload === void 0 || (_payload$errorMessage2 = payload.errorMessages) === null || _payload$errorMessage2 === void 0 ? void 0 : _payload$errorMessage2.genericFailure) || config.defaults.errorMessages.genericFailure;
-                                controller.enqueue(encoder.encode(errorMessage));
+                                if (_context2.t0 instanceof _ProviderErrors.ProviderRateLimitError) {
+                                  errorMessage = (payload === null || payload === void 0 || (_payload$errorMessage = payload.errorMessages) === null || _payload$errorMessage === void 0 ? void 0 : _payload$errorMessage.rateLimitExceeded) || config.defaults.errorMessages.rateLimitExceeded;
+                                  controller.enqueue(encoder.encode(errorMessage));
+                                } else if (_context2.t0 instanceof _ProviderErrors.ProviderAuthenticationError) {
+                                  _errorMessage = (payload === null || payload === void 0 || (_payload$errorMessage2 = payload.errorMessages) === null || _payload$errorMessage2 === void 0 ? void 0 : _payload$errorMessage2.authenticationFailed) || config.defaults.errorMessages.authenticationFailed;
+                                  controller.enqueue(encoder.encode(_errorMessage));
+                                } else if (_context2.t0 instanceof _ProviderErrors.ProviderNetworkError) {
+                                  _errorMessage2 = (payload === null || payload === void 0 || (_payload$errorMessage3 = payload.errorMessages) === null || _payload$errorMessage3 === void 0 ? void 0 : _payload$errorMessage3.networkError) || config.defaults.errorMessages.networkError;
+                                  controller.enqueue(encoder.encode(_errorMessage2));
+                                } else if (_context2.t0 instanceof _ProviderErrors.ProviderTimeoutError) {
+                                  _errorMessage3 = (payload === null || payload === void 0 || (_payload$errorMessage4 = payload.errorMessages) === null || _payload$errorMessage4 === void 0 ? void 0 : _payload$errorMessage4.serviceUnavailable) || config.defaults.errorMessages.serviceUnavailable;
+                                  controller.enqueue(encoder.encode(_errorMessage3));
+                                } else {
+                                  _errorMessage4 = (payload === null || payload === void 0 || (_payload$errorMessage5 = payload.errorMessages) === null || _payload$errorMessage5 === void 0 ? void 0 : _payload$errorMessage5.genericFailure) || config.defaults.errorMessages.genericFailure;
+                                  controller.enqueue(encoder.encode(_errorMessage4));
+                                }
                               }
                             case 40:
                               _context2.prev = 40;

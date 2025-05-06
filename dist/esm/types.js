@@ -420,6 +420,13 @@ var types = {
   // New items type
   items: function items(itemType, hint) {
     return new ItemsType(itemType, hint);
+  },
+  // Useful aliases
+  array: function array(itemType, hint) {
+    return new ItemsType(itemType, hint);
+  },
+  list: function list(itemType, hint) {
+    return new ItemsType(itemType, hint);
   }
 };
 export { types };

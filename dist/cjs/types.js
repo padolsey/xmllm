@@ -424,6 +424,13 @@ var types = exports.types = {
   // New items type
   items: function items(itemType, hint) {
     return new ItemsType(itemType, hint);
+  },
+  // Useful aliases
+  array: function array(itemType, hint) {
+    return new ItemsType(itemType, hint);
+  },
+  list: function list(itemType, hint) {
+    return new ItemsType(itemType, hint);
   }
 };
 var _default = exports["default"] = types;

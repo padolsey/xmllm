@@ -5,16 +5,24 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.PROVIDER_ALIASES = void 0;
 exports.createCustomModel = createCustomModel;
-exports.openaiPayloader = exports.o1Payloader = exports["default"] = void 0;
+exports["default"] = void 0;
+exports.normalizeProviderParams = normalizeProviderParams;
+exports.providers = exports.openaiPayloader = exports.o1Payloader = void 0;
 exports.registerProvider = registerProvider;
-exports.testProviders = exports.taiStylePayloader = exports.standardPayloader = void 0;
+exports.taiStylePayloader = exports.standardPayloader = void 0;
 var _dotenv = require("dotenv");
 var _ProviderErrors = require("./errors/ProviderErrors.js");
+var _excluded = ["search_domain_filter", "return_images", "return_related_questions"],
+  _excluded2 = ["random_seed", "safe_prompt", "response_format"],
+  _excluded3 = ["response_format"];
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -38,6 +46,7 @@ var standardHeaderGen = function standardHeaderGen() {
 
 // Add the o1Payloader function
 var o1Payloader = exports.o1Payloader = function o1Payloader(o) {
+  var _this$models$model;
   var _o$messages = o.messages,
     messages = _o$messages === void 0 ? [] : _o$messages,
     _o$max_completion_tok = o.max_completion_tokens,
@@ -49,11 +58,11 @@ var o1Payloader = exports.o1Payloader = function o1Payloader(o) {
     _o$reasoning_effort = o.reasoning_effort,
     reasoning_effort = _o$reasoning_effort === void 0 ? 'medium' : _o$reasoning_effort,
     _o$system = o.system,
-    system = _o$system === void 0 ? '' : _o$system;
+    system = _o$system === void 0 ? '' : _o$system,
+    model = o.model;
 
-  // Store model name for reference
-  this.currentModelName = this.currentModelName || '';
-  var modelName = this.currentModelName;
+  // Store model name for reference - handle case when this.models is undefined
+  var modelName = this !== null && this !== void 0 && this.models && model ? ((_this$models$model = this.models[model]) === null || _this$models$model === void 0 ? void 0 : _this$models$model.name) || model : model;
 
   // Check if the model does not support the 'developer' role
   var modelsWithoutDeveloperRole = ['o1-mini'];
@@ -63,8 +72,6 @@ var o1Payloader = exports.o1Payloader = function o1Payloader(o) {
   var processedMessages;
   if (doesNotSupportDeveloper) {
     // Map 'system' and 'developer' roles to 'assistant' with specialist tags
-    // (these are just an _attempt_ at creating more prompt adherance)
-    // (eventually deprecated when o1-mini dissappears)
     processedMessages = [].concat(_toConsumableArray(system ? [{
       role: 'assistant',
       content: '<system>' + system + '</system>'
@@ -110,10 +117,17 @@ var o1Payloader = exports.o1Payloader = function o1Payloader(o) {
 var openaiPayloader = exports.openaiPayloader = function openaiPayloader(o) {
   var _this$models$o$model;
   var modelName = ((_this$models$o$model = this.models[o.model]) === null || _this$models$o$model === void 0 ? void 0 : _this$models$o$model.name) || o.model;
-  this.currentModelName = modelName;
-  var isO1Model = /^(?:o1|o3)/.test(modelName);
+  var isO1Model = /^(?:o1|o3|o4)/.test(modelName);
   if (isO1Model) {
-    return o1Payloader.call(this, o);
+    // Remove parameters that O1 models don't support
+    var sanitizedOpts = _objectSpread({}, o);
+
+    // O1 models don't support these parameters
+    delete sanitizedOpts.temperature;
+    delete sanitizedOpts.top_p;
+    delete sanitizedOpts.presence_penalty;
+    delete sanitizedOpts.frequency_penalty;
+    return o1Payloader.call(this, sanitizedOpts);
   } else {
     return standardPayloader.call(this, o);
   }
@@ -192,7 +206,7 @@ var taiStylePayloader = exports.taiStylePayloader = function taiStylePayloader(_
     repetition_penalty: 1 + presence_penalty
   };
 };
-var providers = {
+var providers = exports.providers = {
   anthropic: {
     constraints: {
       rpmLimit: 200
@@ -220,28 +234,43 @@ var providers = {
         'Content-Type': 'application/json'
       };
     },
-    payloader: function payloader(_ref2) {
-      var _ref2$messages = _ref2.messages,
-        messages = _ref2$messages === void 0 ? [] : _ref2$messages,
-        system = _ref2.system,
-        _ref2$max_tokens = _ref2.max_tokens,
-        max_tokens = _ref2$max_tokens === void 0 ? 300 : _ref2$max_tokens,
-        _ref2$stop = _ref2.stop,
-        stop = _ref2$stop === void 0 ? null : _ref2$stop,
-        _ref2$temperature = _ref2.temperature,
-        temperature = _ref2$temperature === void 0 ? 0.52 : _ref2$temperature,
-        _ref2$top_p = _ref2.top_p,
-        top_p = _ref2$top_p === void 0 ? 1 : _ref2$top_p,
-        _ref2$presence_penalt = _ref2.presence_penalty,
-        presence_penalty = _ref2$presence_penalt === void 0 ? 0 : _ref2$presence_penalt;
-      return {
-        system: system,
+    payloader: function payloader(opts) {
+      // Use the utility to normalize parameters for Anthropic
+      var normalized = normalizeProviderParams(opts, {
+        useStopSequences: true,
+        // Convert 'stop' to 'stop_sequences'
+        clampTemp: true,
+        // Clamp temperature to 0.0-1.0
+        maxTemp: 1.0,
+        // Anthropic's max temperature
+        removeParams: ['presence_penalty', 'frequency_penalty'] // Unsupported by Anthropic
+      });
+
+      // Extract the parameters we need
+      var _normalized$messages = normalized.messages,
+        messages = _normalized$messages === void 0 ? [] : _normalized$messages,
+        system = normalized.system,
+        _normalized$max_token = normalized.max_tokens,
+        max_tokens = _normalized$max_token === void 0 ? 300 : _normalized$max_token,
+        _normalized$stop_sequ = normalized.stop_sequences,
+        stop_sequences = _normalized$stop_sequ === void 0 ? null : _normalized$stop_sequ,
+        _normalized$temperatu = normalized.temperature,
+        temperature = _normalized$temperatu === void 0 ? 0.52 : _normalized$temperatu,
+        _normalized$top_p = normalized.top_p,
+        top_p = _normalized$top_p === void 0 ? 1 : _normalized$top_p;
+      var payload = {
         messages: messages,
+        system: system,
         max_tokens: max_tokens,
-        stop_sequences: stop,
         temperature: temperature,
         top_p: top_p
       };
+
+      // Only add if explicitly set, to avoid nulls -- which will error...
+      if (stop_sequences) {
+        payload.stop_sequences = stop_sequences;
+      }
+      return payload;
     }
   },
   openai: {
@@ -323,22 +352,28 @@ var providers = {
       rpmLimit: 100
     },
     endpoint: 'https://api.together.xyz/v1/chat/completions',
-    key: process.env.TOGETHER_API_KEY || process.env.TOGETHERAI_API_KEY,
+    key: process.env.TOGETHER_API_KEY,
     models: {
-      superfast: {
-        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
-        maxContextSize: 32000
-      },
       fast: {
-        name: 'Qwen/Qwen2.5-7B-Instruct-Turbo',
-        maxContextSize: 32000
+        name: 'meta-llama/Llama-3-8b-instruct',
+        maxContextSize: 8192
       },
       good: {
-        name: 'Qwen/Qwen2.5-72B-Instruct-Turbo',
-        maxContextSize: 32000
+        name: 'meta-llama/Llama-3-70b-instruct',
+        maxContextSize: 8192
+      },
+      best: {
+        name: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+        maxContextSize: 8192
       }
     },
-    payloader: taiStylePayloader
+    headerGen: function headerGen() {
+      return {
+        'Authorization': "Bearer ".concat(this.key),
+        'Content-Type': 'application/json'
+      };
+    },
+    payloader: standardPayloader
   },
   perplexityai: {
     constraints: {
@@ -360,7 +395,118 @@ var providers = {
         maxContextSize: 128000
       }
     },
-    payloader: standardPayloader
+    payloader: function payloader(opts) {
+      // Extract Perplexity-specific parameters
+      var search_domain_filter = opts.search_domain_filter,
+        return_images = opts.return_images,
+        return_related_questions = opts.return_related_questions,
+        standardOpts = _objectWithoutProperties(opts, _excluded);
+
+      // Process standard parameters
+      var standardPayload = standardPayloader.call(this, standardOpts);
+
+      // Add Perplexity-specific parameters if provided
+      if (search_domain_filter !== undefined) {
+        standardPayload.search_domain_filter = search_domain_filter;
+      }
+      if (return_images !== undefined) {
+        standardPayload.return_images = return_images;
+      }
+      if (return_related_questions !== undefined) {
+        standardPayload.return_related_questions = return_related_questions;
+      }
+      return standardPayload;
+    }
+  },
+  mistralai: {
+    constraints: {
+      rpmLimit: 100
+    },
+    endpoint: 'https://api.mistral.ai/v1/chat/completions',
+    key: process.env.MISTRAL_API_KEY,
+    models: {
+      superfast: {
+        name: 'mistral-tiny',
+        maxContextSize: 32000
+      },
+      fast: {
+        name: 'mistral-small',
+        maxContextSize: 32000
+      },
+      good: {
+        name: 'mistral-medium',
+        maxContextSize: 32000
+      },
+      best: {
+        name: 'mistral-large-latest',
+        maxContextSize: 32000
+      }
+    },
+    headerGen: function headerGen() {
+      return {
+        'Authorization': "Bearer ".concat(this.key),
+        'Content-Type': 'application/json'
+      };
+    },
+    payloader: function payloader(opts) {
+      // Mistral is very OpenAI-compatible, but has some unique parameters
+      var random_seed = opts.random_seed,
+        safe_prompt = opts.safe_prompt,
+        response_format = opts.response_format,
+        standardOpts = _objectWithoutProperties(opts, _excluded2);
+
+      // Process standard parameters
+      var standardPayload = standardPayloader.call(this, standardOpts);
+
+      // Add Mistral-specific parameters if provided
+      if (random_seed !== undefined) {
+        standardPayload.random_seed = random_seed;
+      }
+      if (safe_prompt !== undefined) {
+        standardPayload.safe_prompt = safe_prompt;
+      }
+      if (response_format !== undefined) {
+        standardPayload.response_format = response_format;
+      }
+      return standardPayload;
+    }
+  },
+  deepseek: {
+    constraints: {
+      rpmLimit: 100
+    },
+    endpoint: 'https://api.deepseek.com/v1/chat/completions',
+    key: process.env.DEEPSEEK_API_KEY,
+    models: {
+      fast: {
+        name: 'deepseek-chat',
+        maxContextSize: 64000
+      },
+      best: {
+        name: 'deepseek-reasoner',
+        maxContextSize: 64000
+      }
+    },
+    headerGen: function headerGen() {
+      return {
+        'Authorization': "Bearer ".concat(this.key),
+        'Content-Type': 'application/json'
+      };
+    },
+    payloader: function payloader(opts) {
+      // DeepSeek is OpenAI-compatible, but has some unique parameters
+      var response_format = opts.response_format,
+        standardOpts = _objectWithoutProperties(opts, _excluded3);
+
+      // Process standard parameters
+      var standardPayload = standardPayloader.call(this, standardOpts);
+
+      // Add DeepSeek-specific parameters if provided
+      if (response_format !== undefined) {
+        standardPayload.response_format = response_format;
+      }
+      return standardPayload;
+    }
   }
 };
 providers.claude = providers.anthropic;
@@ -370,7 +516,6 @@ var PROVIDER_ALIASES = exports.PROVIDER_ALIASES = {
 var _default = exports["default"] = providers;
 function createCustomModel(baseProvider, config) {
   var _baseProvider$models;
-  console.log('createCustomModel called with:', baseProvider, config);
   // Required fields
   if (!config.name) {
     throw new _ProviderErrors.ModelValidationError('Model name is required', {
@@ -475,10 +620,10 @@ function registerProvider(name, config) {
   }
 
   // Validate model names
-  Object.entries(config.models).forEach(function (_ref3) {
-    var _ref4 = _slicedToArray(_ref3, 2),
-      alias = _ref4[0],
-      model = _ref4[1];
+  Object.entries(config.models).forEach(function (_ref2) {
+    var _ref3 = _slicedToArray(_ref2, 2),
+      alias = _ref3[0],
+      model = _ref3[1];
     if (!model.name) {
       throw new _ProviderErrors.ModelValidationError('Each model must have a name', {
         provider: name,
@@ -510,5 +655,49 @@ function registerProvider(name, config) {
   return providers[name];
 }
 
-// Export providers for testing
-var testProviders = exports.testProviders = providers;
+/**
+ * Utility function to normalize and clean up parameters for different providers
+ * 
+ * @param {Object} opts - The original options object
+ * @param {Object} config - Configuration for parameter handling
+ * @param {boolean} config.useStopSequences - Whether to rename 'stop' to 'stop_sequences'
+ * @param {boolean} config.clampTemp - Whether to clamp temperature to provider's range
+ * @param {number} config.maxTemp - Maximum temperature value (default: 1.0)
+ * @param {number} config.minTemp - Minimum temperature value (default: 0.0)
+ * @returns {Object} - Cleaned up options object
+ */
+function normalizeProviderParams(opts) {
+  var config = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var result = _objectSpread({}, opts);
+
+  // Handle stop sequences
+  if (config.useStopSequences && (typeof result.stop === 'string' || Array.isArray(result.stop))) {
+    result.stop_sequences = Array.isArray(result.stop) ? result.stop : [result.stop];
+    delete result.stop;
+  }
+
+  // Handle temperature clamping
+  if (config.clampTemp && typeof result.temperature === 'number') {
+    var _config$maxTemp, _config$minTemp;
+    var maxTemp = (_config$maxTemp = config.maxTemp) !== null && _config$maxTemp !== void 0 ? _config$maxTemp : 1.0;
+    var minTemp = (_config$minTemp = config.minTemp) !== null && _config$minTemp !== void 0 ? _config$minTemp : 0.0;
+    result.temperature = Math.min(maxTemp, Math.max(minTemp, result.temperature));
+  }
+
+  // Remove unsupported parameters if specified
+  if (Array.isArray(config.removeParams)) {
+    var _iterator = _createForOfIteratorHelper(config.removeParams),
+      _step;
+    try {
+      for (_iterator.s(); !(_step = _iterator.n()).done;) {
+        var param = _step.value;
+        delete result[param];
+      }
+    } catch (err) {
+      _iterator.e(err);
+    } finally {
+      _iterator.f();
+    }
+  }
+  return result;
+}

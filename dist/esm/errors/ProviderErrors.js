@@ -19,6 +19,7 @@ var ProviderError = /*#__PURE__*/function (_Error) {
     var _this;
     _classCallCheck(this, ProviderError);
     _this = _callSuper(this, ProviderError, [message]);
+    console.log('err debug', message, code, provider);
     _this.name = 'ProviderError';
     _this.code = code;
     _this.provider = provider;

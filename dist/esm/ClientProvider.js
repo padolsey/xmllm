@@ -80,7 +80,7 @@ export var ClientProvider = /*#__PURE__*/function () {
             case 4:
               response = _context2.sent;
               if (response.ok) {
-                _context2.next = 32;
+                _context2.next = 33;
                 break;
               }
               config = getConfig();
@@ -120,8 +120,11 @@ export var ClientProvider = /*#__PURE__*/function () {
               _context2.prev = 29;
               _context2.t1 = _context2["catch"](22);
             case 31:
+              if (this.logger) {
+                this.logger.log('Client createStream error', errorMessage);
+              }
               return _context2.abrupt("return", this.createErrorStream(errorMessage));
-            case 32:
+            case 33:
               return _context2.abrupt("return", new ReadableStream({
                 start: function start(controller) {
                   var _this = this;
@@ -184,17 +187,20 @@ export var ClientProvider = /*#__PURE__*/function () {
                   }))();
                 }
               }));
-            case 35:
-              _context2.prev = 35;
+            case 36:
+              _context2.prev = 36;
               _context2.t2 = _context2["catch"](1);
               _config = getConfig();
               _errorMessages = _objectSpread(_objectSpread({}, _config.defaults.errorMessages), payload.errorMessages);
+              if (this.logger) {
+                this.logger.log('Client createStream error', _context2.t2, _errorMessages.networkError);
+              }
               return _context2.abrupt("return", this.createErrorStream(_errorMessages.networkError));
-            case 40:
+            case 42:
             case "end":
               return _context2.stop();
           }
-        }, _callee2, this, [[1, 35], [22, 29]]);
+        }, _callee2, this, [[1, 36], [22, 29]]);
       }));
       function createStream(_x) {
         return _createStream.apply(this, arguments);
