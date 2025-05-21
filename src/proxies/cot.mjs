@@ -34,16 +34,6 @@ class CoTProxy extends ProxyBase {
       })
     });
 
-    console.log('Ending CoT payload', {
-      messages,
-      model,
-      temperature,
-      max_tokens,
-      maxTokens,
-      system,
-      stream
-    });
-
     // Process through Chain of Thought
     const cotStream = await xmllm(({ prompt }) => [
       prompt({

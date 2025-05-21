@@ -317,12 +317,12 @@ export async function getCacheInstance() {
 }
 
 async function get(key) {
-  console.log('get', key);
+
   const cacheInstance = await getCacheInstance();
   if (!cacheInstance) return null;
 
   const entry = cacheInstance.get(key);
-  console.log('entry', entry);
+
   if (!entry) {
     stats.misses++;
     return null;
