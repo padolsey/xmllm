@@ -548,6 +548,14 @@ describe('mainCache', () => {
         expect(entry?.expires).toBeGreaterThan(now + defaultTTL - 100);
         expect(entry?.expires).toBeLessThan(now + defaultTTL + 100);
       });
+
+      it('BUG-18: honors an explicit per-call ttl of 0 (immediate expiry, not the 5-day default)', async () => {
+        configure({ cache: { ttl: 5 * 24 * 60 * 60 * 1000 } }); // large default
+        const before = Date.now();
+        const entry = await mainCache.set('bug18-zero', 'value', 0);
+        // With the bug, expires ~ before + 5 days; fixed, expires ~ before.
+        expect(entry.expires).toBeLessThanOrEqual(before + 50);
+      });
     });
   });
 });

@@ -80,8 +80,6 @@ let cache = null;
 let cachePromise = null;
 let cacheModified = false;
 let persistInterval = null;
-let purgeInterval = null;
-let memoryCheckInterval = null;
 let memoryPressure = false;
 let _logger = null;
 
@@ -157,8 +155,10 @@ function validateCacheConfig(config) {
 
 // Add helper for TTL calculation
 function calculateExpiry(ttl) {
-  if (!ttl && !CONFIG.ttl) return undefined;
-  return Date.now() + (ttl || CONFIG.ttl);
+  // BUG-18: distinguish an explicit ttl of 0 (expire immediately) from "unset".
+  const effectiveTtl = ttl === undefined ? CONFIG.ttl : ttl;
+  if (effectiveTtl === undefined || effectiveTtl === null) return undefined;
+  return Date.now() + effectiveTtl;
 }
 
 // Add helper for size calculation
@@ -175,6 +175,7 @@ async function reinitializeCache() {
       max: CONFIG.maxEntries,
       maxSize: CONFIG.maxSize,
       sizeCalculation: (entry) => entry.size,
+      ttl: CONFIG.ttl, // BUG-19: match initializeCache (native TTL was dropped here)
       dispose: function (value, key) {
         logger.dev('Disposed old cache entry', key);
       }
@@ -389,21 +390,6 @@ async function del(key) {
   }
 }
 
-function purgeOldEntries() {
-  if (!cache) return;
-  const OLD_TIME_PERIOD = 1000 * 60 * 60 * 24 * 5; // 5 days
-  try {
-    for (const [key, value] of cache.entries()) {
-      if (Date.now() - value.time > OLD_TIME_PERIOD) {
-        cache.delete(key);
-        logger.dev('Purged old entry', key);
-      }
-    }
-  } catch (err) {
-    logger.error('Failed to purge old entries', err);
-  }
-}
-
 async function checkMemoryPressure() {
   const used = process.memoryUsage();
   const heapUsedPercent = (used.heapUsed / used.heapTotal) * 100;
@@ -433,14 +419,6 @@ async function _reset() {
   if (persistInterval) {
     clearInterval(persistInterval);
     persistInterval = null;
-  }
-  if (purgeInterval) {
-    clearInterval(purgeInterval);
-    purgeInterval = null;
-  }
-  if (memoryCheckInterval) {
-    clearInterval(memoryCheckInterval);
-    memoryCheckInterval = null;
   }
   cache = null;
   cachePromise = null;

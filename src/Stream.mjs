@@ -9,7 +9,6 @@ import { ProviderRateLimitError, ProviderAuthenticationError, ProviderNetworkErr
 const logger = new Logger('APIStream');
 
 let queue;
-const ongoingRequests = new Map();
 
 const DEFAULT_CONCURRENCY = 2;
 const DEFAULT_WAIT_MESSAGE = "";
@@ -20,7 +19,32 @@ const DEFAULT_RETRY_BACKOFF_MULTIPLIER = 2;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const CACHE_VERSION = '1.0';
+const CACHE_VERSION = '1.1';
+
+/**
+ * Derive the cache key for a request payload. Exported for unit testing.
+ * Any parameter that materially changes the model output must be included here.
+ */
+export function deriveCacheKey(payload) {
+  const cacheKeyParams = {
+    _v: CACHE_VERSION,
+    messages: payload.messages,
+    model: payload.model,
+    temperature: payload.temperature || 0,
+    top_p: payload.top_p || 1,
+    presence_penalty: payload.presence_penalty || 0,
+    frequency_penalty: payload.frequency_penalty || 0,
+    // BUG-02: max_tokens and stop materially change the output, so they MUST be
+    // part of the key (otherwise a larger request can be served a truncated
+    // cached body, or a different stop config a wrongly-terminated one).
+    max_tokens: payload.max_tokens ?? payload.maxTokens ?? null,
+    // o-series models use max_completion_tokens as the response-length knob.
+    max_completion_tokens: payload.max_completion_tokens ?? null,
+    stop: payload.stop ?? payload.stop_sequences ?? null,
+    ...(payload.system && { system: payload.system }),
+  };
+  return createHash('md5').update(JSON.stringify(cacheKeyParams)).digest('hex');
+}
 
 /**
  * Coordinates high-level stream operations and provider management.
@@ -44,7 +68,19 @@ export default async function APIStream(payload, injectedProviderManager) {
   const PQueue = (await _PQueue).default;
   const providerManager = injectedProviderManager || new ProviderManager();
 
-  queue = queue || new PQueue({ concurrency: payload.forcedConcurrency || DEFAULT_CONCURRENCY });
+  // BUG-12: the queue is a shared module singleton. Honor forcedConcurrency on
+  // every call (p-queue supports live concurrency updates), not just the first.
+  // Semantics: global, last-writer-wins. Ignore invalid values (a non-positive
+  // or non-integer concurrency would otherwise make p-queue throw).
+  const validConcurrency =
+    Number.isInteger(payload.forcedConcurrency) && payload.forcedConcurrency > 0
+      ? payload.forcedConcurrency
+      : undefined;
+  if (!queue) {
+    queue = new PQueue({ concurrency: validConcurrency || DEFAULT_CONCURRENCY });
+  } else if (validConcurrency) {
+    queue.concurrency = validConcurrency;
+  }
 
   return queue.add(async () => {
     const encoder = new TextEncoder();
@@ -70,19 +106,7 @@ export default async function APIStream(payload, injectedProviderManager) {
     const shouldWriteCache = cache === true ? true :
       (typeof cache === 'object' ? cache.write : cacheWrite);
 
-    // Extract relevant parameters for cache key
-    const cacheKeyParams = {
-      _v: CACHE_VERSION,
-      messages: payload.messages,
-      model: payload.model,
-      temperature: payload.temperature || 0,
-      top_p: payload.top_p || 1,
-      presence_penalty: payload.presence_penalty || 0,
-      frequency_penalty: payload.frequency_penalty || 0,
-      ...(payload.system && { system: payload.system }),
-    };
-
-    let hash = createHash('md5').update(JSON.stringify(cacheKeyParams)).digest('hex');
+    let hash = deriveCacheKey(payload);
 
     // Only check cache if cache reading is enabled
     if (shouldReadCache) {
@@ -97,15 +121,6 @@ export default async function APIStream(payload, injectedProviderManager) {
           },
         });
       }
-    }
-
-    let ongoingRequest = ongoingRequests.get(hash);
-    if (ongoingRequest) {
-      logger.log('Request currently ongoing: we are awaiting and tee\'ing the stream', hash);
-      const ongoingRequestStream = await ongoingRequest;
-      const [stream1, stream2] = ongoingRequestStream.tee();
-      ongoingRequests.set(hash, stream2);
-      return stream1;
     }
 
     const waitMessageString = payload.waitMessageString || DEFAULT_WAIT_MESSAGE;
@@ -196,4 +211,13 @@ export default async function APIStream(payload, injectedProviderManager) {
       }
     });
   });
+}
+
+// Test hooks (consistent with mainCache's _reset/_setModified helpers).
+export function _resetStreamState() {
+  queue = undefined;
+}
+
+export function _getConcurrency() {
+  return queue?.concurrency;
 }
