@@ -140,32 +140,20 @@ function stream(promptOrConfig, options = {}) {
 
 // Simple function also gets mode support
 async function simple(promptOrConfig, options = {}) {
-  let config = {};
-  const globalConfig = getConfig();
-  
-  if (typeof promptOrConfig === 'string') {
-    ValidationService.validateLLMPayload(options);
-    config = {
-      ...globalConfig.defaults,
-      prompt: promptOrConfig,
-      ...options
-    };
-  } else {
-    const aggConfig = {
-      ...promptOrConfig,
-      ...options
-    };
-    ValidationService.validateLLMPayload(aggConfig);
-    config = {
-      ...globalConfig.defaults,
-      ...aggConfig
-    };
-  }
+  // simple() defaults to state_closed mode (only complete/closed values are
+  // surfaced) unless the caller explicitly selects a mode. Thread the resolved
+  // mode through to stream(); stream() handles validation and defaults merging.
+  // (BUG-01: previously a local `config` computed the mode default but was then
+  // discarded, so simple() silently ran in stream()'s state_open default.)
+  const explicitMode = options.mode
+    ?? (typeof promptOrConfig === 'object' && promptOrConfig !== null
+      ? promptOrConfig.mode
+      : undefined);
 
-  // Default to state_closed mode for simple()
-  config.mode = config.mode || 'state_closed';
-
-  return stream(promptOrConfig, options).last();
+  return stream(promptOrConfig, {
+    ...options,
+    mode: explicitMode || 'state_closed'
+  }).last();
 }
 
 // Attach utility functions to pipeline

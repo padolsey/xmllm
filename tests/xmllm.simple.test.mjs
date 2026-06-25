@@ -329,4 +329,33 @@ describe('xmllm simple()', () => {
       response: 'Test'
     });
   });
+
+  describe('BUG-01: simple() applies its state_closed mode default', () => {
+    const truncatedStream = () => jest.fn().mockImplementation(() => ({
+      getReader: () => ({
+        read: jest.fn()
+          // second <name> never closes (the lib's lenient-parsing use case)
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('<name>Daisy</name><name>Whiskers'), done: false })
+          .mockResolvedValueOnce({ done: true }),
+        releaseLock: jest.fn()
+      })
+    }));
+
+    test('defaults to state_closed (drops the unclosed partial element)', async () => {
+      const result = await simple('pet names', {
+        schema: { name: [String] },
+        llmStream: truncatedStream()
+      });
+      expect(result).toEqual({ name: ['Daisy'] });
+    });
+
+    test('honors an explicit mode override (state_open keeps the partial)', async () => {
+      const result = await simple('pet names', {
+        schema: { name: [String] },
+        mode: 'state_open',
+        llmStream: truncatedStream()
+      });
+      expect(result).toEqual({ name: ['Daisy', 'Whiskers'] });
+    });
+  });
 }); 

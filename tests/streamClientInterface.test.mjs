@@ -682,5 +682,12 @@ describe('Client Stream Interface', () => {
         })
       );
     });
+
+    it('does not mutate the caller options object (threads mode immutably)', async () => {
+      const opts = { schema: { answer: Number }, clientProvider };
+      await simple('What is 2+2?', opts);
+      // BUG-01 parity: simple() must not write `mode` back onto the caller's object.
+      expect('mode' in opts).toBe(false);
+    });
   });
 });

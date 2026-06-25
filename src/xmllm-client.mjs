@@ -158,16 +158,19 @@ function stream(promptOrConfig, options = {}) {
   });
 }
 
-// Simple function with mode support
+// Simple function with mode support (mirrors xmllm-main.mjs simple()).
 async function simple(promptOrConfig, options = {}) {
-  // Default to state_closed mode for simple()
-  if (typeof promptOrConfig === 'string') {
-    options.mode = options.mode || 'state_closed';
-  } else {
-    promptOrConfig.mode = promptOrConfig.mode || 'state_closed';
-  }
-  
-  return stream(promptOrConfig, options).last();
+  // Default to state_closed mode for simple(), threaded immutably (do not
+  // mutate the caller's options/promptOrConfig object).
+  const explicitMode = options.mode
+    ?? (typeof promptOrConfig === 'object' && promptOrConfig !== null
+      ? promptOrConfig.mode
+      : undefined);
+
+  return stream(promptOrConfig, {
+    ...options,
+    mode: explicitMode || 'state_closed'
+  }).last();
 }
 
 function clientRegisterProvider() {
