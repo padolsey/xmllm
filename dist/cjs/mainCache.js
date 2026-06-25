@@ -24,13 +24,13 @@ exports.setLogger = setLogger;
 exports.stats = void 0;
 var _lruCache = require("lru-cache");
 var _fs = require("./fs.js");
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
-function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -186,8 +186,6 @@ var cache = null;
 var cachePromise = null;
 var cacheModified = false;
 var persistInterval = null;
-var purgeInterval = null;
-var memoryCheckInterval = null;
 var memoryPressure = false;
 var _logger = null;
 var logger = {
@@ -314,8 +312,10 @@ function validateCacheConfig(config) {
 
 // Add helper for TTL calculation
 function calculateExpiry(ttl) {
-  if (!ttl && !CONFIG.ttl) return undefined;
-  return Date.now() + (ttl || CONFIG.ttl);
+  // BUG-18: distinguish an explicit ttl of 0 (expire immediately) from "unset".
+  var effectiveTtl = ttl === undefined ? CONFIG.ttl : ttl;
+  if (effectiveTtl === undefined || effectiveTtl === null) return undefined;
+  return Date.now() + effectiveTtl;
 }
 
 // Add helper for size calculation
@@ -329,7 +329,7 @@ function reinitializeCache() {
 } // Add function to update cache file path
 function _reinitializeCache() {
   _reinitializeCache = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9() {
-    var entries, newCache, validEntries, _iterator2, _step2, _step2$value, key, value;
+    var entries, newCache, validEntries, _iterator, _step, _step$value, key, value;
     return _regeneratorRuntime().wrap(function _callee9$(_context9) {
       while (1) switch (_context9.prev = _context9.next) {
         case 0:
@@ -341,6 +341,8 @@ function _reinitializeCache() {
               sizeCalculation: function sizeCalculation(entry) {
                 return entry.size;
               },
+              ttl: CONFIG.ttl,
+              // BUG-19: match initializeCache (native TTL was dropped here)
               dispose: function dispose(value, key) {
                 logger.dev('Disposed old cache entry', key);
               }
@@ -356,16 +358,16 @@ function _reinitializeCache() {
                 value = _ref2[1];
               return !value.expires || value.expires > Date.now();
             }).slice(0, CONFIG.maxEntries);
-            _iterator2 = _createForOfIteratorHelper(validEntries);
+            _iterator = _createForOfIteratorHelper(validEntries);
             try {
-              for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-                _step2$value = _slicedToArray(_step2.value, 2), key = _step2$value[0], value = _step2$value[1];
+              for (_iterator.s(); !(_step = _iterator.n()).done;) {
+                _step$value = _slicedToArray(_step.value, 2), key = _step$value[0], value = _step$value[1];
                 newCache.set(key, value);
               }
             } catch (err) {
-              _iterator2.e(err);
+              _iterator.e(err);
             } finally {
-              _iterator2.f();
+              _iterator.f();
             }
             cache = newCache;
             cacheModified = true;
@@ -611,37 +613,35 @@ function _get() {
     return _regeneratorRuntime().wrap(function _callee16$(_context16) {
       while (1) switch (_context16.prev = _context16.next) {
         case 0:
-          console.log('get', key);
-          _context16.next = 3;
+          _context16.next = 2;
           return getCacheInstance();
-        case 3:
+        case 2:
           cacheInstance = _context16.sent;
           if (cacheInstance) {
-            _context16.next = 6;
+            _context16.next = 5;
             break;
           }
           return _context16.abrupt("return", null);
-        case 6:
+        case 5:
           entry = cacheInstance.get(key);
-          console.log('entry', entry);
           if (entry) {
-            _context16.next = 11;
+            _context16.next = 9;
             break;
           }
           stats.misses++;
           return _context16.abrupt("return", null);
-        case 11:
+        case 9:
           if (!(entry.expires && entry.expires < Date.now())) {
-            _context16.next = 15;
+            _context16.next = 13;
             break;
           }
           cacheInstance["delete"](key);
           stats.misses++;
           return _context16.abrupt("return", null);
-        case 15:
+        case 13:
           stats.hits++;
           return _context16.abrupt("return", entry);
-        case 17:
+        case 15:
         case "end":
           return _context16.stop();
       }
@@ -741,31 +741,6 @@ function _del() {
   }));
   return _del.apply(this, arguments);
 }
-function purgeOldEntries() {
-  if (!cache) return;
-  var OLD_TIME_PERIOD = 1000 * 60 * 60 * 24 * 5; // 5 days
-  try {
-    var _iterator = _createForOfIteratorHelper(cache.entries()),
-      _step;
-    try {
-      for (_iterator.s(); !(_step = _iterator.n()).done;) {
-        var _step$value = _slicedToArray(_step.value, 2),
-          key = _step$value[0],
-          value = _step$value[1];
-        if (Date.now() - value.time > OLD_TIME_PERIOD) {
-          cache["delete"](key);
-          logger.dev('Purged old entry', key);
-        }
-      }
-    } catch (err) {
-      _iterator.e(err);
-    } finally {
-      _iterator.f();
-    }
-  } catch (err) {
-    logger.error('Failed to purge old entries', err);
-  }
-}
 function checkMemoryPressure() {
   return _checkMemoryPressure.apply(this, arguments);
 }
@@ -802,7 +777,7 @@ function clearLeastRecentlyUsed(_x14) {
 }
 function _clearLeastRecentlyUsed() {
   _clearLeastRecentlyUsed = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee20(percentage) {
-    var cacheInstance, entriesToRemove, entries, _iterator3, _step3, _step3$value, key;
+    var cacheInstance, entriesToRemove, entries, _iterator2, _step2, _step2$value, key;
     return _regeneratorRuntime().wrap(function _callee20$(_context20) {
       while (1) switch (_context20.prev = _context20.next) {
         case 0:
@@ -814,16 +789,16 @@ function _clearLeastRecentlyUsed() {
           entries = Array.from(cacheInstance.entries()).sort(function (a, b) {
             return a[1].time - b[1].time;
           }).slice(0, entriesToRemove);
-          _iterator3 = _createForOfIteratorHelper(entries);
+          _iterator2 = _createForOfIteratorHelper(entries);
           try {
-            for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-              _step3$value = _slicedToArray(_step3.value, 1), key = _step3$value[0];
+            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+              _step2$value = _slicedToArray(_step2.value, 1), key = _step2$value[0];
               cacheInstance["delete"](key);
             }
           } catch (err) {
-            _iterator3.e(err);
+            _iterator2.e(err);
           } finally {
-            _iterator3.f();
+            _iterator2.f();
           }
         case 7:
         case "end":
@@ -845,18 +820,10 @@ function _reset2() {
             clearInterval(persistInterval);
             persistInterval = null;
           }
-          if (purgeInterval) {
-            clearInterval(purgeInterval);
-            purgeInterval = null;
-          }
-          if (memoryCheckInterval) {
-            clearInterval(memoryCheckInterval);
-            memoryCheckInterval = null;
-          }
           cache = null;
           cachePromise = null;
           cacheModified = false;
-        case 6:
+        case 4:
         case "end":
           return _context21.stop();
       }
@@ -958,7 +925,7 @@ function clearExpired() {
 } // Add function to force cache modification (for testing)
 function _clearExpired() {
   _clearExpired = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee24() {
-    var cacheInstance, now, cleared, _iterator4, _step4, _step4$value, key, value;
+    var cacheInstance, now, cleared, _iterator3, _step3, _step3$value, key, value;
     return _regeneratorRuntime().wrap(function _callee24$(_context24) {
       while (1) switch (_context24.prev = _context24.next) {
         case 0:
@@ -974,19 +941,19 @@ function _clearExpired() {
         case 5:
           now = Date.now();
           cleared = 0;
-          _iterator4 = _createForOfIteratorHelper(cacheInstance.entries());
+          _iterator3 = _createForOfIteratorHelper(cacheInstance.entries());
           try {
-            for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-              _step4$value = _slicedToArray(_step4.value, 2), key = _step4$value[0], value = _step4$value[1];
+            for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+              _step3$value = _slicedToArray(_step3.value, 2), key = _step3$value[0], value = _step3$value[1];
               if (value.expires && value.expires < now) {
                 cacheInstance["delete"](key);
                 cleared++;
               }
             }
           } catch (err) {
-            _iterator4.e(err);
+            _iterator3.e(err);
           } finally {
-            _iterator4.f();
+            _iterator3.f();
           }
           return _context24.abrupt("return", cleared);
         case 10:

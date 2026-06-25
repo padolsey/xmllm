@@ -55,8 +55,11 @@ var ResourceLimiter = /*#__PURE__*/function () {
           this.buckets["delete"](name);
           continue;
         }
-        if (config.limit < 0 || config.window <= 0) {
-          throw new Error("Invalid limit config for ".concat(name, ": limit must be >= 0 and window must be > 0"));
+
+        // BUG-05: a missing/non-finite window would make resetTime NaN, so the
+        // bucket would never reset (permanent jam). Require a positive number.
+        if (config.limit < 0 || typeof config.window !== 'number' || !Number.isFinite(config.window) || config.window <= 0) {
+          throw new Error("Invalid limit config for ".concat(name, ": limit must be >= 0 and window must be a positive number"));
         }
         this.buckets.set(name, {
           name: name,

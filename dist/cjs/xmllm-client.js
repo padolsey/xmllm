@@ -1,6 +1,5 @@
 "use strict";
 
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
@@ -47,6 +46,7 @@ var _ValidationService = _interopRequireDefault(require("./ValidationService.js"
 var _types = require("./types.js");
 var _excluded = ["prompt", "schema", "messages", "system", "mode", "onChunk", "clientProvider"];
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var s = Object.getOwnPropertySymbols(e); for (r = 0; r < s.length; r++) o = s[r], t.includes(o) || {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (e.includes(n)) continue; t[n] = r[n]; } return t; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
@@ -178,25 +178,26 @@ function stream(promptOrConfig) {
   });
 }
 
-// Simple function with mode support
+// Simple function with mode support (mirrors xmllm-main.mjs simple()).
 function simple(_x2) {
   return _simple.apply(this, arguments);
 }
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
+    var _options$mode;
     var options,
+      explicitMode,
       _args2 = arguments;
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
           options = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {};
-          // Default to state_closed mode for simple()
-          if (typeof promptOrConfig === 'string') {
-            options.mode = options.mode || 'state_closed';
-          } else {
-            promptOrConfig.mode = promptOrConfig.mode || 'state_closed';
-          }
-          return _context2.abrupt("return", stream(promptOrConfig, options).last());
+          // Default to state_closed mode for simple(), threaded immutably (do not
+          // mutate the caller's options/promptOrConfig object).
+          explicitMode = (_options$mode = options.mode) !== null && _options$mode !== void 0 ? _options$mode : _typeof(promptOrConfig) === 'object' && promptOrConfig !== null ? promptOrConfig.mode : undefined;
+          return _context2.abrupt("return", stream(promptOrConfig, _objectSpread(_objectSpread({}, options), {}, {
+            mode: explicitMode || 'state_closed'
+          })).last());
         case 3:
         case "end":
           return _context2.stop();

@@ -422,9 +422,8 @@ var ProxyBase = exports.ProxyBase = /*#__PURE__*/function () {
             case 10:
               // Check rate limits first
               limitCheck = this.checkRateLimits(data);
-              console.log('limitCheck', limitCheck);
               if (limitCheck.allowed) {
-                _context4.next = 17;
+                _context4.next = 16;
                 break;
               }
               rateLimitMessage =
@@ -442,28 +441,28 @@ var ProxyBase = exports.ProxyBase = /*#__PURE__*/function () {
                 message: rateLimitMessage
               }));
               return _context4.abrupt("return");
-            case 17:
-              _context4.prev = 17;
+            case 16:
+              _context4.prev = 16;
               _ValidationService["default"].validateMessages(data.messages);
               _ValidationService["default"].validateModel(data.model, _PROVIDERS["default"]);
               if (!(data.temperature !== undefined)) {
-                _context4.next = 23;
+                _context4.next = 22;
                 break;
               }
               if (!(typeof data.temperature !== 'number' || data.temperature < 0 || data.temperature > 1)) {
-                _context4.next = 23;
+                _context4.next = 22;
                 break;
               }
               throw {
                 message: 'Temperature must be between 0 and 1',
                 code: 'INVALID_TEMPERATURE'
               };
-            case 23:
-              _context4.next = 30;
+            case 22:
+              _context4.next = 29;
               break;
-            case 25:
-              _context4.prev = 25;
-              _context4.t0 = _context4["catch"](17);
+            case 24:
+              _context4.prev = 24;
+              _context4.t0 = _context4["catch"](16);
               res.writeHead(400, {
                 'Content-Type': 'application/json'
               });
@@ -472,7 +471,7 @@ var ProxyBase = exports.ProxyBase = /*#__PURE__*/function () {
                 code: _context4.t0.code || 'VALIDATION_ERROR'
               }));
               return _context4.abrupt("return");
-            case 30:
+            case 29:
               // Consume the rate limits
               this.globalLimiter.consume({
                 rpm: 1,
@@ -484,20 +483,20 @@ var ProxyBase = exports.ProxyBase = /*#__PURE__*/function () {
                 }, 0)) || 0,
                 rph: 1
               });
-              _context4.next = 33;
+              _context4.next = 32;
               return this.handleStreaming(data, res);
-            case 33:
-              _context4.next = 38;
+            case 32:
+              _context4.next = 37;
               break;
-            case 35:
-              _context4.prev = 35;
+            case 34:
+              _context4.prev = 34;
               _context4.t1 = _context4["catch"](4);
               this.handleError(_context4.t1, res);
-            case 38:
+            case 37:
             case "end":
               return _context4.stop();
           }
-        }, _callee4, this, [[4, 35], [17, 25]]);
+        }, _callee4, this, [[4, 34], [16, 24]]);
       }));
       function handleStreamRequest(_x7, _x8) {
         return _handleStreamRequest.apply(this, arguments);

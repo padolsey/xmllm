@@ -52,18 +52,9 @@ var CoTProxy = /*#__PURE__*/function (_ProxyBase) {
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive'
               }));
-              console.log('Ending CoT payload', {
-                messages: messages,
-                model: model,
-                temperature: temperature,
-                max_tokens: max_tokens,
-                maxTokens: maxTokens,
-                system: system,
-                stream: stream
-              });
 
               // Process through Chain of Thought
-              _context3.next = 6;
+              _context3.next = 5;
               return xmllm(function (_ref) {
                 var prompt = _ref.prompt;
                 return [prompt({
@@ -94,63 +85,63 @@ var CoTProxy = /*#__PURE__*/function (_ProxyBase) {
                   }, _callee);
                 })];
               });
-            case 6:
+            case 5:
               cotStream = _context3.sent;
               if (stream) {
-                _context3.next = 39;
+                _context3.next = 38;
                 break;
               }
               // For non-streaming, collect all chunks and send final response
               finalResponse = '';
               _iteratorAbruptCompletion = false;
               _didIteratorError = false;
-              _context3.prev = 11;
+              _context3.prev = 10;
               _iterator = _asyncIterator(cotStream);
-            case 13:
-              _context3.next = 15;
+            case 12:
+              _context3.next = 14;
               return _iterator.next();
-            case 15:
+            case 14:
               if (!(_iteratorAbruptCompletion = !(_step = _context3.sent).done)) {
-                _context3.next = 21;
+                _context3.next = 20;
                 break;
               }
               chunk = _step.value;
               if (typeof chunk === 'string') {
                 finalResponse = chunk; // Keep last chunk as final response
               }
-            case 18:
+            case 17:
               _iteratorAbruptCompletion = false;
-              _context3.next = 13;
+              _context3.next = 12;
               break;
-            case 21:
-              _context3.next = 27;
+            case 20:
+              _context3.next = 26;
               break;
-            case 23:
-              _context3.prev = 23;
-              _context3.t0 = _context3["catch"](11);
+            case 22:
+              _context3.prev = 22;
+              _context3.t0 = _context3["catch"](10);
               _didIteratorError = true;
               _iteratorError = _context3.t0;
-            case 27:
+            case 26:
+              _context3.prev = 26;
               _context3.prev = 27;
-              _context3.prev = 28;
               if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
-                _context3.next = 32;
+                _context3.next = 31;
                 break;
               }
-              _context3.next = 32;
+              _context3.next = 31;
               return _iterator["return"]();
-            case 32:
-              _context3.prev = 32;
+            case 31:
+              _context3.prev = 31;
               if (!_didIteratorError) {
-                _context3.next = 35;
+                _context3.next = 34;
                 break;
               }
               throw _iteratorError;
+            case 34:
+              return _context3.finish(31);
             case 35:
-              return _context3.finish(32);
+              return _context3.finish(26);
             case 36:
-              return _context3.finish(27);
-            case 37:
               res.end(JSON.stringify({
                 id: "chatcmpl-".concat(Date.now()),
                 object: 'chat.completion',
@@ -166,7 +157,7 @@ var CoTProxy = /*#__PURE__*/function (_ProxyBase) {
                 }]
               }));
               return _context3.abrupt("return");
-            case 39:
+            case 38:
               // For streaming responses, use ReadableStream
               processedStream = new ReadableStream({
                 start: function start(controller) {
@@ -240,13 +231,13 @@ var CoTProxy = /*#__PURE__*/function (_ProxyBase) {
                   }))();
                 }
               });
-              _context3.next = 42;
+              _context3.next = 41;
               return this.streamManager.createStream(processedStream, res);
-            case 42:
+            case 41:
             case "end":
               return _context3.stop();
           }
-        }, _callee3, this, [[11, 23, 27, 37], [28,, 32, 36]]);
+        }, _callee3, this, [[10, 22, 26, 36], [27,, 31, 35]]);
       }));
       function handleStreaming(_x, _x2) {
         return _handleStreaming.apply(this, arguments);

@@ -151,32 +151,24 @@ function simple(_x2) {
 } // Attach utility functions to pipeline
 function _simple() {
   _simple = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2(promptOrConfig) {
+    var _options$mode;
     var options,
-      config,
-      globalConfig,
-      aggConfig,
+      explicitMode,
       _args2 = arguments;
     return _regeneratorRuntime().wrap(function _callee2$(_context2) {
       while (1) switch (_context2.prev = _context2.next) {
         case 0:
           options = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {};
-          config = {};
-          globalConfig = getConfig();
-          if (typeof promptOrConfig === 'string') {
-            ValidationService.validateLLMPayload(options);
-            config = _objectSpread(_objectSpread({}, globalConfig.defaults), {}, {
-              prompt: promptOrConfig
-            }, options);
-          } else {
-            aggConfig = _objectSpread(_objectSpread({}, promptOrConfig), options);
-            ValidationService.validateLLMPayload(aggConfig);
-            config = _objectSpread(_objectSpread({}, globalConfig.defaults), aggConfig);
-          }
-
-          // Default to state_closed mode for simple()
-          config.mode = config.mode || 'state_closed';
-          return _context2.abrupt("return", stream(promptOrConfig, options).last());
-        case 6:
+          // simple() defaults to state_closed mode (only complete/closed values are
+          // surfaced) unless the caller explicitly selects a mode. Thread the resolved
+          // mode through to stream(); stream() handles validation and defaults merging.
+          // (BUG-01: previously a local `config` computed the mode default but was then
+          // discarded, so simple() silently ran in stream()'s state_open default.)
+          explicitMode = (_options$mode = options.mode) !== null && _options$mode !== void 0 ? _options$mode : _typeof(promptOrConfig) === 'object' && promptOrConfig !== null ? promptOrConfig.mode : undefined;
+          return _context2.abrupt("return", stream(promptOrConfig, _objectSpread(_objectSpread({}, options), {}, {
+            mode: explicitMode || 'state_closed'
+          })).last());
+        case 3:
         case "end":
           return _context2.stop();
       }
