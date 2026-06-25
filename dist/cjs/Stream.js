@@ -26,6 +26,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 var _PQueue = import('p-queue');
 var logger = new _Logger["default"]('APIStream');
 var queue;
+// In-flight request coalescing: hash -> Promise<fullContent>. Lets concurrent
+// identical requests share a single upstream call (BUG-23).
+var ongoingRequests = new Map();
 var DEFAULT_CONCURRENCY = 2;
 var DEFAULT_WAIT_MESSAGE = "";
 var DEFAULT_WAIT_MESSAGE_DELAY = 10000; // 10 seconds
@@ -110,7 +113,7 @@ function _APIStream() {
             queue.concurrency = validConcurrency;
           }
           return _context4.abrupt("return", queue.add(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
-            var encoder, content, cache, cacheRead, cacheWrite, shouldReadCache, shouldWriteCache, hash, cachedData, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier;
+            var encoder, content, cache, cacheRead, cacheWrite, shouldReadCache, shouldWriteCache, hash, cachedData, inflight, sharedContent, resolveContent, rejectContent, contentPromise, waitMessageString, waitMessageDelay, retryMax, retryStartDelay, retryBackoffMultiplier;
             return _regeneratorRuntime().wrap(function _callee3$(_context3) {
               while (1) switch (_context3.prev = _context3.next) {
                 case 0:
@@ -147,6 +150,37 @@ function _APIStream() {
                     }
                   }));
                 case 16:
+                  // BUG-23: if an identical request is already in flight, await its content
+                  // and replay the COMPLETE body (avoids a duplicate upstream call). We replay
+                  // as a single chunk because the content is whole by the time we join — this
+                  // is deliberately not a stream tee, which would truncate a late joiner.
+                  inflight = ongoingRequests.get(hash);
+                  if (!inflight) {
+                    _context3.next = 28;
+                    break;
+                  }
+                  _context3.prev = 18;
+                  _context3.next = 21;
+                  return inflight;
+                case 21:
+                  sharedContent = _context3.sent;
+                  logger.log('Stream: coalesced onto in-flight request', hash);
+                  return _context3.abrupt("return", new ReadableStream({
+                    start: function start(controller) {
+                      if (sharedContent) controller.enqueue(encoder.encode(sharedContent));
+                      controller.close();
+                    }
+                  }));
+                case 26:
+                  _context3.prev = 26;
+                  _context3.t0 = _context3["catch"](18);
+                case 28:
+                  contentPromise = new Promise(function (res, rej) {
+                    resolveContent = res;
+                    rejectContent = rej;
+                  });
+                  contentPromise["catch"](function () {}); // no unhandled rejection if nobody joins
+                  ongoingRequests.set(hash, contentPromise);
                   waitMessageString = payload.waitMessageString || DEFAULT_WAIT_MESSAGE;
                   waitMessageDelay = payload.waitMessageDelay || DEFAULT_WAIT_MESSAGE_DELAY;
                   retryMax = payload.retryMax || DEFAULT_RETRY_MAX;
@@ -217,30 +251,35 @@ function _APIStream() {
                               _context2.next = 11;
                               break;
                             case 24:
+                              // BUG-23: content is complete — release it to any coalesced joiners.
+                              resolveContent(content);
+
+                              // Set cache if cache writing is enabled
                               if (!shouldWriteCache) {
-                                _context2.next = 33;
+                                _context2.next = 34;
                                 break;
                               }
                               contentSize = content.length;
                               cacheConfig = (0, _mainCache.getConfig)();
                               if (!(contentSize <= cacheConfig.maxEntrySize)) {
-                                _context2.next = 32;
+                                _context2.next = 33;
                                 break;
                               }
-                              _context2.next = 30;
+                              _context2.next = 31;
                               return (0, _mainCache.set)(hash, content);
-                            case 30:
-                              _context2.next = 33;
+                            case 31:
+                              _context2.next = 34;
                               break;
-                            case 32:
-                              logger.warn("Content too large to cache (".concat(contentSize, " chars)"));
                             case 33:
-                              _context2.next = 40;
+                              logger.warn("Content too large to cache (".concat(contentSize, " chars)"));
+                            case 34:
+                              _context2.next = 42;
                               break;
-                            case 35:
-                              _context2.prev = 35;
+                            case 36:
+                              _context2.prev = 36;
                               _context2.t0 = _context2["catch"](2);
                               logger.error('Error in stream:', _context2.t0);
+                              rejectContent(_context2.t0); // signal coalesced joiners to make their own request
                               if (waitMessageTimer) clearTimeout(waitMessageTimer);
                               if (!waitMessageSent) {
                                 config = (0, _config.getConfig)();
@@ -261,23 +300,28 @@ function _APIStream() {
                                   controller.enqueue(encoder.encode(_errorMessage4));
                                 }
                               }
-                            case 40:
-                              _context2.prev = 40;
+                            case 42:
+                              _context2.prev = 42;
+                              // Backstop: ensure the coalescing promise always settles, even on an
+                              // abnormal exit (e.g. consumer cancel), so joiners can never hang.
+                              // No-op if already resolved/rejected above.
+                              rejectContent(new Error('stream closed before completion'));
+                              ongoingRequests["delete"](hash); // stop coalescing onto a finished request
                               controller.close();
-                              return _context2.finish(40);
-                            case 43:
+                              return _context2.finish(42);
+                            case 47:
                             case "end":
                               return _context2.stop();
                           }
-                        }, _callee2, null, [[2, 35, 40, 43]]);
+                        }, _callee2, null, [[2, 36, 42, 47]]);
                       }))();
                     }
                   }));
-                case 22:
+                case 37:
                 case "end":
                   return _context3.stop();
               }
-            }, _callee3);
+            }, _callee3, null, [[18, 26]]);
           }))));
         case 7:
         case "end":
@@ -289,6 +333,7 @@ function _APIStream() {
 }
 function _resetStreamState() {
   queue = undefined;
+  ongoingRequests.clear();
 }
 function _getConcurrency() {
   var _queue;
