@@ -771,4 +771,20 @@ describe('IncomingXMLParserSelectorEngine mapSelect', () => {
       }
     });
   });
+
+  test('BUG-24: String/[String] mapping trims whitespace (consistent with Number/Boolean/types.string)', () => {
+    const e = new IncomingXMLParserSelectorEngine();
+    e.add(`<root>
+      <tags>
+        <tag>
+          red
+        </tag>
+        <tag>blue</tag>
+      </tags>
+      <single>  padded  </single>
+    </root>`);
+    const result = e.mapSelect({ tags: { tag: [String] }, single: String });
+    expect(result.tags.tag).toEqual(['red', 'blue']);  // not ['\n          red\n        ', 'blue']
+    expect(result.single).toBe('padded');              // bare String also trims
+  });
 });

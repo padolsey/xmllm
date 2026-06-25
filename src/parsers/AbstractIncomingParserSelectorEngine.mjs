@@ -184,7 +184,8 @@ class AbstractIncomingParserSelectorEngine {
           return parseFloat(element.$$text?.trim?.() || '');
         }
         if (map === String) {
-          return String(element.$$text);
+          // BUG-24: trim, consistent with Number/Boolean and types.string().
+          return String(element.$$text ?? '').trim();
         }
         if (map === Boolean) {
           const text = element.$$text?.trim?.().toLowerCase() || '';

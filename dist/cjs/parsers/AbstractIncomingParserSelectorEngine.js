@@ -215,11 +215,13 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
             return parseFloat(((_element$$$text = element.$$text) === null || _element$$$text === void 0 || (_element$$$text$trim = _element$$$text.trim) === null || _element$$$text$trim === void 0 ? void 0 : _element$$$text$trim.call(_element$$$text)) || '');
           }
           if (map === String) {
-            return String(element.$$text);
+            var _element$$$text2;
+            // BUG-24: trim, consistent with Number/Boolean and types.string().
+            return String((_element$$$text2 = element.$$text) !== null && _element$$$text2 !== void 0 ? _element$$$text2 : '').trim();
           }
           if (map === Boolean) {
-            var _element$$$text2, _element$$$text2$trim;
-            var text = ((_element$$$text2 = element.$$text) === null || _element$$$text2 === void 0 || (_element$$$text2$trim = _element$$$text2.trim) === null || _element$$$text2$trim === void 0 ? void 0 : _element$$$text2$trim.call(_element$$$text2).toLowerCase()) || '';
+            var _element$$$text3, _element$$$text3$trim;
+            var text = ((_element$$$text3 = element.$$text) === null || _element$$$text3 === void 0 || (_element$$$text3$trim = _element$$$text3.trim) === null || _element$$$text3$trim === void 0 ? void 0 : _element$$$text3$trim.call(_element$$$text3).toLowerCase()) || '';
             var isWordedAsFalse = ['false', 'no', 'null'].includes(text);
             var isEssentiallyFalsey = text === '' || isWordedAsFalse || parseFloat(text) === 0;
             return !isEssentiallyFalsey;

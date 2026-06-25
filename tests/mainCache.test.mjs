@@ -518,6 +518,23 @@ describe('mainCache', () => {
         const newSmallEntry = await mainCache.get('new-small');
         expect(newSmallEntry?.value).toBe(smallValue);
       });
+
+      it('BUG-22: configure() reinit takes effect on the live cache without an explicit _reset', async () => {
+        await mainCache.set('a', 'va');
+        await mainCache.set('b', 'vb');
+        await mainCache.set('c', 'vc');
+        expect((await mainCache.get('a'))?.value).toBe('va');
+
+        // Reducing capacity triggers reinitializeCache() inside configure();
+        // previously the reinitialized cache was never wired into getCacheInstance().
+        mainCache.configure({ cache: { maxEntries: 1 } });
+        await Promise.resolve();
+
+        const survivors = (await Promise.all([
+          mainCache.get('a'), mainCache.get('b'), mainCache.get('c')
+        ])).filter(Boolean);
+        expect(survivors.length).toBe(1);
+      });
     });
 
     describe('TTL Handling', () => {
