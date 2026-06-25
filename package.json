@@ -17,6 +17,9 @@
     "client.d.ts",
     "index.d.ts",
     "schemaTypes.d.ts",
+    "proxy.d.ts",
+    "mainCache.d.ts",
+    "fs.d.ts",
     "proxies"
   ],
   "scripts": {
@@ -30,27 +33,30 @@
   },
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "browser": "./src/xmllm-client.mjs",
       "default": "./src/xmllm-main.mjs",
-      "require": "./dist/cjs/xmllm-main.js",
-      "types": "./index.d.ts"
+      "require": "./dist/cjs/xmllm-main.js"
     },
     "./client": {
+      "types": "./client.d.ts",
       "browser": "./src/xmllm-client.mjs",
       "default": "./src/xmllm-client.mjs",
-      "require": "./dist/cjs/xmllm-client.js",
-      "types": "./client.d.ts"
+      "require": "./dist/cjs/xmllm-client.js"
     },
     "./fs": {
+      "types": "./fs.d.ts",
       "browser": "./src/fs-shim.mjs",
       "node": "./src/fs-node.mjs",
       "default": "./src/fs-node.mjs"
     },
     "./mainCache": {
+      "types": "./mainCache.d.ts",
       "browser": "./src/mainCache.browser.mjs",
       "default": "./src/mainCache.mjs"
     },
     "./proxy": {
+      "types": "./proxy.d.ts",
       "import": "./src/proxies/default.mjs",
       "require": "./dist/cjs/proxies/default.js"
     }
