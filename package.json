@@ -24,6 +24,7 @@
   ],
   "scripts": {
     "build": "npm run build:cjs && npm run build:esm",
+    "prepublishOnly": "npm run build",
     "build:cjs": "cross-env BABEL_ENV=cjs babel src --out-dir dist/cjs",
     "build:esm": "cross-env BABEL_ENV=esm babel src --out-dir dist/esm",
     "test": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js",
@@ -59,7 +60,8 @@
       "types": "./proxy.d.ts",
       "import": "./src/proxies/default.mjs",
       "require": "./dist/cjs/proxies/default.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "@types/node": "^22.10.1",
@@ -91,7 +93,7 @@
     "webpack-cli": "^5.1.4"
   },
   "bin": {
-    "xmllm-proxy": "./dist/cjs/xmllm-run-proxy.js"
+    "xmllm-proxy": "dist/cjs/xmllm-run-proxy.js"
   },
   "browser": {
     "./src/mainCache.mjs": "./src/mainCache.browser.mjs",

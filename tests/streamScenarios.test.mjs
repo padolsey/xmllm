@@ -391,7 +391,7 @@ describe('Common xmllm Scenarios', () => {
       expect(poemArrayStates).toEqual([
         // I.e. like looking at slices in time:
         [
-          'Roses '
+          'Roses' // BUG-24: String mapping now trims (consistent with Number/Boolean/types.string)
         ],
         [
           'Roses are red',  

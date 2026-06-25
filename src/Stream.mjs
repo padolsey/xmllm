@@ -9,6 +9,9 @@ import { ProviderRateLimitError, ProviderAuthenticationError, ProviderNetworkErr
 const logger = new Logger('APIStream');
 
 let queue;
+// In-flight request coalescing: hash -> Promise<fullContent>. Lets concurrent
+// identical requests share a single upstream call (BUG-23).
+const ongoingRequests = new Map();
 
 const DEFAULT_CONCURRENCY = 2;
 const DEFAULT_WAIT_MESSAGE = "";
@@ -123,6 +126,32 @@ export default async function APIStream(payload, injectedProviderManager) {
       }
     }
 
+    // BUG-23: if an identical request is already in flight, await its content
+    // and replay the COMPLETE body (avoids a duplicate upstream call). We replay
+    // as a single chunk because the content is whole by the time we join — this
+    // is deliberately not a stream tee, which would truncate a late joiner.
+    const inflight = ongoingRequests.get(hash);
+    if (inflight) {
+      try {
+        const sharedContent = await inflight;
+        logger.log('Stream: coalesced onto in-flight request', hash);
+        return new ReadableStream({
+          start(controller) {
+            if (sharedContent) controller.enqueue(encoder.encode(sharedContent));
+            controller.close();
+          }
+        });
+      } catch (e) {
+        // The in-flight request failed; fall through and make our own.
+      }
+    }
+
+    // Register this request so concurrent identical ones can coalesce onto it.
+    let resolveContent, rejectContent;
+    const contentPromise = new Promise((res, rej) => { resolveContent = res; rejectContent = rej; });
+    contentPromise.catch(() => {}); // no unhandled rejection if nobody joins
+    ongoingRequests.set(hash, contentPromise);
+
     const waitMessageString = payload.waitMessageString || DEFAULT_WAIT_MESSAGE;
     const waitMessageDelay = payload.waitMessageDelay || DEFAULT_WAIT_MESSAGE_DELAY;
     const retryMax = payload.retryMax || DEFAULT_RETRY_MAX;
@@ -167,6 +196,9 @@ export default async function APIStream(payload, injectedProviderManager) {
             controller.enqueue(value);
           }
 
+          // BUG-23: content is complete — release it to any coalesced joiners.
+          resolveContent(content);
+
           // Set cache if cache writing is enabled
           if (shouldWriteCache) {
             const contentSize = content.length;
@@ -179,6 +211,7 @@ export default async function APIStream(payload, injectedProviderManager) {
           }
         } catch (error) {
           logger.error('Error in stream:', error);
+          rejectContent(error); // signal coalesced joiners to make their own request
           if (waitMessageTimer) clearTimeout(waitMessageTimer);
           if (!waitMessageSent) {
             const config = getConfig();
@@ -206,6 +239,11 @@ export default async function APIStream(payload, injectedProviderManager) {
             }
           }
         } finally {
+          // Backstop: ensure the coalescing promise always settles, even on an
+          // abnormal exit (e.g. consumer cancel), so joiners can never hang.
+          // No-op if already resolved/rejected above.
+          rejectContent(new Error('stream closed before completion'));
+          ongoingRequests.delete(hash); // stop coalescing onto a finished request
           controller.close();
         }
       }
@@ -216,6 +254,7 @@ export default async function APIStream(payload, injectedProviderManager) {
 // Test hooks (consistent with mainCache's _reset/_setModified helpers).
 export function _resetStreamState() {
   queue = undefined;
+  ongoingRequests.clear();
 }
 
 export function _getConcurrency() {

@@ -4,6 +4,24 @@ Living document tracking defects found during a familiarity/bug-hunt pass and th
 test-driven plan to fix them. Each bug has a stable ID (`BUG-NN`) used in test
 names and commit messages so fixes are traceable to regression coverage.
 
+---
+
+## 0.3.9 follow-ups (all FIXED, each Red→Green; suite 753 passing)
+
+Resolves the items deferred from 0.3.8, plus a packaging gap found during the published smoke test. Read-only adversarial review: no correctness blockers.
+
+| ID | Fix | Behavior change? |
+|----|-----|------------------|
+| BUG-22 | `reinitializeCache` now refreshes `cachePromise`, so `configure({cache})` actually takes effect at runtime (also makes the BUG-19 ttl fix real) | **yes** — shrinking cache capacity now genuinely evicts (was a silent no-op) |
+| BUG-23 | Proper concurrent coalescing (content-promise replay + cleanup on settle) replacing the dead stub removed in 0.3.8; one upstream call serves overlapping identical requests, joiners get the COMPLETE body | no (new capability) |
+| BUG-24 | `String`/`[String]` mapping now trims, consistent with `Number`/`Boolean`/`types.string()` and the documented `[String]` ≡ `types.items(types.string())` | **yes** — extracted string values are trimmed; mid-stream boundary whitespace shifts to the next delta. Internal whitespace preserved. |
+| pkg | `exports` now exposes `./package.json` (so `require('xmllm/package.json')` works); bin path de-prefixed (`npm pkg fix`); added `prepublishOnly: npm run build` so `dist/` can never ship stale | no |
+
+**Known limitations / follow-ups (non-blocking, from the review):**
+- BUG-23 joiners hold a p-queue concurrency slot while parked (head-of-line blocking under bursts of identical slow requests; not a deadlock). A lazier join inside the returned stream's `start()` would avoid it.
+- BUG-23 coalescing only spans the concurrency window; without caching, requests queued beyond the window still fetch independently.
+- BUG-23 cancel/abnormal-exit is guarded by a `finally` backstop that settles the coalescing promise (joiners retry rather than hang); not exercised by current callers.
+
 **Baseline:** `pnpm install && npm test` → **722/722 tests pass**. The lone failing
 *suite*, `tests/integration-package/esm.test.mjs`, is a jest package self-reference
 resolution limitation (bare `import 'xmllm'` with no `node_modules/xmllm`), **not** a

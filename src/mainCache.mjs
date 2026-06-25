@@ -194,6 +194,10 @@ async function reinitializeCache() {
     }
     
     cache = newCache;
+    // BUG-22: getCacheInstance() resolves via cachePromise, so refresh it too —
+    // otherwise the reinitialized cache is never reached by get()/set() and the
+    // whole reconfigure is a no-op at runtime.
+    cachePromise = Promise.resolve(newCache);
     cacheModified = true;
   }
 }

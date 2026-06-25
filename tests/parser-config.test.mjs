@@ -205,7 +205,7 @@ describe('Parser Configuration', () => {
       
       expect(result).toEqual({
         world: 'green',
-        person: ' here ',
+        person: 'here', // BUG-24: String mapping now trims surrounding whitespace
         car: '...ford...',
         greeting: 'hi there'
       });
