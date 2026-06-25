@@ -4,7 +4,9 @@ import ProviderManager from '../src/ProviderManager.mjs';
 import {
   ProviderRateLimitError,
   ProviderAuthenticationError,
-  ModelValidationError
+  ModelValidationError,
+  ProviderError,
+  ProviderNetworkError
 } from '../src/errors/ProviderErrors.mjs';
 import { 
   estimateTokens, 
@@ -162,7 +164,8 @@ describe('Provider Constraints', () => {
   test('respects dynamic RPM limits', async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve('success')
+      // Realistic OpenAI-shaped response (a bare string is never returned by a real API).
+      json: () => Promise.resolve({ choices: [{ message: { content: 'success' } }] })
     });
 
     Provider.setGlobalFetch(mockFetch);
@@ -1120,5 +1123,95 @@ describe('Provider Payload Preparation for o1 Models', () => {
 
     expect(payload).not.toHaveProperty('temperature');
     expect(payload).not.toHaveProperty('presence_penalty');
+  });
+});
+
+describe('Regression: Provider bug fixes (BUG-03/04/13/14/15/16/20)', () => {
+  afterEach(() => {
+    Provider.setGlobalFetch(fetch);
+  });
+
+  test('BUG-03: tpm estimate reflects message content, not "[object Object]"', async () => {
+    const provider = new Provider('test', {
+      endpoint: 'https://t', key: 'k', models: { fast: { name: 'm' } },
+      constraints: { tokensPerMinute: 1_000_000 }
+    });
+    Provider.setGlobalFetch(jest.fn().mockResolvedValue({
+      ok: true, status: 200, json: () => Promise.resolve({ choices: [{ message: 'ok' }] })
+    }));
+    const consumeSpy = jest.spyOn(provider.resourceLimiter, 'consume');
+    await provider.makeRequest({ messages: [{ role: 'user', content: 'A'.repeat(4000) }] });
+    const consumedTpm = consumeSpy.mock.calls[0][0].tpm;
+    // content-based estimate of 4000 chars is ~1000+; the "[object Object]" join was ~5
+    expect(consumedTpm).toBeGreaterThan(500);
+  });
+
+  test('BUG-04: getHeaders throws on missing key instead of "Bearer undefined"', () => {
+    const noKey = new Provider('p', { endpoint: 'https://t', models: { fast: { name: 'm' } } });
+    expect(() => noKey.getHeaders()).toThrow();
+
+    const withKey = new Provider('p', { endpoint: 'https://t', key: 'sk-x', models: { fast: { name: 'm' } } });
+    expect(withKey.getHeaders().Authorization).toBe('Bearer sk-x');
+
+    const noKeySentinel = new Provider('p', { endpoint: 'https://t', key: 'NO_KEY', models: { fast: { name: 'm' } } });
+    expect(noKeySentinel.getHeaders().Authorization).toBeUndefined();
+  });
+
+  test('BUG-13: o4 models route the token budget to max_completion_tokens (like o1/o3)', () => {
+    const spyPayloader = jest.fn(o => ({ ...o }));
+    const provider = new Provider('openai', {
+      endpoint: 'https://t', key: 'k', models: { custom: { name: 'o4-mini' } }, payloader: spyPayloader
+    });
+    provider.preparePayload({ messages: [{ role: 'user', content: 'hi' }], model: 'custom', max_tokens: 555 });
+    expect(spyPayloader.mock.calls[0][0].max_completion_tokens).toBe(555);
+  });
+
+  test('BUG-14: unrecognized 200 response throws instead of returning undefined', async () => {
+    const provider = new Provider('test', {
+      endpoint: 'https://t', key: 'k', models: { fast: { name: 'm' } }, constraints: { rpmLimit: 10 }
+    });
+    Provider.setGlobalFetch(jest.fn().mockResolvedValue({
+      ok: true, status: 200, json: () => Promise.resolve({ unexpected: 'shape' })
+    }));
+    await expect(provider.makeRequest({ messages: [{ role: 'user', content: 'x' }] }))
+      .rejects.toThrow(ProviderError);
+  });
+
+  test('BUG-15: Retry-After yields finite resetInMs for seconds, http-date and missing header', async () => {
+    const provider = new Provider('test', {
+      endpoint: 'https://t', key: 'k', models: { fast: { name: 'm' } }, constraints: { rpmLimit: 100 }
+    });
+    const resetFor = async (retryAfterVal) => {
+      Provider.setGlobalFetch(jest.fn().mockResolvedValue({
+        ok: false, status: 429,
+        headers: { get: (n) => (n === 'Retry-After' ? retryAfterVal : null) },
+        text: () => Promise.resolve('rate limited')
+      }));
+      try {
+        await provider.makeRequest({ messages: [{ role: 'user', content: 'x' }] });
+        throw new Error('expected makeRequest to reject');
+      } catch (e) { return e.resetInMs; }
+    };
+    expect(await resetFor('30')).toBe(30000);                                  // delta-seconds
+    expect(Number.isFinite(await resetFor(new Date(Date.now() + 60000).toUTCString()))).toBe(true); // http-date
+    expect(Number.isFinite(await resetFor(null))).toBe(true);                  // missing header
+  });
+
+  test('BUG-16: rate-limit error builds correctly when only the tpm bucket trips (no rpm bucket)', async () => {
+    const provider = new Provider('test', {
+      endpoint: 'https://t', key: 'k', models: { fast: { name: 'm' } },
+      constraints: { tokensPerMinute: 1 } // no rpmLimit => rpm bucket deleted (Infinity)
+    });
+    Provider.setGlobalFetch(jest.fn());
+    await expect(provider.makeRequest({ messages: [{ role: 'user', content: 'this clearly exceeds one token' }] }))
+      .rejects.toThrow(ProviderRateLimitError);
+  });
+
+  test('BUG-20: constructing a ProviderError does not emit the stray "err debug" console.log', () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    new ProviderError('msg', 'CODE', 'prov');
+    const leaked = spy.mock.calls.some(args => args[0] === 'err debug');
+    spy.mockRestore();
+    expect(leaked).toBe(false);
   });
 }); 

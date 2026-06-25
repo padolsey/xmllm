@@ -78,8 +78,13 @@ class ValidationService {
       return true;
     }
 
-    let [provider, type] = (model || '').split(':');
-    
+    // Split on the FIRST colon only so multi-colon model ids
+    // (e.g. "openrouter:vendor/model:free") validate the provider portion correctly.
+    const _model = model || '';
+    const _colon = _model.indexOf(':');
+    let provider = _colon === -1 ? _model : _model.slice(0, _colon);
+    const type = _colon === -1 ? undefined : _model.slice(_colon + 1);
+
     // Handle provider aliases
     provider = PROVIDER_ALIASES[provider] || provider;
     

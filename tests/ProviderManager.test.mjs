@@ -1,8 +1,13 @@
 import { jest } from '@jest/globals';
 import ProviderManager from '../src/ProviderManager.mjs';
 import Provider from '../src/Provider.mjs';
-import { ProviderAuthenticationError } from '../src/errors/ProviderErrors.mjs';
-import { configure } from '../src/config.mjs';
+import {
+  ProviderAuthenticationError,
+  ProviderNetworkError,
+  ProviderTimeoutError,
+  ProviderRateLimitError
+} from '../src/errors/ProviderErrors.mjs';
+import { configure, resetConfig } from '../src/config.mjs';
 
 configure({
   logging: {
@@ -29,6 +34,62 @@ describe('ProviderManager', () => {
       expect(() => 
         providerManager.getProviderByPreference('invalid:fast')
       ).toThrow('Provider invalid not found');
+    });
+  });
+
+  describe('BUG-06: model ids containing ":" are preserved', () => {
+    test('keeps the full model id after the first colon (e.g. ":free" suffix)', () => {
+      // OpenRouter et al. use slugs like "vendor/model:free"; only the FIRST
+      // colon separates provider from model id.
+      const { provider, modelType } = providerManager.getProviderByPreference(
+        'openrouter:vendor/model:free'
+      );
+      expect(modelType).toBe('custom');
+      expect(provider.name).toBe('openrouter_custom');
+      expect(provider.models.custom.name).toBe('vendor/model:free');
+    });
+
+    test('still splits ordinary provider:type on the first colon', () => {
+      const { provider, modelType } = providerManager.getProviderByPreference('anthropic:fast');
+      expect(provider.name).toBe('anthropic');
+      expect(modelType).toBe('fast');
+    });
+  });
+
+  describe('BUG-08: "No API key" warning fires only when the effective key is missing', () => {
+    let customLogger;
+    beforeEach(() => {
+      customLogger = jest.fn();
+      configure({ logging: { custom: customLogger } });
+      // Base provider with NO key, so the only key source is the preference.
+      providerManager.providers.anthropic = new Provider('anthropic', {
+        endpoint: 'https://test.anthropic.com',
+        models: { fast: { name: 'claude-instant' } }
+      });
+    });
+    afterEach(() => {
+      resetConfig();
+      configure({ logging: { level: 'DEBUG' } });
+    });
+
+    const warnedNoKey = () => customLogger.mock.calls.some(
+      args => args.some(a => typeof a === 'string' && a.includes('No API key found'))
+    );
+
+    test('warns when neither the custom key nor the inherited key is usable', () => {
+      providerManager.getProviderByPreference({ inherit: 'anthropic', name: 'custom-model' });
+      expect(warnedNoKey()).toBe(true);
+    });
+
+    test('does NOT warn when a valid custom key is provided', () => {
+      providerManager.getProviderByPreference({ inherit: 'anthropic', name: 'custom-model', key: 'sk-valid' });
+      expect(warnedNoKey()).toBe(false);
+    });
+
+    test('getProviderByPreference treats the NO_KEY sentinel as unusable (parity with custom path)', () => {
+      providerManager.providers.anthropic.key = 'NO_KEY';
+      providerManager.getProviderByPreference('anthropic:fast');
+      expect(warnedNoKey()).toBe(true);
     });
   });
 
@@ -136,6 +197,69 @@ describe('ProviderManager', () => {
       expect(providerManager.providers.anthropic.createStream).toHaveBeenCalled();
       expect(providerManager.providers.openai.createStream).toHaveBeenCalled();
       expect(result).toBe(mockStream);
+    });
+  });
+
+  describe('BUG-07/09/10: retry policy in pickProviderWithFallback', () => {
+    const msg = { messages: [{ role: 'user', content: 'x' }] };
+
+    test('BUG-07: does NOT retry non-transient client errors (404)', async () => {
+      const action = jest.fn().mockRejectedValue(new ProviderNetworkError('anthropic', 404, 'not found'));
+      await expect(providerManager.pickProviderWithFallback(
+        { ...msg, model: 'anthropic:fast', retryMax: 3 }, action
+      )).rejects.toThrow();
+      expect(action).toHaveBeenCalledTimes(1);
+    });
+
+    test('BUG-07: still retries transient errors (503)', async () => {
+      const action = jest.fn().mockRejectedValue(new ProviderNetworkError('anthropic', 503, 'unavailable'));
+      await expect(providerManager.pickProviderWithFallback(
+        { ...msg, model: 'anthropic:fast', retryMax: 2 }, action
+      )).rejects.toThrow();
+      expect(action).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+    });
+
+    test('BUG-07: rate-limit (429) errors are not retried at the manager level', async () => {
+      const action = jest.fn().mockRejectedValue(
+        new ProviderRateLimitError('anthropic', 1000, [{ type: 'rpm', resetInMs: 1000 }])
+      );
+      await expect(providerManager.pickProviderWithFallback(
+        { ...msg, model: 'anthropic:fast', retryMax: 3 }, action
+      )).rejects.toThrow();
+      expect(action).toHaveBeenCalledTimes(1);
+    });
+
+    test('BUG-07: still retries timeouts (no regression)', async () => {
+      const action = jest.fn().mockRejectedValue(new ProviderTimeoutError('anthropic', 1000));
+      await expect(providerManager.pickProviderWithFallback(
+        { ...msg, model: 'anthropic:fast', retryMax: 2 }, action
+      )).rejects.toThrow();
+      expect(action).toHaveBeenCalledTimes(3);
+    });
+
+    test('BUG-10: delays before every retry including the final one', async () => {
+      const spy = jest.spyOn(global, 'setTimeout');
+      const action = jest.fn().mockRejectedValue(new ProviderNetworkError('anthropic', 503, 'unavailable'));
+      await expect(providerManager.pickProviderWithFallback(
+        { ...msg, model: 'anthropic:fast', retryMax: 3 }, action
+      )).rejects.toThrow();
+      const delays = spy.mock.calls.filter(c => typeof c[1] === 'number' && c[1] >= 100);
+      spy.mockRestore();
+      expect(action).toHaveBeenCalledTimes(4);   // 4 attempts
+      expect(delays.length).toBe(3);             // 3 inter-attempt delays
+    });
+
+    test('BUG-09: backoff resets per provider on fallback', async () => {
+      const spy = jest.spyOn(global, 'setTimeout');
+      const action = jest.fn().mockRejectedValue(new ProviderNetworkError('p', 503, 'unavailable'));
+      await expect(providerManager.pickProviderWithFallback(
+        { ...msg, model: ['anthropic:fast', 'openai:fast'], retryMax: 2 }, action
+      )).rejects.toThrow();
+      const delays = spy.mock.calls.filter(c => typeof c[1] === 'number' && c[1] >= 100).map(c => c[1]);
+      spy.mockRestore();
+      // Each provider does 2 retries starting from the base delay (100),
+      // so the base delay appears exactly once per provider.
+      expect(delays.filter(d => d === 100).length).toBe(2);
     });
   });
 }); 

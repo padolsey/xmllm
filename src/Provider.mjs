@@ -147,7 +147,7 @@ class Provider {
     const limitCheck = this.resourceLimiter.consume({
       rpm: 1,
       ...(payload.messages ? {
-        tpm: estimateTokens(payload.messages.join(''))
+        tpm: estimateMessagesTokens(payload.messages)
       } : {})
     });
 
@@ -155,16 +155,20 @@ class Provider {
 
     if (!limitCheck.allowed) {
       logger.log('Resource limit exceeded, throwing error');
-      throw new ProviderRateLimitError(
-        this.name,
-        limitCheck.limits.rpm.resetInMs,
-        Object.entries(limitCheck.limits)
+      {
+        // BUG-16: derive the reset window from the buckets that actually tripped.
+        // An rpm bucket may not exist (it is removed when the rpm limit is
+        // Infinity/unset), so limitCheck.limits.rpm can be undefined.
+        const trippedLimits = Object.entries(limitCheck.limits)
           .filter(([_, status]) => !status.allowed)
-          .map(([name, status]) => ({
-            type: name,
-            resetInMs: status.resetInMs
-          }))
-      );
+          .map(([name, status]) => ({ type: name, resetInMs: status.resetInMs }));
+        // The latest (max) reset across tripped buckets — don't signal "clear"
+        // until every tripped bucket has reset.
+        const latestResetInMs = trippedLimits.length
+          ? Math.max(...trippedLimits.map(t => t.resetInMs))
+          : 0;
+        throw new ProviderRateLimitError(this.name, latestResetInMs, trippedLimits);
+      }
     }
 
     let retries = 0;
@@ -215,9 +219,18 @@ class Provider {
       }
 
       const data = await response.json();
-      return data?.content?.[0]?.text
-        ? {content: data?.content?.[0]?.text}
+      const result = data?.content?.[0]?.text
+        ? { content: data.content[0].text }
         : data?.choices?.[0]?.message;
+      // BUG-14: don't silently return undefined for an unrecognized 200 shape.
+      if (result == null) {
+        throw new ProviderError(
+          `Unrecognized response shape from ${this.name}`,
+          'INVALID_RESPONSE',
+          this.name
+        );
+      }
+      return result;
 
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -276,18 +289,17 @@ class Provider {
     // Continue with other error types...
 
     switch (response.status) {
-      case 429:
+      case 429: {
         logger.log('Detected 429 rate limit response');
         const retryAfter = response.headers.get('Retry-After');
         logger.log('Retry-After header:', retryAfter);
+        const resetInMs = this.parseRetryAfter(retryAfter);
         throw new ProviderRateLimitError(
           this.name,
-          parseInt(retryAfter) * 1000,
-          [{
-            type: 'rpm',
-            resetInMs: parseInt(retryAfter) * 1000
-          }]
+          resetInMs,
+          [{ type: 'rpm', resetInMs }]
         );
+      }
       case 408:
       case 504:
         throw new ProviderTimeoutError(this.name, this.REQUEST_TIMEOUT_MS);
@@ -298,6 +310,23 @@ class Provider {
           errorBody
         );
     }
+  }
+
+  // BUG-15: Retry-After may be delta-seconds OR an HTTP-date (RFC 7231), and may
+  // be absent. Always return a finite, non-negative reset window (never NaN).
+  parseRetryAfter(value) {
+    if (value == null || value === '') {
+      return this.RETRY_DELAY_WHEN_OVERLOADED || 1000;
+    }
+    const seconds = Number(value);
+    if (Number.isFinite(seconds)) {
+      return Math.max(0, seconds * 1000);
+    }
+    const dateMs = Date.parse(value);
+    if (!Number.isNaN(dateMs)) {
+      return Math.max(0, dateMs - Date.now());
+    }
+    return this.RETRY_DELAY_WHEN_OVERLOADED || 1000;
   }
 
   calculateBackoff(retryCount) {
@@ -499,21 +528,25 @@ class Provider {
     const limitCheck = this.resourceLimiter.consume({
       rpm: 1,
       ...(payload.messages ? {
-        tpm: estimateTokens(payload.messages.join(''))
+        tpm: estimateMessagesTokens(payload.messages)
       } : {})
     });
 
     if (!limitCheck.allowed) {
-      throw new ProviderRateLimitError(
-        this.name,
-        limitCheck.limits.rpm.resetInMs,
-        Object.entries(limitCheck.limits)
+      {
+        // BUG-16: derive the reset window from the buckets that actually tripped.
+        // An rpm bucket may not exist (it is removed when the rpm limit is
+        // Infinity/unset), so limitCheck.limits.rpm can be undefined.
+        const trippedLimits = Object.entries(limitCheck.limits)
           .filter(([_, status]) => !status.allowed)
-          .map(([name, status]) => ({
-            type: name,
-            resetInMs: status.resetInMs
-          }))
-      );
+          .map(([name, status]) => ({ type: name, resetInMs: status.resetInMs }));
+        // The latest (max) reset across tripped buckets — don't signal "clear"
+        // until every tripped bucket has reset.
+        const latestResetInMs = trippedLimits.length
+          ? Math.max(...trippedLimits.map(t => t.resetInMs))
+          : 0;
+        throw new ProviderRateLimitError(this.name, latestResetInMs, trippedLimits);
+      }
     }
 
     try {
@@ -611,10 +644,12 @@ class Provider {
       'Content-Type': 'application/json'
     };
 
+    // BUG-04: a null/undefined key is an error (fail fast), not "Bearer undefined".
+    if (this.key == null) {
+      throw new Error('Note: No key is defined');
+    }
     if (this.key !== 'NO_KEY' && this.key !== '') {
       headers.Authorization = `Bearer ${this.key}`;
-    } else  if (this.key == null) {
-      throw new Error('Note: No key is defined');
     }
     return headers;
   }
@@ -641,7 +676,7 @@ class Provider {
     }
 
     // Detect if the model is an 'o1' model
-    const isO1Model = /^(?:o1|o3)/.test(model.name);
+    const isO1Model = /^(?:o1|o3|o4)/.test(model.name);
     
     // We have to go this here in order to manage our truncation logic 
     // (but _knowing_ about o1 here in Provider is not ideal as it should really be a per-provider/payloader thing to handle) (TODO!)

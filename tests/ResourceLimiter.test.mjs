@@ -265,4 +265,15 @@ describe('ResourceLimiter', () => {
       expect(final.limits.requests.remaining).toBe(0);
     });
   });
+
+  describe('BUG-05: window is required and validated', () => {
+    test('throws when a limit config omits window (else resetTime becomes NaN and jams)', () => {
+      expect(() => new ResourceLimiter({ rpm: { limit: 5 } })).toThrow();
+    });
+
+    test('a properly-windowed limiter has a numeric resetTime', () => {
+      const rl = new ResourceLimiter({ rpm: { limit: 2, window: 60000 } });
+      expect(Number.isNaN(rl.buckets.get('rpm').resetTime)).toBe(false);
+    });
+  });
 }); 
