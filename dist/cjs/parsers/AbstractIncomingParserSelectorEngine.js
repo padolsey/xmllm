@@ -210,6 +210,10 @@ var AbstractIncomingParserSelectorEngine = /*#__PURE__*/function () {
 
         // Handle built-in constructors
         if (typeof map === 'function') {
+          // A nested text field can be absent until its element reaches the stream.
+          if (element == null && (map === String || map === Number || map === Boolean)) {
+            return undefined;
+          }
           if (map === Number) {
             var _element$$$text, _element$$$text$trim;
             return parseFloat(((_element$$$text = element.$$text) === null || _element$$$text === void 0 || (_element$$$text$trim = _element$$$text.trim) === null || _element$$$text$trim === void 0 ? void 0 : _element$$$text$trim.call(_element$$$text)) || '');

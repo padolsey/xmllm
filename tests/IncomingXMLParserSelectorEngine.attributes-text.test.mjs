@@ -7,6 +7,17 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     engine = new IncomingXMLParserSelectorEngine();
   });
 
+  test.each([String, Number, Boolean])('handles a missing nested $$text field mapped with %p while streaming', (type) => {
+    const schema = { profile: { name: String, details: { value: { $$text: type } } } };
+    engine.add('<profile><name>Alex</name>');
+    expect(engine.mapSelect(schema, true, false)).toEqual({ profile: { name: 'Alex' } });
+
+    engine.add('<details><value>42</value></details></profile>');
+    expect(engine.mapSelect(schema, true, false)).toEqual({
+      profile: { name: 'Alex', details: { value: { $$text: type('42') } } }
+    });
+  });
+
   test('should handle $$attr in schema', () => {
     engine.add(`
       <product id="123" category="electronics" in-stock="true">
@@ -453,4 +464,4 @@ describe('IncomingXMLParserSelectorEngine Attribute and Text Content Schema', ()
     });
   });
 
-}); 
+});

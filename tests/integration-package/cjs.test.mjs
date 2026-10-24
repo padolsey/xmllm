@@ -41,6 +41,7 @@ describe('CommonJS Imports', () => {
     
     const value = (await result.next()).value;
     expect(value).toBeNode({ $$tagkey: 1, $$attr: {}, $$text: 'Test', $$tagclosed: true });
+    await result.return();
   });
 
   test('Named exports are available via require', () => {

@@ -85,6 +85,7 @@ describe('xmllm', () => {
         $$text: 'Test',
         $$tagclosed: true
       });
+      await results.return();
     });
   });
 
@@ -136,6 +137,7 @@ describe('xmllm', () => {
           { name: 'Item 2', value: 20 }
         ]
       });
+      await results.return();
     });
   });
 
@@ -216,6 +218,7 @@ describe('xmllm', () => {
         $$attr: {}, 
         $$text: 'Test' 
       });
+      await results.return();
     });
   });
 

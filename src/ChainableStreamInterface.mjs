@@ -12,9 +12,11 @@ export class ChainableStreamInterface {
 
   async first() {
     try {
-      const {value, done} = await this[Symbol.asyncIterator]().next();
-      if (done) return undefined;
-      return value;
+      // Returning from iteration also closes the upstream pipeline and its timers.
+      for await (const value of this) {
+        return value;
+      }
+      return undefined;
     } catch (error) {
       const errorInfo = parseError(error);
       switch (errorInfo.type) {

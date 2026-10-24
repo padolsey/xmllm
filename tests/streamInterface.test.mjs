@@ -20,6 +20,24 @@ const createMockReader = (responses) => {
 
 describe('ChainableStreamInterface', () => {
 
+  it('first() closes the pipeline and clears its background timers', async () => {
+    jest.useFakeTimers();
+    try {
+      const result = await stream('Return an item', {
+        buffer: false,
+        llmStream: () => ({
+          getReader: () => createMockReader(['<item>first</item><item>second</item>'])
+        })
+      }).select('item').text().first();
+
+      expect(result).toBe('first');
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
   describe('A: stream()', () => {
     it('should handle basic prompt and selection', async () => {
       const TestStream = jest.fn().mockImplementation(() => ({
@@ -1407,4 +1425,4 @@ describe('Strategy Configuration', () => {
       content: expect.stringContaining('CUSTOM:')
     });
   });
-}); 
+});

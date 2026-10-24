@@ -32,6 +32,10 @@ const createMockReader = (responses) => {
 };
 
 describe('Caching', () => {
+  afterAll(async () => {
+    await _reset();
+  });
+
   beforeEach(async () => {
     await _reset(); // Reset cache between tests
     mockStreamRequest.mockClear();
@@ -255,4 +259,4 @@ describe('Caching', () => {
 
     expect(mockStreamRequest).toHaveBeenCalledTimes(2); // Should make new request
   });
-}); 
+});
