@@ -35,42 +35,78 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
     key: "first",
     value: function () {
       var _first = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-        var _yield$this$Symbol$as, value, done, errorInfo;
+        var _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, value, errorInfo;
         return _regeneratorRuntime().wrap(function _callee$(_context) {
           while (1) switch (_context.prev = _context.next) {
             case 0:
               _context.prev = 0;
-              _context.next = 3;
-              return this[Symbol.asyncIterator]().next();
-            case 3:
-              _yield$this$Symbol$as = _context.sent;
-              value = _yield$this$Symbol$as.value;
-              done = _yield$this$Symbol$as.done;
-              if (!done) {
-                _context.next = 8;
+              // Returning from iteration also closes the upstream pipeline and its timers.
+              _iteratorAbruptCompletion = false;
+              _didIteratorError = false;
+              _context.prev = 3;
+              _iterator = _asyncIterator(this);
+            case 5:
+              _context.next = 7;
+              return _iterator.next();
+            case 7:
+              if (!(_iteratorAbruptCompletion = !(_step = _context.sent).done)) {
+                _context.next = 13;
                 break;
               }
-              return _context.abrupt("return", undefined);
-            case 8:
+              value = _step.value;
               return _context.abrupt("return", value);
-            case 11:
-              _context.prev = 11;
-              _context.t0 = _context["catch"](0);
-              errorInfo = parseError(_context.t0);
-              _context.t1 = errorInfo.type;
-              _context.next = _context.t1 === 'TimeoutError' ? 17 : _context.t1 === 'NetworkError' ? 18 : 19;
+            case 10:
+              _iteratorAbruptCompletion = false;
+              _context.next = 5;
               break;
-            case 17:
-              throw new Error("LLM request timed out: ".concat(errorInfo.message));
-            case 18:
-              throw new Error("Failed to connect to LLM service: ".concat(errorInfo.message));
+            case 13:
+              _context.next = 19;
+              break;
+            case 15:
+              _context.prev = 15;
+              _context.t0 = _context["catch"](3);
+              _didIteratorError = true;
+              _iteratorError = _context.t0;
             case 19:
-              throw _context.t0;
-            case 20:
+              _context.prev = 19;
+              _context.prev = 20;
+              if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
+                _context.next = 24;
+                break;
+              }
+              _context.next = 24;
+              return _iterator["return"]();
+            case 24:
+              _context.prev = 24;
+              if (!_didIteratorError) {
+                _context.next = 27;
+                break;
+              }
+              throw _iteratorError;
+            case 27:
+              return _context.finish(24);
+            case 28:
+              return _context.finish(19);
+            case 29:
+              return _context.abrupt("return", undefined);
+            case 32:
+              _context.prev = 32;
+              _context.t1 = _context["catch"](0);
+              errorInfo = parseError(_context.t1);
+              _context.t2 = errorInfo.type;
+              _context.next = _context.t2 === 'TimeoutError' ? 38 : _context.t2 === 'NetworkError' ? 39 : 40;
+              break;
+            case 38:
+              throw new Error("LLM request timed out: ".concat(errorInfo.message));
+            case 39:
+              throw new Error("Failed to connect to LLM service: ".concat(errorInfo.message));
+            case 40:
+              throw _context.t1;
+            case 41:
             case "end":
               return _context.stop();
           }
-        }, _callee, this, [[0, 11]]);
+        }, _callee, this, [[0, 32], [3, 15, 19, 29], [20,, 24, 28]]);
       }));
       function first() {
         return _first.apply(this, arguments);
@@ -120,27 +156,27 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
     key: "all",
     value: function () {
       var _all = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
-        var result, _iteratorAbruptCompletion, _didIteratorError, _iteratorError, _iterator, _step, value;
+        var result, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, value;
         return _regeneratorRuntime().wrap(function _callee2$(_context2) {
           while (1) switch (_context2.prev = _context2.next) {
             case 0:
               result = [];
-              _iteratorAbruptCompletion = false;
-              _didIteratorError = false;
+              _iteratorAbruptCompletion2 = false;
+              _didIteratorError2 = false;
               _context2.prev = 3;
-              _iterator = _asyncIterator(this);
+              _iterator2 = _asyncIterator(this);
             case 5:
               _context2.next = 7;
-              return _iterator.next();
+              return _iterator2.next();
             case 7:
-              if (!(_iteratorAbruptCompletion = !(_step = _context2.sent).done)) {
+              if (!(_iteratorAbruptCompletion2 = !(_step2 = _context2.sent).done)) {
                 _context2.next = 13;
                 break;
               }
-              value = _step.value;
+              value = _step2.value;
               result.push(value);
             case 10:
-              _iteratorAbruptCompletion = false;
+              _iteratorAbruptCompletion2 = false;
               _context2.next = 5;
               break;
             case 13:
@@ -149,24 +185,24 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
             case 15:
               _context2.prev = 15;
               _context2.t0 = _context2["catch"](3);
-              _didIteratorError = true;
-              _iteratorError = _context2.t0;
+              _didIteratorError2 = true;
+              _iteratorError2 = _context2.t0;
             case 19:
               _context2.prev = 19;
               _context2.prev = 20;
-              if (!(_iteratorAbruptCompletion && _iterator["return"] != null)) {
+              if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
                 _context2.next = 24;
                 break;
               }
               _context2.next = 24;
-              return _iterator["return"]();
+              return _iterator2["return"]();
             case 24:
               _context2.prev = 24;
-              if (!_didIteratorError) {
+              if (!_didIteratorError2) {
                 _context2.next = 27;
                 break;
               }
-              throw _iteratorError;
+              throw _iteratorError2;
             case 27:
               return _context2.finish(24);
             case 28:
@@ -393,27 +429,27 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
     key: "collect",
     value: function () {
       var _collect = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee6() {
-        var results, _iteratorAbruptCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, item;
+        var results, _iteratorAbruptCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, item;
         return _regeneratorRuntime().wrap(function _callee6$(_context6) {
           while (1) switch (_context6.prev = _context6.next) {
             case 0:
               results = [];
-              _iteratorAbruptCompletion2 = false;
-              _didIteratorError2 = false;
+              _iteratorAbruptCompletion3 = false;
+              _didIteratorError3 = false;
               _context6.prev = 3;
-              _iterator2 = _asyncIterator(this);
+              _iterator3 = _asyncIterator(this);
             case 5:
               _context6.next = 7;
-              return _iterator2.next();
+              return _iterator3.next();
             case 7:
-              if (!(_iteratorAbruptCompletion2 = !(_step2 = _context6.sent).done)) {
+              if (!(_iteratorAbruptCompletion3 = !(_step3 = _context6.sent).done)) {
                 _context6.next = 13;
                 break;
               }
-              item = _step2.value;
+              item = _step3.value;
               results.push(item);
             case 10:
-              _iteratorAbruptCompletion2 = false;
+              _iteratorAbruptCompletion3 = false;
               _context6.next = 5;
               break;
             case 13:
@@ -422,24 +458,24 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
             case 15:
               _context6.prev = 15;
               _context6.t0 = _context6["catch"](3);
-              _didIteratorError2 = true;
-              _iteratorError2 = _context6.t0;
+              _didIteratorError3 = true;
+              _iteratorError3 = _context6.t0;
             case 19:
               _context6.prev = 19;
               _context6.prev = 20;
-              if (!(_iteratorAbruptCompletion2 && _iterator2["return"] != null)) {
+              if (!(_iteratorAbruptCompletion3 && _iterator3["return"] != null)) {
                 _context6.next = 24;
                 break;
               }
               _context6.next = 24;
-              return _iterator2["return"]();
+              return _iterator3["return"]();
             case 24:
               _context6.prev = 24;
-              if (!_didIteratorError2) {
+              if (!_didIteratorError3) {
                 _context6.next = 27;
                 break;
               }
-              throw _iteratorError2;
+              throw _iteratorError3;
             case 27:
               return _context6.finish(24);
             case 28:
@@ -502,11 +538,11 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
       var _last = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee7() {
         var n,
           allItems,
-          _iteratorAbruptCompletion3,
-          _didIteratorError3,
-          _iteratorError3,
-          _iterator3,
-          _step3,
+          _iteratorAbruptCompletion4,
+          _didIteratorError4,
+          _iteratorError4,
+          _iterator4,
+          _step4,
           value,
           errorInfo,
           _args7 = arguments;
@@ -522,22 +558,22 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
               throw new Error('n must be greater than 0');
             case 4:
               allItems = [];
-              _iteratorAbruptCompletion3 = false;
-              _didIteratorError3 = false;
+              _iteratorAbruptCompletion4 = false;
+              _didIteratorError4 = false;
               _context7.prev = 7;
-              _iterator3 = _asyncIterator(this);
+              _iterator4 = _asyncIterator(this);
             case 9:
               _context7.next = 11;
-              return _iterator3.next();
+              return _iterator4.next();
             case 11:
-              if (!(_iteratorAbruptCompletion3 = !(_step3 = _context7.sent).done)) {
+              if (!(_iteratorAbruptCompletion4 = !(_step4 = _context7.sent).done)) {
                 _context7.next = 17;
                 break;
               }
-              value = _step3.value;
+              value = _step4.value;
               allItems.push(value);
             case 14:
-              _iteratorAbruptCompletion3 = false;
+              _iteratorAbruptCompletion4 = false;
               _context7.next = 9;
               break;
             case 17:
@@ -546,24 +582,24 @@ export var ChainableStreamInterface = /*#__PURE__*/function () {
             case 19:
               _context7.prev = 19;
               _context7.t0 = _context7["catch"](7);
-              _didIteratorError3 = true;
-              _iteratorError3 = _context7.t0;
+              _didIteratorError4 = true;
+              _iteratorError4 = _context7.t0;
             case 23:
               _context7.prev = 23;
               _context7.prev = 24;
-              if (!(_iteratorAbruptCompletion3 && _iterator3["return"] != null)) {
+              if (!(_iteratorAbruptCompletion4 && _iterator4["return"] != null)) {
                 _context7.next = 28;
                 break;
               }
               _context7.next = 28;
-              return _iterator3["return"]();
+              return _iterator4["return"]();
             case 28:
               _context7.prev = 28;
-              if (!_didIteratorError3) {
+              if (!_didIteratorError4) {
                 _context7.next = 31;
                 break;
               }
-              throw _iteratorError3;
+              throw _iteratorError4;
             case 31:
               return _context7.finish(28);
             case 32:

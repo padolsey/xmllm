@@ -27,6 +27,7 @@
     "prepublishOnly": "npm run build",
     "build:cjs": "cross-env BABEL_ENV=cjs babel src --out-dir dist/cjs",
     "build:esm": "cross-env BABEL_ENV=esm babel src --out-dir dist/esm",
+    "pretest": "npm install --prefix tests/integration-package --ignore-scripts --package-lock=false --no-audit --no-fund",
     "test": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:types": "tsd",
     "proxy": "node src/xmllm-run-proxy.mjs",

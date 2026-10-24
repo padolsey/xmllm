@@ -180,6 +180,10 @@ class AbstractIncomingParserSelectorEngine {
 
       // Handle built-in constructors
       if (typeof map === 'function') {
+        // A nested text field can be absent until its element reaches the stream.
+        if (element == null && (map === String || map === Number || map === Boolean)) {
+          return undefined;
+        }
         if (map === Number) {
           return parseFloat(element.$$text?.trim?.() || '');
         }
